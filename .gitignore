@@ -1,0 +1,8 @@
+main
+*.log
+sdfs_data/
+sdfs_data/*
+*.exe
+scripts/200mb.txt
+scripts/500mb.txt
+report_data/

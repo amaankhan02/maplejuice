@@ -1,0 +1,4 @@
+This is a sample test file.
+It contains some text for testing purposes.
+This file is used to demonstrate file splitting.
+The size of this file is approximately 170 bytes.
