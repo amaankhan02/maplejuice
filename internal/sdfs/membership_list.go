@@ -14,19 +14,19 @@ import (
 
 // Private struct for MembershipList values
 // Immutable data structure
-type MembershipListRow struct {
+type MembershipListEntry struct {
 	HeartBeatCount  int
 	LastUpdatedTime int64 // time in which an entry in this local membershiplist was last updated (based on local clock)
 	Status          NodeStatus
 }
 
-func (m MembershipListRow) String() string {
+func (m MembershipListEntry) String() string {
 	fmtString := "%03d  |  %d  |  %s"
 	return fmt.Sprintf(fmtString, m.HeartBeatCount, m.LastUpdatedTime, m.Status.String())
 }
 
 type MembershipList struct {
-	MemList         map[NodeID]MembershipListRow
+	MemList         map[NodeID]MembershipListEntry
 	RoundRobinPtr   int      // index
 	ThisNodeId      NodeID   // for the current machine this nodeId is for
 	NodeIdsList     []NodeID // list of nodes you can send message to -- used for round-robin messaging
@@ -51,7 +51,7 @@ func NewMembershipList(thisNodeId NodeID, callbackHandler NodeGossipHandler, isT
 
 	// intialize membership list
 	this := &MembershipList{
-		MemList:         make(map[NodeID]MembershipListRow),
+		MemList:         make(map[NodeID]MembershipListEntry),
 		RoundRobinPtr:   0,
 		ThisNodeId:      thisNodeId,
 		NodeIdsList:     []NodeID{thisNodeId},
@@ -60,7 +60,7 @@ func NewMembershipList(thisNodeId NodeID, callbackHandler NodeGossipHandler, isT
 	}
 
 	// Initialize the map (actual membership list)
-	this.MemList[thisNodeId] = MembershipListRow{
+	this.MemList[thisNodeId] = MembershipListEntry{
 		HeartBeatCount:  0,
 		LastUpdatedTime: time.Now().UnixNano(),
 		Status:          ACTIVE,
@@ -103,7 +103,7 @@ Deserializees the passed in byte array representing the membershipList map
 and then sets the this.MemList to that.
 */
 func (this *MembershipList) DeserializeMembershipListMap(membershipListData []byte) error {
-	var membershipList map[NodeID]MembershipListRow
+	var membershipList map[NodeID]MembershipListEntry
 
 	byteBuffer := bytes.NewBuffer(membershipListData)
 	decoder := gob.NewDecoder(byteBuffer)
@@ -313,7 +313,7 @@ func (this *MembershipList) UpdateEntry(nodeId *NodeID, newHeartbeatCount int, n
 		}
 	}
 
-	this.MemList[*nodeId] = MembershipListRow{
+	this.MemList[*nodeId] = MembershipListEntry{
 		newHeartbeatCount,
 		time.Now().UnixNano(),
 		newStatus,
@@ -336,7 +336,7 @@ func (this *MembershipList) AddEntry(nodeId *NodeID, heartBeatCount int, status 
 		log.Fatal("AddEntry(): ID already exists in the map - cannot add new entry!")
 	}
 
-	this.MemList[*nodeId] = MembershipListRow{
+	this.MemList[*nodeId] = MembershipListEntry{
 		HeartBeatCount:  heartBeatCount,
 		LastUpdatedTime: time.Now().UnixNano(),
 		Status:          status,
@@ -440,7 +440,7 @@ func ShuffleSlice(slice []NodeID) []NodeID {
 	return slice
 }
 
-func AreMemListRowsEqual(listRow1 *MembershipListRow, listRow2 *MembershipListRow) bool {
+func AreMemListRowsEqual(listRow1 *MembershipListEntry, listRow2 *MembershipListEntry) bool {
 
 	if listRow1.Status == listRow2.Status &&
 		listRow1.LastUpdatedTime == listRow2.LastUpdatedTime &&
@@ -450,7 +450,7 @@ func AreMemListRowsEqual(listRow1 *MembershipListRow, listRow2 *MembershipListRo
 	return false
 }
 
-func AreMemListsEqual(list1 map[NodeID]MembershipListRow, list2 map[NodeID]MembershipListRow) bool {
+func AreMemListsEqual(list1 map[NodeID]MembershipListEntry, list2 map[NodeID]MembershipListEntry) bool {
 
 	if len(list1) != len(list2) {
 		return false

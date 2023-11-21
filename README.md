@@ -1,4 +1,4 @@
-# cs425_mp3
+# cs425_mp4
 
 ## Build Instruction
 * Program is written in Go, so make sure you have go installed
@@ -13,7 +13,8 @@ There were no new command line args for this MP3 so they stay the same.
     * Pass the name of the log file after `-f`. If the file does not exist, it will create it. If
       if it already exists, it will truncate the file and overwrite it
 * `-g`
-    * **default value:** 1000ms (1 second)
+    * **default value:** `config.T_GOSSIP`. That is, if not provided, the default value is whatever the variable
+    `T_GOSSIP` is set to in `internal/config/config.go`
     * Represents `T_GOSSIP` (the gossip period, i.e., the number of seconds between gossip heartbeats).
     * Represented in milliseconds
     * type: integer

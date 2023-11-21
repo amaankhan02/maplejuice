@@ -8,7 +8,7 @@ import (
 
 type GossipUDPPacket struct {
 	MyGossipMode        GossipMode
-	MyMembershipListMap map[NodeID]MembershipListRow
+	MyMembershipListMap map[NodeID]MembershipListEntry
 }
 
 /*

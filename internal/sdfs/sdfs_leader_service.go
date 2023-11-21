@@ -2,7 +2,7 @@ package sdfs
 
 import (
 	"bufio"
-	"cs425_mp3/internal/config"
+	"cs425_mp4/internal/config"
 	"fmt"
 	"log"
 	"math/rand"
@@ -66,21 +66,21 @@ type FileOperationsMetadata struct {
 }
 
 /*
-NameNode holds information regarding the entire distributed file system, where there is
-1 group and 1 leader. The leader of the group is responsible for using the NameNode object
+SDFSLeaderService holds information regarding the entire distributed file system, where there is
+1 group and 1 leader. The leader of the group is responsible for using the SDFSLeaderService object
 for keeping track of information in the group/distributed-file-system
 
-All operations like RemoveFile and AddFile inside the NameNode does NOT actually write the file
-contents to the SDFS. NameNode is simply meant for keeping track of metadata of the entire system,
+All operations like RemoveFile and AddFile inside the SDFSLeaderService does NOT actually write the file
+contents to the SDFS. SDFSLeaderService is simply meant for keeping track of metadata of the entire system,
 like which nodes store which files, where shards are located, properly load balancing shards, choosing
 replicas, etc. It is all about MetaData.
 
-Data that NameNode keeps track of:
+Data that SDFSLeaderService keeps track of:
   - Which Nodes store which SDFS files
   - Currently executing tasks
   - Currently buffered tasks (tasks waiting to run)
 */
-type NameNode struct {
+type SDFSLeaderService struct {
 	/* FileToNodes
 	key: sdfs_filename
 	value: map where
@@ -104,9 +104,9 @@ type NameNode struct {
 	logFile   *os.File
 }
 
-func NewNameNode(dispatcherWaitTime time.Duration, maxNumConcurrentReads int,
-	maxNumConcurrentWrites int, maxNumConsecutiveOps int, loggingFile *os.File) *NameNode {
-	nn := &NameNode{
+func NewSDFSLeaderService(dispatcherWaitTime time.Duration, maxNumConcurrentReads int,
+	maxNumConcurrentWrites int, maxNumConsecutiveOps int, loggingFile *os.File) *SDFSLeaderService {
+	nn := &SDFSLeaderService{
 		ActiveNodes:            make([]NodeID, 0),
 		FileToNodes:            make(map[string]map[int][]NodeID), // TODO: is this correctly initialized?
 		FileOperations:         make(map[string]*FileOperationsMetadata),
@@ -121,7 +121,7 @@ func NewNameNode(dispatcherWaitTime time.Duration, maxNumConcurrentReads int,
 	return nn
 }
 
-func (this *NameNode) Start() {
+func (this *SDFSLeaderService) Start() {
 	this.IsRunning = true
 	go this.dispatcher()
 }
@@ -137,7 +137,7 @@ system and sees if it can schedule a new task.
 	// currently running var or whatever down 1 or make to nil or something, so that dispatcher will know that it
 	// is free to execute a new command
 */
-func (this *NameNode) dispatcher() {
+func (this *SDFSLeaderService) dispatcher() {
 	for this.IsRunning {
 		this.MutexLock.Lock()
 		for _, fileOpMD := range this.FileOperations { // loop through all files
@@ -190,7 +190,7 @@ func (this *NameNode) dispatcher() {
 	}
 }
 
-func (this *NameNode) notifyExistingReplicasToReReplicate(sdfs_filename string, currentlyFailedReplicas []NodeID) {
+func (this *SDFSLeaderService) notifyExistingReplicasToReReplicate(sdfs_filename string, currentlyFailedReplicas []NodeID) {
 	numNewReplicasRequired := len(currentlyFailedReplicas)
 	//fmt.Printf("Num New Replicas Required: %d\n", numNewReplicasRequired)
 
@@ -257,7 +257,7 @@ func (this *NameNode) notifyExistingReplicasToReReplicate(sdfs_filename string, 
 
 }
 
-func (this *NameNode) nodeExistsInNodeIDSlice(s []NodeID, elem NodeID) bool {
+func (this *SDFSLeaderService) nodeExistsInNodeIDSlice(s []NodeID, elem NodeID) bool {
 	for _, curr := range s {
 		if curr == elem {
 			return true
@@ -277,7 +277,7 @@ depending on the file operation type (all this information is stored in the File
 
 This function does not lock any mutex locks. the caller is expected to lock
 */
-func (this *NameNode) notifyClientToExecuteTask(task *FileOperationTask) {
+func (this *SDFSLeaderService) notifyClientToExecuteTask(task *FileOperationTask) {
 	conn, err1 := net.Dial("tcp", task.ClientNode.IpAddress+":"+task.ClientNode.SDFSServerPort)
 	if err1 != nil {
 		fmt.Println("Failed to Dial() client node: %s", err1)
@@ -327,7 +327,7 @@ then we need to take in that as a parameter
 
 NOTE: This function does not LOCK any mutex lock. It assumes that the caller of the function must lock anything necessary
 */
-func (this *NameNode) chooseReplicaNodesRandomly() map[int][]NodeID {
+func (this *SDFSLeaderService) chooseReplicaNodesRandomly() map[int][]NodeID {
 	this.shuffleActiveNodes()
 
 	shardIdxToReplicas := make(map[int][]NodeID)
@@ -342,7 +342,7 @@ func (this *NameNode) chooseReplicaNodesRandomly() map[int][]NodeID {
 	return shardIdxToReplicas
 }
 
-func (this *NameNode) shuffleActiveNodes() {
+func (this *SDFSLeaderService) shuffleActiveNodes() {
 	// Fisher-Yates shuffle (https://yourbasic.org/golang/shuffle-slice-array/)
 	for i := len(this.ActiveNodes) - 1; i > 0; i-- {
 		j := rand.Intn(i + 1)
@@ -350,7 +350,7 @@ func (this *NameNode) shuffleActiveNodes() {
 	}
 }
 
-func (this *NameNode) createStringOfNodesForPutAck(nodes []NodeID) string {
+func (this *SDFSLeaderService) createStringOfNodesForPutAck(nodes []NodeID) string {
 	ret := "Put Stored in Replica Nodes:\n"
 	for _, node := range nodes {
 		ret += node.ToStringMP3() + "\n"
@@ -364,7 +364,7 @@ Mark a task that was executing as completed
 Returns true if it successfully found the task and finished it, otherwise it returns false
 returns (bool, msg, additional info) to create an ack response
 */
-func (this *NameNode) MarkTaskCompleted(clientId NodeID, sdfs_filename string) (bool, string, string, int64) {
+func (this *SDFSLeaderService) MarkTaskCompleted(clientId NodeID, sdfs_filename string) (bool, string, string, int64) {
 	this.MutexLock.Lock()
 	md, ok := this.FileOperations[sdfs_filename]
 	if !ok {
@@ -419,7 +419,7 @@ func (this *NameNode) MarkTaskCompleted(clientId NodeID, sdfs_filename string) (
 /*
 Given a file operation, it will add it to its correct buffer so that the dispatcher can then schedule it
 */
-func (this *NameNode) AddTask(fp *FileOperationTask) {
+func (this *SDFSLeaderService) AddTask(fp *FileOperationTask) {
 	this.MutexLock.Lock()
 
 	md, ok := this.FileOperations[fp.SdfsFilename] // get file operation metadata of this file
@@ -450,7 +450,7 @@ func (this *NameNode) AddTask(fp *FileOperationTask) {
 /*
 This function does not lock any mutex locks. Caller is expected to lock any mutex locks
 */
-func (this *NameNode) addNewSDFSFile(sdfs_filename string) {
+func (this *SDFSLeaderService) addNewSDFSFile(sdfs_filename string) {
 	this.FileOperations[sdfs_filename] = &FileOperationsMetadata{
 		SdfsFilename:                          sdfs_filename,
 		NeedsReReplication:                    false,
@@ -469,7 +469,7 @@ func (this *NameNode) addNewSDFSFile(sdfs_filename string) {
 /*
 Returns a list of NodeIDs of nodes that store a shard(s) of sdfs_filename
 */
-func (this *NameNode) getNodesStoringFile(sdfs_filename string) []NodeID {
+func (this *SDFSLeaderService) getNodesStoringFile(sdfs_filename string) []NodeID {
 	nodes, ok := this.FileToNodes[sdfs_filename]
 	if !ok {
 		log.Fatalln("Invalid sdfs_filename! Does not exist in SDFS")
@@ -481,13 +481,13 @@ func (this *NameNode) getNodesStoringFile(sdfs_filename string) []NodeID {
 /*
 Returns the result for a LS operation
 */
-func (this *NameNode) LsOperation(sdfs_filename string) []NodeID {
+func (this *SDFSLeaderService) LsOperation(sdfs_filename string) []NodeID {
 	this.MutexLock.Lock()
 	defer this.MutexLock.Unlock()
 	return this.getNodesStoringFile(sdfs_filename)
 }
 
-//func (this *NameNode) AddFileToSDFS(sdfs_filename string, filesize int64) {
+//func (this *SDFSLeaderService) AddFileToSDFS(sdfs_filename string, filesize int64) {
 //	/* based on the filesize and the shard size, it will
 //		1. Figure out how many shards will be required
 //		2. For each shard, it will choose the R replica nodes that it should be assigned to
@@ -517,7 +517,7 @@ func (this *NameNode) LsOperation(sdfs_filename string) []NodeID {
 /*
 When a node joins our group, add the node to the list of active nodes.
 */
-func (this *NameNode) AddNewActiveNode(nodeId NodeID) {
+func (this *SDFSLeaderService) AddNewActiveNode(nodeId NodeID) {
 	this.MutexLock.Lock()
 	this.ActiveNodes = append(this.ActiveNodes, nodeId)
 	this.MutexLock.Unlock()
@@ -530,7 +530,7 @@ Find which SDFS files were residing in that node and mark those SDFS files as ne
 in the file operations meta data. The dispatcher thread will then take care of actually initiating the
 re-replicating process
 */
-func (this *NameNode) IndicateNodeFailed(failed_nodeId NodeID) {
+func (this *SDFSLeaderService) IndicateNodeFailed(failed_nodeId NodeID) {
 	this.MutexLock.Lock()
 	// double check that it actually removes...
 	//fmt.Printf("Len(ActiveNodes) before Deletion = %d\n", len(this.ActiveNodes))
@@ -559,7 +559,7 @@ func (this *NameNode) IndicateNodeFailed(failed_nodeId NodeID) {
 	this.MutexLock.Unlock()
 }
 
-func (this *NameNode) deleteActiveNode(nodeToDelete NodeID) bool {
+func (this *SDFSLeaderService) deleteActiveNode(nodeToDelete NodeID) bool {
 	// first find it's index
 	var i int
 	var currNode NodeID

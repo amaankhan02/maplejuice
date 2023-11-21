@@ -1,7 +1,7 @@
 package utils
 
 import (
-	"cs425_mp3/internal/config"
+	"cs425_mp4/internal/config"
 	"errors"
 	"fmt"
 	"log"

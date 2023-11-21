@@ -1,7 +1,7 @@
 package sdfs
 
 import (
-	"cs425_mp3/internal/config"
+	"cs425_mp4/internal/config"
 	"fmt"
 	"log"
 	"math/rand"
@@ -83,8 +83,8 @@ func NewGossipNode(nodeId NodeID, b int, isIntroducer bool, introducerId NodeID,
 }
 
 //func initializeNewNodeForSDFS(thisNode *GossipNode, isLeader bool) *GossipNode {
-//	// every machine has a DataNode and a NewoLDNameNode
-//	thisNode.DataNode = *NewDataNode(thisNode)
+//	// every machine has a FileSystemService and a NewoLDNameNode
+//	thisNode.FileSystemService = *NewFileSystemService(thisNode)
 //	thisNode.OldNameNode = *NewoLDNameNode(thisNode)
 //
 //	thisNode.IsLeader = isLeader

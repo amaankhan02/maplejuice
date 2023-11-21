@@ -2,9 +2,9 @@ package sdfs
 
 import (
 	"bufio"
-	"cs425_mp3/internal/config"
-	"cs425_mp3/internal/tcp_net"
-	"cs425_mp3/internal/utils"
+	"cs425_mp4/internal/config"
+	"cs425_mp4/internal/tcp_net"
+	"cs425_mp4/internal/utils"
 	"fmt"
 	"io"
 	"log"
@@ -35,8 +35,8 @@ type SDFSNode struct {
 
 	tcpServer      *tcp_net.TCPServer
 	ThisGossipNode *GossipNode
-	dataNode       *DataNode
-	nameNode       *NameNode
+	dataNode       *FileSystemService
+	nameNode       *SDFSLeaderService
 
 	ackMutex   sync.Mutex
 	clientAcks []LocalAck // store all Acks received to this client
@@ -71,8 +71,8 @@ func NewSDFSNode(thisId NodeID, introducerLeaderId NodeID, isIntroducerLeader bo
 		sdfsNode,
 	)
 	if isIntroducerLeader {
-		fmt.Println("Initialized NameNode")
-		sdfsNode.nameNode = NewNameNode(config.T_DISPATCHER_WAIT,
+		fmt.Println("Initialized SDFSLeaderService")
+		sdfsNode.nameNode = NewSDFSLeaderService(config.T_DISPATCHER_WAIT,
 			config.MAX_NUM_CONCURRENT_READS,
 			config.MAX_NUM_CONCURRENT_WRITES,
 			config.MAX_NUM_CONSECUTIVE_OPERATIONS,
@@ -80,9 +80,9 @@ func NewSDFSNode(thisId NodeID, introducerLeaderId NodeID, isIntroducerLeader bo
 		)
 		sdfsNode.nameNode.AddNewActiveNode(thisId) // add itself into the list of active nodes
 	} else {
-		fmt.Println("Initialized NameNode to be NULL")
+		fmt.Println("Initialized SDFSLeaderService to be NULL")
 	}
-	sdfsNode.dataNode = NewDataNode(sdfsRootDir)
+	sdfsNode.dataNode = NewFileSystemService(sdfsRootDir)
 	return sdfsNode
 }
 

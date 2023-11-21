@@ -7,10 +7,10 @@ import (
 )
 
 /*
-DataNode contains information and functions regarding the data
+FileSystemService contains information and functions regarding the data
 in the *local* node. That is, the current machine.
 */
-type DataNode struct {
+type FileSystemService struct {
 	// path to the root directory that contains the data that this node holds for the SDFS
 	RootDirPath string
 
@@ -18,8 +18,8 @@ type DataNode struct {
 	ShardMetadatas map[string][]ShardMetaData
 }
 
-func NewDataNode(rootDirPath string) *DataNode {
-	dn := &DataNode{}
+func NewFileSystemService(rootDirPath string) *FileSystemService {
+	dn := &FileSystemService{}
 	dn.RootDirPath = rootDirPath
 	dn.ShardMetadatas = make(map[string][]ShardMetaData)
 	return dn
@@ -36,7 +36,7 @@ TODO: so that it returns a list of the metadatas instead and the caller should j
 TODO: immediately send it in the stream, and then delete the object, and then repeat. And the message size
 TODO: in the TCP message should be calcualted before hand. so there's a bit of work to change for that - DO THIS LATER!
 */
-func (this *DataNode) GetShards(sdfs_filename string) []Shard {
+func (this *FileSystemService) GetShards(sdfs_filename string) []Shard {
 	metadatas, ok := this.ShardMetadatas[sdfs_filename]
 	if !ok {
 		log.Fatalln("GetShards(): Invalid sdfs_filename requested! Does not exist!")
@@ -52,9 +52,9 @@ func (this *DataNode) GetShards(sdfs_filename string) []Shard {
 
 /*
 Delete all Shards associated with the sdfs_filename from the disk and remove
-it from the DataNode map of shard meta datas
+it from the FileSystemService map of shard meta datas
 */
-func (this *DataNode) DeleteAllShards(sdfs_filename string) {
+func (this *FileSystemService) DeleteAllShards(sdfs_filename string) {
 	metadatas, ok := this.ShardMetadatas[sdfs_filename]
 	if !ok {
 		log.Fatalln("Invalid sdfs Filename - does not exist")
@@ -76,7 +76,7 @@ func (this *DataNode) DeleteAllShards(sdfs_filename string) {
 /*
 Given the metadata of a shard, it finds it in the disk and reads it into memory
 */
-func (this *DataNode) ReadShard(shardMetadata ShardMetaData) Shard {
+func (this *FileSystemService) ReadShard(shardMetadata ShardMetaData) Shard {
 	fullPath := filepath.Join(this.RootDirPath, shardMetadata.ShardFilename)
 	data, err := os.ReadFile(fullPath)
 	if err != nil {
@@ -95,7 +95,7 @@ In a PUT_DATA_REQUEST, the receiver will receive a Shard object, which includes 
 so this function can be used to write the shard to our sdfs directory locally and keep track of it
 as well
 */
-func (this *DataNode) WriteShard(shard Shard) {
+func (this *FileSystemService) WriteShard(shard Shard) {
 	// write shard to disk
 	writePath := filepath.Join(this.RootDirPath, shard.Metadata.ShardFilename)
 	err := os.WriteFile(writePath, shard.Data, os.ModePerm) // write file with Read and Write permissions
@@ -103,7 +103,7 @@ func (this *DataNode) WriteShard(shard Shard) {
 		log.Fatalln("WriteShard(): failed to write file to disk...")
 	}
 
-	// record the shard in our DataNode
+	// record the shard in our FileSystemService
 	this.ShardMetadatas[shard.Metadata.SdfsFilename] = append(
 		this.ShardMetadatas[shard.Metadata.SdfsFilename], shard.Metadata)
 }
@@ -112,7 +112,7 @@ func (this *DataNode) WriteShard(shard Shard) {
 Return a list of files (filenames) that are currently being
 stored on this machine.
 */
-func (this *DataNode) GetAllSDFSFilenames() []string {
+func (this *FileSystemService) GetAllSDFSFilenames() []string {
 	keys := make([]string, 0)
 
 	for filename, _ := range this.ShardMetadatas {

@@ -1,9 +1,9 @@
 package main
 
 import (
-	"cs425_mp3/internal/config"
-	"cs425_mp3/internal/sdfs"
-	"cs425_mp3/internal/utils"
+	"cs425_mp4/internal/config"
+	"cs425_mp4/internal/sdfs"
+	"cs425_mp4/internal/utils"
 	"encoding/gob"
 	"flag"
 	"fmt"
@@ -112,7 +112,7 @@ func Init() {
 
 func RegisterStructsForSerialization() {
 	gob.Register(&sdfs.MembershipList{})
-	gob.Register(&sdfs.MembershipListRow{})
+	gob.Register(&sdfs.MembershipListEntry{})
 	gob.Register(&sdfs.ShardMetaData{})
 	gob.Register(&sdfs.NodeID{})
 	gob.Register(&sdfs.Shard{})

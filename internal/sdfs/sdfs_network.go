@@ -3,8 +3,8 @@ package sdfs
 import (
 	"bufio"
 	"bytes"
-	"cs425_mp3/internal/tcp_net"
-	"cs425_mp3/internal/utils"
+	"cs425_mp4/internal/tcp_net"
+	"cs425_mp4/internal/utils"
 	"encoding/gob"
 	"errors"
 	"fmt"

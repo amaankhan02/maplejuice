@@ -1,8 +1,8 @@
 package test
 
 import (
-	"cs425_mp3/internal/sdfs"
-	"cs425_mp3/internal/utils"
+	"cs425_mp4/internal/sdfs"
+	"cs425_mp4/internal/utils"
 	"fmt"
 	"testing"
 	"time"
@@ -46,7 +46,7 @@ func TestSerializeDeserialize(t *testing.T) {
 
 func TestGetFileSize(t *testing.T) {
 	// only working for abs file paths here, but when I actually run it the local file path works
-	local_file_path := "C:\\Users\\samaa\\Documents\\2023-2024\\DistributedSystems\\MP3\\cs425_mp3\\scripts\\5mb_demo.txt"
+	local_file_path := "C:\\Users\\samaa\\Documents\\2023-2024\\DistributedSystems\\MP3\\cs425_mp4\\scripts\\5mb_demo.txt"
 	file_size := utils.GetFileSize(local_file_path)
 
 	fmt.Println("File size: ", file_size)
@@ -54,7 +54,7 @@ func TestGetFileSize(t *testing.T) {
 
 // TODO: test if shard size is greater than file size
 func TestSplitShards(t *testing.T) {
-	file_path := "C:\\Users\\samaa\\Documents\\2023-2024\\DistributedSystems\\MP3\\cs425_mp3\\test\\test_files\\test_text_file.txt"
+	file_path := "C:\\Users\\samaa\\Documents\\2023-2024\\DistributedSystems\\MP3\\cs425_mp4\\test\\test_files\\test_text_file.txt"
 
 	nodeId1 := sdfs.NodeID{
 		IpAddress:      "492.158.1.38",
@@ -102,7 +102,7 @@ func TestSplitShards(t *testing.T) {
 }
 
 func TestSplitShardsSizeBig(t *testing.T) {
-	file_path := "C:\\Users\\samaa\\Documents\\2023-2024\\DistributedSystems\\MP3\\cs425_mp3\\test\\test_files\\test_text_file.txt"
+	file_path := "C:\\Users\\samaa\\Documents\\2023-2024\\DistributedSystems\\MP3\\cs425_mp4\\test\\test_files\\test_text_file.txt"
 
 	nodeId1 := sdfs.NodeID{
 		IpAddress:      "492.158.1.38",
@@ -147,7 +147,7 @@ func TestSplitShardsSizeBig(t *testing.T) {
 }
 
 func TestGetShardNumToShardData(t *testing.T) {
-	local_file_path := "C:\\Users\\samaa\\Documents\\2023-2024\\DistributedSystems\\MP3\\cs425_mp3\\test\\test_files\\test_text_file.txt"
+	local_file_path := "C:\\Users\\samaa\\Documents\\2023-2024\\DistributedSystems\\MP3\\cs425_mp4\\test\\test_files\\test_text_file.txt"
 
 	shard_num_to_data := sdfs.GetShardNumToShardData(local_file_path)
 
@@ -159,7 +159,7 @@ func TestGetShardNumToShardData(t *testing.T) {
 }
 
 func TestGetShardNumToShardDataBigSize(t *testing.T) {
-	local_file_path := "C:\\Users\\samaa\\Documents\\2023-2024\\DistributedSystems\\MP3\\cs425_mp3\\test\\test_files\\test_text_file.txt"
+	local_file_path := "C:\\Users\\samaa\\Documents\\2023-2024\\DistributedSystems\\MP3\\cs425_mp4\\test\\test_files\\test_text_file.txt"
 
 	shard_num_to_data := sdfs.GetShardNumToShardData(local_file_path)
 
