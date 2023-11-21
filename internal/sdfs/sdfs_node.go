@@ -33,10 +33,10 @@ type SDFSNode struct {
 	sdfsDir  string
 	logFile  *os.File
 
-	tcpServer      *tcp_net.TCPServer
-	ThisGossipNode *GossipNode
-	dataNode       *FileSystemService
-	nameNode       *SDFSLeaderService
+	tcpServer         *tcp_net.TCPServer
+	ThisGossipNode    *GossipNode
+	fileSystemService *FileSystemService
+	leaderService     *SDFSLeaderService
 
 	ackMutex   sync.Mutex
 	clientAcks []LocalAck // store all Acks received to this client
@@ -46,16 +46,16 @@ func NewSDFSNode(thisId NodeID, introducerLeaderId NodeID, isIntroducerLeader bo
 	isTestMode bool, msgDropRate int, tGossip int64) *SDFSNode {
 
 	sdfsNode := &SDFSNode{
-		id:             thisId,
-		leaderID:       introducerLeaderId,
-		isLeader:       isIntroducerLeader,
-		logFile:        logFile,
-		sdfsDir:        sdfsRootDir,
-		tcpServer:      nil,
-		ThisGossipNode: nil,
-		dataNode:       nil,
-		nameNode:       nil, // nameNode is nil if this node is not the leader
-		clientAcks:     make([]LocalAck, 0),
+		id:                thisId,
+		leaderID:          introducerLeaderId,
+		isLeader:          isIntroducerLeader,
+		logFile:           logFile,
+		sdfsDir:           sdfsRootDir,
+		tcpServer:         nil,
+		ThisGossipNode:    nil,
+		fileSystemService: nil,
+		leaderService:     nil, // leaderService is nil if this node is not the leader
+		clientAcks:        make([]LocalAck, 0),
 	}
 	sdfsNode.tcpServer = tcp_net.NewTCPServer(thisId.SDFSServerPort, sdfsNode)
 
@@ -72,17 +72,17 @@ func NewSDFSNode(thisId NodeID, introducerLeaderId NodeID, isIntroducerLeader bo
 	)
 	if isIntroducerLeader {
 		fmt.Println("Initialized SDFSLeaderService")
-		sdfsNode.nameNode = NewSDFSLeaderService(config.T_DISPATCHER_WAIT,
+		sdfsNode.leaderService = NewSDFSLeaderService(config.T_DISPATCHER_WAIT,
 			config.MAX_NUM_CONCURRENT_READS,
 			config.MAX_NUM_CONCURRENT_WRITES,
 			config.MAX_NUM_CONSECUTIVE_OPERATIONS,
 			logFile,
 		)
-		sdfsNode.nameNode.AddNewActiveNode(thisId) // add itself into the list of active nodes
+		sdfsNode.leaderService.AddNewActiveNode(thisId) // add itself into the list of active nodes
 	} else {
 		fmt.Println("Initialized SDFSLeaderService to be NULL")
 	}
-	sdfsNode.dataNode = NewFileSystemService(sdfsRootDir)
+	sdfsNode.fileSystemService = NewFileSystemService(sdfsRootDir)
 	return sdfsNode
 }
 
@@ -93,8 +93,8 @@ Starts the node, which includes
 */
 func (this *SDFSNode) Start() {
 	this.tcpServer.StartServer()
-	if this.nameNode != nil {
-		this.nameNode.Start()
+	if this.leaderService != nil {
+		this.leaderService.Start()
 	}
 	this.ThisGossipNode.JoinGroup()
 	LogMessageln(os.Stdout, "SDFS Node has started")
@@ -104,14 +104,14 @@ func (this *SDFSNode) Start() {
 func (this *SDFSNode) HandleNodeFailure(info FailureDetectionInfo) {
 	// only handle if we are the leader. cuz otherwise the gossip will eventually send it to the leader
 	if this.isLeader {
-		this.nameNode.IndicateNodeFailed(info.FailedNodeId)
+		this.leaderService.IndicateNodeFailed(info.FailedNodeId)
 	}
 }
 
 func (this *SDFSNode) HandleNodeJoin(info NodeJoinInfo) {
-	// if a node joined our membership list, i need to reflect that in nameNode.ActiveNodes
+	// if a node joined our membership list, i need to reflect that in leaderService.ActiveNodes
 	if this.isLeader {
-		this.nameNode.AddNewActiveNode(info.JoinedNodeId)
+		this.leaderService.AddNewActiveNode(info.JoinedNodeId)
 	}
 
 }
@@ -153,7 +153,7 @@ func (this *SDFSNode) HandleTCPServerConnection(conn net.Conn) {
 				NewFileSize:         0, // set to 0 cuz GET operation doesn't use this value
 				RequestedTime:       getInfoReq.Timestamp,
 			}
-			this.nameNode.AddTask(fp)
+			this.leaderService.AddTask(fp)
 
 		case PUT_INFO_REQUEST:
 			putInfoReq := ReceivePutInfoRequest(reader)
@@ -165,7 +165,7 @@ func (this *SDFSNode) HandleTCPServerConnection(conn net.Conn) {
 				NewFileSize:         putInfoReq.Filesize,
 				RequestedTime:       putInfoReq.Timestamp,
 			}
-			this.nameNode.AddTask(fp)
+			this.leaderService.AddTask(fp)
 
 		case DELETE_INFO_REQUEST:
 			delInfoReq := ReceiveDeleteInfoRequest(reader)
@@ -175,31 +175,31 @@ func (this *SDFSNode) HandleTCPServerConnection(conn net.Conn) {
 				ClientNode:    delInfoReq.ClientID,
 				RequestedTime: delInfoReq.Timestamp,
 			}
-			this.nameNode.AddTask(fp)
+			this.leaderService.AddTask(fp)
 
 		case LS_REQUEST:
 			lsReq := ReceiveLsRequest(reader, false)
-			replicas := this.nameNode.LsOperation(lsReq.SdfsFilename)
+			replicas := this.leaderService.LsOperation(lsReq.SdfsFilename)
 			SendLsResponse(conn, lsReq.SdfsFilename, replicas)
 
 		case ACK_RESPONSE: // leader receiving an ACK means a file operation was completed
 			ack_struct := ReceiveOnlyAckResponseData(reader)
-			didFindTask, msg, addInfo, startTime := this.nameNode.MarkTaskCompleted(ack_struct.SenderNodeId, ack_struct.AdditionalInfo)
+			didFindTask, msg, addInfo, startTime := this.leaderService.MarkTaskCompleted(ack_struct.SenderNodeId, ack_struct.AdditionalInfo)
 			SendAckResponse(conn, this.id, didFindTask, msg, addInfo, startTime)
 
 		case GET_DATA_REQUEST:
 			getDataRequest := ReceiveGetDataRequest(reader)
-			shards := this.dataNode.GetShards(getDataRequest.Filename)
+			shards := this.fileSystemService.GetShards(getDataRequest.Filename)
 			SendGetDataResponse(conn, shards)
 
 		case PUT_DATA_REQUEST:
 			putDataRequest := ReceivePutDataRequest(reader)
-			this.dataNode.WriteShard(putDataRequest.Sharded_data)
+			this.fileSystemService.WriteShard(putDataRequest.Sharded_data)
 			SendAckResponse(conn, this.id, true, "", "", 0)
 
 		case DELETE_DATA_REQUEST:
 			deleteDataRequest := ReceiveDeleteDataRequest(reader)
-			this.dataNode.DeleteAllShards(deleteDataRequest.Filename) // delete all Shards locally w/ the sdfs_filename
+			this.fileSystemService.DeleteAllShards(deleteDataRequest.Filename) // delete all Shards locally w/ the sdfs_filename
 			SendAckResponse(conn, this.id, true, "", "", 0)
 
 		case REREPLICATE_REQUEST:
@@ -214,17 +214,17 @@ func (this *SDFSNode) HandleTCPServerConnection(conn net.Conn) {
 		switch msgType {
 		case GET_DATA_REQUEST:
 			getDataRequest := ReceiveGetDataRequest(reader)
-			shards := this.dataNode.GetShards(getDataRequest.Filename)
+			shards := this.fileSystemService.GetShards(getDataRequest.Filename)
 			SendGetDataResponse(conn, shards)
 
 		case PUT_DATA_REQUEST:
 			putDataRequest := ReceivePutDataRequest(reader)
-			this.dataNode.WriteShard(putDataRequest.Sharded_data)
+			this.fileSystemService.WriteShard(putDataRequest.Sharded_data)
 			SendAckResponse(conn, this.id, true, "", "", 0)
 
 		case DELETE_DATA_REQUEST:
 			deleteDataRequest := ReceiveDeleteDataRequest(reader)
-			this.dataNode.DeleteAllShards(deleteDataRequest.Filename) // delete all Shards locally w/ the sdfs_filename
+			this.fileSystemService.DeleteAllShards(deleteDataRequest.Filename) // delete all Shards locally w/ the sdfs_filename
 			SendAckResponse(conn, this.id, true, "", "", 0)
 
 		case GET_INFO_RESPONSE:
@@ -620,7 +620,7 @@ func (this *SDFSNode) PerformLs(sdfs_file_name string) {
 Print out all files currnently being stored at this machine
 */
 func (this *SDFSNode) PerformStore() {
-	file_to_shards := this.dataNode.ShardMetadatas
+	file_to_shards := this.fileSystemService.ShardMetadatas
 
 	fmt.Println("All SDFS Filenames stored locally:")
 	for file, _ := range file_to_shards {
