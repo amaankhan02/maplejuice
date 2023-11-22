@@ -11,11 +11,21 @@ import (
 	"time"
 )
 
+type FailureDetectionInfo struct {
+	ThisNodeID   NodeID
+	FailedNodeId NodeID
+}
+
+type NodeJoinInfo struct {
+	ThisNodeID   NodeID
+	JoinedNodeId NodeID
+}
+
 const (
 	BUFFER_SIZE = 4096
 )
 
-type GossipNode struct {
+type NodeFailureJoinService struct {
 	MembershipList    *MembershipList
 	Id                NodeID // Id of this node
 	IntroducerId      NodeID
@@ -36,22 +46,22 @@ type GossipNode struct {
 	BytesReceived     int64 // used to calculate bandwidth
 	TGossip           int64 // in nanoseconds
 
-	// Add communication medium to SDFSNode for notifying if we detect a failure
-	GossipCallbackHandler NodeGossipHandler
+	// Add communication medium to the other node types for notifying if we detect a failure
+	GossipCallbackHandler INodeManager
 }
 
 /*
-Constructor for GossipNode, initializes with nodeId for this current machine
+Constructor for NodeFailureJoinService, initializes with nodeId for this current machine
 and creates a socket endpoint for the server and initializes it
 
 If IsIntroducer = true, then IntroducerId is not set to anything
 If IsIntroducer = false, then IntroducerId is set to the passed in parameter
 */
-func NewGossipNode(nodeId NodeID, b int, isIntroducer bool, introducerId NodeID, logFile *os.File, gossipModeValue GossipModeValue,
-	isTestMode bool, msgDropRate int, tGossip int64, callbackHandler NodeGossipHandler) *GossipNode {
+func NewFailureJoinService(nodeId NodeID, b int, isIntroducer bool, introducerId NodeID, logFile *os.File, gossipModeValue GossipModeValue,
+	isTestMode bool, msgDropRate int, tGossip int64, callbackHandler INodeManager) *NodeFailureJoinService {
 
 	// init the membership list
-	thisNode := GossipNode{}
+	thisNode := NodeFailureJoinService{}
 	thisNode.Id = nodeId
 	thisNode.Fanout = b
 	thisNode.IsIntroducer = isIntroducer
@@ -71,8 +81,8 @@ func NewGossipNode(nodeId NodeID, b int, isIntroducer bool, introducerId NodeID,
 		thisNode.MembershipList.AddDefaultEntry(&introducerId)
 
 		// this nodeId has added introducer to its membership list, so its now part of group. Indicate in logs...
-		LogMessageln(os.Stdout, "GossipNode joining group... Contacted introducer & joined tcp_net")
-		LogMessageln(logFile, "GossipNode joining group... Contacted introducer & joined tcp_net...")
+		LogMessageln(os.Stdout, "NodeFailureJoinService joining group... Contacted introducer & joined tcp_net")
+		LogMessageln(logFile, "NodeFailureJoinService joining group... Contacted introducer & joined tcp_net...")
 	} else {
 		LogMessageln(os.Stdout, "Introducer has started!")
 		LogMessageln(logFile, "Introducer has started!")
@@ -82,17 +92,17 @@ func NewGossipNode(nodeId NodeID, b int, isIntroducer bool, introducerId NodeID,
 	return &thisNode
 }
 
-//func initializeNewNodeForSDFS(thisNode *GossipNode, isLeader bool) *GossipNode {
+//func initializeNewNodeForSDFS(thisNode *NodeFailureJoinService, isLeader bool) *NodeFailureJoinService {
 //	// every machine has a FileSystemService and a NewoLDNameNode
 //	thisNode.FileSystemService = *NewFileSystemService(thisNode)
 //	thisNode.OldNameNode = *NewoLDNameNode(thisNode)
 //
-//	thisNode.IsLeader = isLeader
+//	thisNode.isLeader = isLeader
 //
 //	return thisNode
 //}
 
-func (this *GossipNode) JoinGroup() {
+func (this *NodeFailureJoinService) JoinGroup() {
 	this.StartTime = time.Now().Unix()
 	this.IsActive = true
 
@@ -102,7 +112,7 @@ func (this *GossipNode) JoinGroup() {
 	go this.periodicChecks()
 }
 
-func (this *GossipNode) LeaveGroup() {
+func (this *NodeFailureJoinService) LeaveGroup() {
 	this.IsActive = false
 	this.nodeWaitGroup.Wait() // wait for server(), heartbeatScheduler(), and periodicChecks() to be done
 	programDuration := time.Now().Unix() - this.StartTime
@@ -129,13 +139,13 @@ func (this *GossipNode) LeaveGroup() {
 	}
 }
 
-func (this *GossipNode) logMsgHelper(msg string) {
+func (this *NodeFailureJoinService) logMsgHelper(msg string) {
 	//LogMessageln(os.Stdout, msg)
 	LogMessageln(this.LogFile, msg)
 }
 
 // initializes the server and boots it up
-func (this *GossipNode) initUDPServer() {
+func (this *NodeFailureJoinService) initUDPServer() {
 	conn, err := net.ListenPacket("udp", ":"+this.Id.GossipPort)
 	if err != nil {
 		log.Fatalln("Error initializing server listener: ", err)
@@ -144,7 +154,7 @@ func (this *GossipNode) initUDPServer() {
 	this.ServerConn = conn
 }
 
-func (this *GossipNode) periodicNormalModeCheck() {
+func (this *NodeFailureJoinService) periodicNormalModeCheck() {
 	currentTime := time.Now().UnixNano()
 	for nodeId, memListRow := range this.MembershipList.MemList {
 		// evaluate the time of nodeId's last updated time with current time
@@ -168,8 +178,8 @@ func (this *GossipNode) periodicNormalModeCheck() {
 
 				// call the node failure detection handler
 				failureInfo := FailureDetectionInfo{ // TODO: figure out later what exact parameters i need to pass
-					ThisGossipNodeId: this.Id,
-					FailedNodeId:     nodeId,
+					ThisNodeID:   this.Id,
+					FailedNodeId: nodeId,
 				}
 				this.GossipCallbackHandler.HandleNodeFailure(failureInfo)
 			}
@@ -177,7 +187,7 @@ func (this *GossipNode) periodicNormalModeCheck() {
 	}
 }
 
-func (this *GossipNode) periodicSuspicionModecheck() {
+func (this *NodeFailureJoinService) periodicSuspicionModecheck() {
 	currentTime := time.Now().UnixNano()
 	for nodeId, memListRow := range this.MembershipList.MemList {
 		// evaluate the time of nodeId's last updated time with current time
@@ -201,8 +211,8 @@ func (this *GossipNode) periodicSuspicionModecheck() {
 
 				// call the node failure detection handler
 				failureInfo := FailureDetectionInfo{ // TODO: figure out later what exact parameters i need to pass
-					ThisGossipNodeId: this.Id,
-					FailedNodeId:     nodeId,
+					ThisNodeID:   this.Id,
+					FailedNodeId: nodeId,
 				}
 				this.GossipCallbackHandler.HandleNodeFailure(failureInfo)
 			}
@@ -222,7 +232,7 @@ In a loop, it periodically checks its membership list and sees if any node's las
 is more than TFAIL time difference from current time. If it is, it changes it to a fail status
 and eventually deletes it
 */
-func (this *GossipNode) periodicChecks() {
+func (this *NodeFailureJoinService) periodicChecks() {
 	this.nodeWaitGroup.Add(1)
 	defer this.nodeWaitGroup.Done()
 
@@ -243,7 +253,7 @@ func (this *GossipNode) periodicChecks() {
 }
 
 // handles incoming messages to server. UDP Server
-func (this *GossipNode) serve() {
+func (this *NodeFailureJoinService) serve() {
 	this.nodeWaitGroup.Add(1)
 	defer this.nodeWaitGroup.Done()
 
@@ -274,7 +284,7 @@ func (this *GossipNode) serve() {
 	}
 }
 
-func (this *GossipNode) shouldDropMessage() bool {
+func (this *NodeFailureJoinService) shouldDropMessage() bool {
 	randNum := rand.Intn(100)
 	return this.isTestMode && randNum < this.msgDropRate
 }
@@ -290,7 +300,7 @@ maplejuice mode but will adopt the newer version number
 Returns true if the newGossipMode was different from the current and so it changed it successfully.
 Otherwise returns false if the newGossipMode was the same as the current.
 */
-func (this *GossipNode) TryUpdateGossipMode(newGossipMode GossipMode) bool {
+func (this *NodeFailureJoinService) TryUpdateGossipMode(newGossipMode GossipMode) bool {
 	this.MemListMutexLock.Lock()
 	defer this.MemListMutexLock.Unlock()
 
@@ -320,7 +330,7 @@ Handles the received client message
 
 TODO: figure out what the actual function parameters for this should be later
 */
-func (this *GossipNode) handleClientMessage(recvMembList *MembershipList) {
+func (this *NodeFailureJoinService) handleClientMessage(recvMembList *MembershipList) {
 	this.MemListMutexLock.Lock()
 	this.MembershipList.Merge(recvMembList, this.LogFile, this.CurrentGossipMode.Mode) // merge this membership list with the received membership list
 	LogMembershipList(this.LogFile, this.MembershipList)
@@ -329,7 +339,7 @@ func (this *GossipNode) handleClientMessage(recvMembList *MembershipList) {
 
 // loops through, sends heartbeats, and waits T_GOSSIP
 // designed to be ran as a goroutine
-func (this *GossipNode) heartbeatScheduler() {
+func (this *NodeFailureJoinService) heartbeatScheduler() {
 	this.nodeWaitGroup.Add(1)
 	defer this.nodeWaitGroup.Done()
 
@@ -357,7 +367,7 @@ func (this *GossipNode) heartbeatScheduler() {
 	}
 }
 
-func (this *GossipNode) sendLeaveHeartbeats() {
+func (this *NodeFailureJoinService) sendLeaveHeartbeats() {
 	// update membership list to have this node's status = LEAVE
 	// loop through all members in NodeIdsList and send them a heartbeat of the new membership list after
 
@@ -380,7 +390,7 @@ func (this *GossipNode) sendLeaveHeartbeats() {
 	this.MemListMutexLock.Unlock()
 }
 
-func (this *GossipNode) sendHeartbeat(targetId NodeID) {
+func (this *NodeFailureJoinService) sendHeartbeat(targetId NodeID) {
 	// open connection
 	connection, err := net.Dial("udp", targetId.IpAddress+":"+targetId.GossipPort)
 	if err != nil {
@@ -410,7 +420,7 @@ func (this *GossipNode) sendHeartbeat(targetId NodeID) {
 	LogMessageln(this.LogFile, fmt.Sprintf(fmtString, targetId.ToStringForGossipLogger()))
 }
 
-func (this *GossipNode) shutdownServer() {
+func (this *NodeFailureJoinService) shutdownServer() {
 	err := this.ServerConn.Close()
 	if err != nil {
 		_, err := fmt.Fprintln(os.Stderr, "Failed to close server connection object")

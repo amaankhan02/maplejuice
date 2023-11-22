@@ -32,7 +32,7 @@ type MembershipList struct {
 	NodeIdsList     []NodeID // list of nodes you can send message to -- used for round-robin messaging
 	gossipMode      GossipMode
 	FalseNodeCount  int64 // used for testing - for false positive rate calculation
-	CallbackHandler NodeGossipHandler
+	CallbackHandler INodeManager
 	IsTestMode      bool
 }
 
@@ -47,7 +47,7 @@ Args:
 
 	ThisNodeId (NodeID): NodeID of this current node of this machine
 */
-func NewMembershipList(thisNodeId NodeID, callbackHandler NodeGossipHandler, isTestMode bool) *MembershipList {
+func NewMembershipList(thisNodeId NodeID, callbackHandler INodeManager, isTestMode bool) *MembershipList {
 
 	// intialize membership list
 	this := &MembershipList{
@@ -132,8 +132,8 @@ func (thisList *MembershipList) MergeNormal(otherList *MembershipList, logStream
 				thisList.AddEntry(&nodeId, incomingMemlistRow.HeartBeatCount, ACTIVE)
 
 				thisList.CallbackHandler.HandleNodeJoin(NodeJoinInfo{
-					ThisGossipNodeId: thisList.ThisNodeId,
-					JoinedNodeId:     nodeId,
+					ThisNodeID:   thisList.ThisNodeId,
+					JoinedNodeId: nodeId,
 				})
 
 			} else { // the new node is a failed node, and it doesn't exist here, so we just continue
@@ -156,8 +156,8 @@ func (thisList *MembershipList) MergeNormal(otherList *MembershipList, logStream
 						thisList.UpdateEntry(&nodeId, -1, FAILED, logStream)
 
 						thisList.CallbackHandler.HandleNodeFailure(FailureDetectionInfo{
-							ThisGossipNodeId: thisList.ThisNodeId,
-							FailedNodeId:     nodeId,
+							ThisNodeID:   thisList.ThisNodeId,
+							FailedNodeId: nodeId,
 						})
 
 					} else {
@@ -189,16 +189,16 @@ func (thisList *MembershipList) MergeSuspicion(otherList *MembershipList, logStr
 				thisList.AddEntry(&nodeId, incomingMemlistRow.HeartBeatCount, ACTIVE)
 
 				thisList.CallbackHandler.HandleNodeJoin(NodeJoinInfo{
-					ThisGossipNodeId: thisList.ThisNodeId,
-					JoinedNodeId:     nodeId,
+					ThisNodeID:   thisList.ThisNodeId,
+					JoinedNodeId: nodeId,
 				})
 			} else if incomingMemlistRow.Status == SUSPICIOUS {
 				logJoinHelper(logStream, &nodeId, SUSPICIOUS)
 				thisList.AddEntry(&nodeId, incomingMemlistRow.HeartBeatCount, SUSPICIOUS)
 
 				thisList.CallbackHandler.HandleNodeJoin(NodeJoinInfo{
-					ThisGossipNodeId: thisList.ThisNodeId,
-					JoinedNodeId:     nodeId,
+					ThisNodeID:   thisList.ThisNodeId,
+					JoinedNodeId: nodeId,
 				})
 			} else { // incoming = FAILED
 				continue // does not exist locally, but incoming says its failed. so we have nothing to do
@@ -224,8 +224,8 @@ func (thisList *MembershipList) MergeSuspicion(otherList *MembershipList, logStr
 					thisList.UpdateEntry(&nodeId, incomingMemlistRow.HeartBeatCount, FAILED, logStream)
 
 					thisList.CallbackHandler.HandleNodeFailure(FailureDetectionInfo{
-						ThisGossipNodeId: thisList.ThisNodeId,
-						FailedNodeId:     nodeId,
+						ThisNodeID:   thisList.ThisNodeId,
+						FailedNodeId: nodeId,
 					})
 				}
 			} else if thisMemListRow.Status == SUSPICIOUS {
@@ -238,8 +238,8 @@ func (thisList *MembershipList) MergeSuspicion(otherList *MembershipList, logStr
 					thisList.UpdateEntry(&nodeId, incomingMemlistRow.HeartBeatCount, FAILED, logStream)
 
 					thisList.CallbackHandler.HandleNodeFailure(FailureDetectionInfo{
-						ThisGossipNodeId: thisList.ThisNodeId,
-						FailedNodeId:     nodeId,
+						ThisNodeID:   thisList.ThisNodeId,
+						FailedNodeId: nodeId,
 					})
 				}
 			} else { // this = FAILED

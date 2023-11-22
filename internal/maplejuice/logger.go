@@ -11,7 +11,7 @@ const (
 	LOG_OUTPUT_FMT      = "[%s][%s]: %s\n\n"
 	JOINED_ACTIVE_MSG   = "JOINED as ACTIVE"
 	JOINED_SUS_MSG      = "JOINED as SUSPICIOUS"
-	STATUS_CHANGE_FMT   = "Status of GossipNode %s changed from %s --> %s"
+	STATUS_CHANGE_FMT   = "Status of NodeFailureJoinService %s changed from %s --> %s"
 	FAILED_MSG          = "FAILED"
 	SUSPICIOUS_MSG      = "SUSPICIOUS"
 	DELETED_MSG         = "DELETED"

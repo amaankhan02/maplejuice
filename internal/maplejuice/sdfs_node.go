@@ -23,7 +23,7 @@ type LocalAck struct {
 
 /*
 Currently implementing the following interfaces
-  - NodeGossipHandler
+  - INodeManager
   - tcp_net.TCPServerConnectionHandler
 */
 type SDFSNode struct {
@@ -34,7 +34,6 @@ type SDFSNode struct {
 	logFile  *os.File
 
 	tcpServer         *tcp_net.TCPServer
-	ThisGossipNode    *GossipNode
 	fileSystemService *FileSystemService
 	leaderService     *SDFSLeaderService
 
@@ -42,9 +41,7 @@ type SDFSNode struct {
 	clientAcks []LocalAck // store all Acks received to this client
 }
 
-func NewSDFSNode(thisId NodeID, introducerLeaderId NodeID, isIntroducerLeader bool, logFile *os.File, sdfsRootDir string,
-	isTestMode bool, msgDropRate int, tGossip int64) *SDFSNode {
-
+func NewSDFSNode(thisId NodeID, introducerLeaderId NodeID, isIntroducerLeader bool, logFile *os.File, sdfsRootDir string) *SDFSNode {
 	sdfsNode := &SDFSNode{
 		id:                thisId,
 		leaderID:          introducerLeaderId,
@@ -52,24 +49,12 @@ func NewSDFSNode(thisId NodeID, introducerLeaderId NodeID, isIntroducerLeader bo
 		logFile:           logFile,
 		sdfsDir:           sdfsRootDir,
 		tcpServer:         nil,
-		ThisGossipNode:    nil,
 		fileSystemService: nil,
 		leaderService:     nil, // leaderService is nil if this node is not the leader
 		clientAcks:        make([]LocalAck, 0),
 	}
 	sdfsNode.tcpServer = tcp_net.NewTCPServer(thisId.SDFSServerPort, sdfsNode)
 
-	sdfsNode.ThisGossipNode = NewGossipNode(thisId,
-		config.FANOUT,
-		isIntroducerLeader,
-		introducerLeaderId,
-		logFile,
-		GOSSIP_NORMAL,
-		isTestMode,
-		msgDropRate,
-		tGossip,
-		sdfsNode,
-	)
 	if isIntroducerLeader {
 		fmt.Println("Initialized SDFSLeaderService")
 		sdfsNode.leaderService = NewSDFSLeaderService(config.T_DISPATCHER_WAIT,
@@ -96,7 +81,6 @@ func (this *SDFSNode) Start() {
 	if this.leaderService != nil {
 		this.leaderService.Start()
 	}
-	this.ThisGossipNode.JoinGroup()
 	LogMessageln(os.Stdout, "SDFS Node has started")
 	LogMessageln(this.logFile, "SDFS Node has started")
 }

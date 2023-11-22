@@ -57,11 +57,11 @@ func (nodeid *NodeID) ToStringMP3() string {
 //
 //	Timestamp, err := strconv.ParseInt(nodeIdParams[2], 10, 64)
 //	if err != nil {
-//		fmt.Println("Error in getting the Timestamp when converting to GossipNode Id from string")
+//		fmt.Println("Error in getting the Timestamp when converting to NodeFailureJoinService Id from string")
 //	}
 //
 //	if len(nodeIdParams) > 3 {
-//		fmt.Println("Error in converting to GossipNode Id from String")
+//		fmt.Println("Error in converting to NodeFailureJoinService Id from String")
 //	}
 //
 //	nodeId := NodeID{
