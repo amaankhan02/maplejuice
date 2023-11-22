@@ -4,15 +4,23 @@ import (
 	"bufio"
 	"encoding/binary"
 	"errors"
+	"fmt"
 	"io"
 	"net"
+	"os"
 )
 
 const MESSAGE_SIZE_BYTES = 4 // number of bytes used in the protocol to define the size of the message
+const BUFFER_SIZE = 4096
 
 /*
 Protocol Format for SDFS:
 	[type][size][data]
+
+Format for sending a file:
+	[type][size][response data][file data]
+	* the [size] represents size of the response data struct
+	* the response data struct will contain a .size variable representing the size of [file data]
 */
 
 /*
@@ -59,6 +67,27 @@ func SendMessageData(data []byte, conn net.Conn) error {
 	}
 
 	return nil
+}
+
+/*
+Reads a file and sends it over a TCP connection in a buffered format
+so that it does NOT read the entire file into memory. But rather, it
+sends as a stream. Always use this function when sending a file over TCP
+*/
+func SendFile(filepath string, conn net.Conn, filesize int64) error {
+	// open the file for reading
+	f, err := os.Open(filepath)
+	if err != nil {
+		fmt.Println("Failed to open file for reading")
+		return err
+	}
+	defer f.Close()
+
+	b_written, read_err := io.Copy(conn, f)
+	if read_err != nil {
+		return read_err
+	}
+
 }
 
 /*
