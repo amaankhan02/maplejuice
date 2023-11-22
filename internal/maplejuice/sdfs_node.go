@@ -1,4 +1,4 @@
-package sdfs
+package maplejuice
 
 import (
 	"bufio"
@@ -671,7 +671,7 @@ func (this *SDFSNode) PerformMultiRead(sdfsFilename string, localFilename string
 /*
 Gives you what each shard num's shard struct is. Because this is what you send over to the datanodes so they store it
 Given:
-  - sdfs filename
+  - maplejuice filename
   - map, key = shard num, val = list of machines to send shards to
   - total file size
   - used to calculate the size of the last shard (which is the only one with different size shard)

@@ -12,7 +12,7 @@ package test
 //func TestShardData(t *testing.T) {
 //	local_file_path := "C:\\Users\\samaa\\Documents\\2023-2024\\DistributedSystems\\MP3\\cs425_mp4\\test\\test_files\\test_text_file.txt"
 //
-//	shards_list := sdfs.ShardData(local_file_path, 4)
+//	shards_list := maplejuice.ShardData(local_file_path, 4)
 //
 //	for i, shard := range shards_list {
 //		fmt.Println("Index: ", i)

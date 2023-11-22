@@ -1,4 +1,4 @@
-package sdfs
+package maplejuice
 
 import (
 	"cs425_mp4/internal/utils"

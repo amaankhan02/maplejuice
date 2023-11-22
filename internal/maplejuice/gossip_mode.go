@@ -1,4 +1,4 @@
-package sdfs
+package maplejuice
 
 type GossipModeValue int
 

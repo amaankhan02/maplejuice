@@ -1,4 +1,4 @@
-package sdfs
+package maplejuice
 
 import (
 	"bufio"
@@ -90,7 +90,7 @@ type SDFSLeaderService struct {
 	FileToNodes map[string]map[int][]NodeID // TODO: you can move this into FileOperationMetadata structure, no need to keep it separate
 
 	// maps sdfs_filename to a FileOperationMetadata struct which holds information about the current write/read
-	// operations occurring on the current sdfs file. This is used by the leader to schedule tasks,
+	// operations occurring on the current maplejuice file. This is used by the leader to schedule tasks,
 	FileOperations     map[string]*FileOperationsMetadata
 	ActiveNodes        []NodeID // list of alive nodes in the distributed file system
 	IsRunning          bool
@@ -132,7 +132,7 @@ system and sees if it can schedule a new task.
 
 // loop through all SDFS files
 
-	// for each sdfs file, check if we can schedule a new file operation
+	// for each maplejuice file, check if we can schedule a new file operation
 	// whenever a file operation is done, that thread will send the data to the client and it will remove the
 	// currently running var or whatever down 1 or make to nil or something, so that dispatcher will know that it
 	// is free to execute a new command

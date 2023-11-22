@@ -1,4 +1,4 @@
-package sdfs
+package maplejuice
 
 import (
 	"bufio"
@@ -120,7 +120,7 @@ type GetInfoRequest struct {
 }
 
 type GetInfoResponse struct {
-	SdfsFilename        string // the sdfs filename of the file requested from the sdfs file system
+	SdfsFilename        string // the maplejuice filename of the file requested from the maplejuice file system
 	ClientLocalFilename string // filename to save to in the client's local machine
 	NodeIds             []NodeID
 }

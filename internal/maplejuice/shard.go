@@ -1,11 +1,11 @@
-package sdfs
+package maplejuice
 
 /*
 Stores the metadata regarding the shard associated with 'SdfsFilename'.
 */
 type ShardMetaData struct {
 	ShardIndex    int    // index of the shard number in this file
-	SdfsFilename  string // the sdfs Filename that this shard belongs to
+	SdfsFilename  string // the maplejuice Filename that this shard belongs to
 	ShardFilename string // Filename of this specific shard
 	Size          int64
 }

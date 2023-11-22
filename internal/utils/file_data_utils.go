@@ -2,7 +2,7 @@ package utils
 
 import (
 	"bytes"
-	//"cs425_mp4/internal/sdfs"
+	//"cs425_mp4/internal/maplejuice"
 	"encoding/gob"
 	"fmt"
 	"os"

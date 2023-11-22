@@ -2,7 +2,7 @@ package main
 
 import (
 	"cs425_mp4/internal/config"
-	"cs425_mp4/internal/sdfs"
+	"cs425_mp4/internal/maplejuice"
 	"cs425_mp4/internal/utils"
 	"encoding/gob"
 	"flag"
@@ -12,7 +12,7 @@ import (
 	"strings"
 )
 
-var sdfsNode *sdfs.SDFSNode
+var sdfsNode *maplejuice.SDFSNode
 
 var logFileName *string
 var logFile *os.File
@@ -78,18 +78,18 @@ func ParseArguments() {
 
 func Init() {
 	RegisterStructsForSerialization()
-	var introducerLeaderId *sdfs.NodeID
+	var introducerLeaderId *maplejuice.NodeID
 	var isIntroducerLeader bool
 	vmNum, hostname := utils.GetLocalVMInfo()
 
 	// the introducer and leader node are always the same node in this implementation
 	if vmNum == config.INTRODUCER_LEADER_VM {
 		isIntroducerLeader = true
-		introducerLeaderId = &sdfs.NodeID{}
+		introducerLeaderId = &maplejuice.NodeID{}
 	} else {
 		isIntroducerLeader = false
 		introducerHostname := utils.GetHostname(config.INTRODUCER_LEADER_VM)
-		introducerLeaderId = sdfs.NewNodeID(
+		introducerLeaderId = maplejuice.NewNodeID(
 			utils.GetIP(introducerHostname),
 			utils.GetGossipPort(config.INTRODUCER_LEADER_VM),
 			utils.GetSDFSPort(config.INTRODUCER_LEADER_VM),
@@ -97,9 +97,9 @@ func Init() {
 			introducerHostname,
 		)
 	}
-	thisNodeId := sdfs.NewNodeID(utils.GetIP(hostname), utils.GetGossipPort(vmNum), utils.GetSDFSPort(vmNum), isIntroducerLeader, hostname)
+	thisNodeId := maplejuice.NewNodeID(utils.GetIP(hostname), utils.GetGossipPort(vmNum), utils.GetSDFSPort(vmNum), isIntroducerLeader, hostname)
 
-	sdfsNode = sdfs.NewSDFSNode(*thisNodeId,
+	sdfsNode = maplejuice.NewSDFSNode(*thisNodeId,
 		*introducerLeaderId,
 		isIntroducerLeader,
 		logFile,
@@ -111,23 +111,23 @@ func Init() {
 }
 
 func RegisterStructsForSerialization() {
-	gob.Register(&sdfs.MembershipList{})
-	gob.Register(&sdfs.MembershipListEntry{})
-	gob.Register(&sdfs.ShardMetaData{})
-	gob.Register(&sdfs.NodeID{})
-	gob.Register(&sdfs.Shard{})
-	gob.Register(&sdfs.GetInfoRequest{})
-	gob.Register(&sdfs.GetInfoResponse{})
-	gob.Register(&sdfs.PutInfoResponse{})
-	gob.Register(&sdfs.PutInfoRequest{})
-	gob.Register(&sdfs.GetDataRequest{})
-	gob.Register(&sdfs.GetDataResponse{})
-	gob.Register(&sdfs.PutDataRequest{})
-	gob.Register(&sdfs.Ack{})
-	gob.Register(&sdfs.DeleteInfoRequest{})
-	gob.Register(&sdfs.DeleteInfoResponse{})
-	gob.Register(&sdfs.DeleteDataRequest{})
-	gob.Register(&sdfs.DeleteDataRequest{})
+	gob.Register(&maplejuice.MembershipList{})
+	gob.Register(&maplejuice.MembershipListEntry{})
+	gob.Register(&maplejuice.ShardMetaData{})
+	gob.Register(&maplejuice.NodeID{})
+	gob.Register(&maplejuice.Shard{})
+	gob.Register(&maplejuice.GetInfoRequest{})
+	gob.Register(&maplejuice.GetInfoResponse{})
+	gob.Register(&maplejuice.PutInfoResponse{})
+	gob.Register(&maplejuice.PutInfoRequest{})
+	gob.Register(&maplejuice.GetDataRequest{})
+	gob.Register(&maplejuice.GetDataResponse{})
+	gob.Register(&maplejuice.PutDataRequest{})
+	gob.Register(&maplejuice.Ack{})
+	gob.Register(&maplejuice.DeleteInfoRequest{})
+	gob.Register(&maplejuice.DeleteInfoResponse{})
+	gob.Register(&maplejuice.DeleteDataRequest{})
+	gob.Register(&maplejuice.DeleteDataRequest{})
 }
 
 // Executes the user input
@@ -139,25 +139,25 @@ func ExecuteUserInput(userInput []string) bool {
 	gossipNode := sdfsNode.ThisGossipNode
 
 	if userInput[0] == "enable" && userInput[1] == "suspicion" {
-		ok := gossipNode.TryUpdateGossipMode(sdfs.GossipMode{
-			sdfs.GOSSIP_SUSPICION,
+		ok := gossipNode.TryUpdateGossipMode(maplejuice.GossipMode{
+			maplejuice.GOSSIP_SUSPICION,
 			gossipNode.CurrentGossipMode.VersionNumber + 1},
 		)
 		if !ok {
 			fmt.Println("Suspicion mode is already enabled! Nothing to change...")
 		}
 	} else if userInput[0] == "disable" && userInput[1] == "suspicion" {
-		ok := gossipNode.TryUpdateGossipMode(sdfs.GossipMode{
-			sdfs.GOSSIP_NORMAL,
+		ok := gossipNode.TryUpdateGossipMode(maplejuice.GossipMode{
+			maplejuice.GOSSIP_NORMAL,
 			gossipNode.CurrentGossipMode.VersionNumber + 1},
 		)
 		if !ok {
 			fmt.Println("Suspicion mode is already disabled! Nothing to change...")
 		}
 	} else if userInput[0] == "mode" {
-		fmt.Printf("Current sdfs mode: %s\n\n", gossipNode.CurrentGossipMode.Mode.String())
+		fmt.Printf("Current maplejuice mode: %s\n\n", gossipNode.CurrentGossipMode.Mode.String())
 	} else if userInput[0] == "list_mem" {
-		sdfs.LogMembershipList(os.Stdout, gossipNode.MembershipList)
+		maplejuice.LogMembershipList(os.Stdout, gossipNode.MembershipList)
 	} else if userInput[0] == "list_self" {
 		fmt.Println(gossipNode.Id.ToStringForGossipLogger())
 	} else if userInput[0] == "leave" {

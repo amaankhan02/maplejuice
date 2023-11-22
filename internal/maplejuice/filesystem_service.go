@@ -1,4 +1,4 @@
-package sdfs
+package maplejuice
 
 import (
 	"log"
@@ -57,7 +57,7 @@ it from the FileSystemService map of shard meta datas
 func (this *FileSystemService) DeleteAllShards(sdfs_filename string) {
 	metadatas, ok := this.ShardMetadatas[sdfs_filename]
 	if !ok {
-		log.Fatalln("Invalid sdfs Filename - does not exist")
+		log.Fatalln("Invalid maplejuice Filename - does not exist")
 	}
 
 	// delete from disk
@@ -92,7 +92,7 @@ func (this *FileSystemService) ReadShard(shardMetadata ShardMetaData) Shard {
 
 /*
 In a PUT_DATA_REQUEST, the receiver will receive a Shard object, which includes the ShardMetaData,
-so this function can be used to write the shard to our sdfs directory locally and keep track of it
+so this function can be used to write the shard to our maplejuice directory locally and keep track of it
 as well
 */
 func (this *FileSystemService) WriteShard(shard Shard) {

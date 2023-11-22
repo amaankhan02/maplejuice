@@ -26,7 +26,7 @@ const (
 	T_CLEANUP         time.Duration = 3 * time.Second
 	T_PERIODIC_CHECK  time.Duration = 1 * time.Second // check every 0.5 seconds
 	DEFAULT_T_GOSSIP  int64         = 1000            // milliseconds - default value if not passed in as an argument
-	FANOUT            int           = 4               // number of sdfs targets to send heartbeat to per sdfs period
+	FANOUT            int           = 4               // number of maplejuice targets to send heartbeat to per maplejuice period
 )
 
 // MP3 Configuration Variables

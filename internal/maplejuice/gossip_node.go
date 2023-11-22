@@ -1,4 +1,4 @@
-package sdfs
+package maplejuice
 
 import (
 	"cs425_mp4/internal/config"
@@ -280,12 +280,12 @@ func (this *GossipNode) shouldDropMessage() bool {
 }
 
 /*
-Checks if the passed in sdfs mode is different than the current one. If it is,
-it sets it to the new one, and logs message saying that the sdfs mode has changed. Otherwise,
+Checks if the passed in maplejuice mode is different than the current one. If it is,
+it sets it to the new one, and logs message saying that the maplejuice mode has changed. Otherwise,
 it doesn't make any change and does not log anything
 
 Even if the new one is not different, but the version number is greater, then it will keep the same
-sdfs mode but will adopt the newer version number
+maplejuice mode but will adopt the newer version number
 
 Returns true if the newGossipMode was different from the current and so it changed it successfully.
 Otherwise returns false if the newGossipMode was the same as the current.
