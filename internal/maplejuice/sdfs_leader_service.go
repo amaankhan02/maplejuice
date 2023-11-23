@@ -533,9 +533,9 @@ re-replicating process
 func (this *SDFSLeaderService) IndicateNodeFailed(failed_nodeId NodeID) {
 	this.MutexLock.Lock()
 	// double check that it actually removes...
-	//fmt.Printf("Len(ActiveNodes) before Deletion = %d\n", len(this.ActiveNodes))
+	//fmt.Printf("Len(AvailableWorkerNodes) before Deletion = %d\n", len(this.AvailableWorkerNodes))
 	_ = this.deleteActiveNode(failed_nodeId)
-	//fmt.Printf("Len(ActiveNodes) after Deletion = %d\nAnd didDelete = %d\n", len(this.ActiveNodes), didDelete)
+	//fmt.Printf("Len(AvailableWorkerNodes) after Deletion = %d\nAnd didDelete = %d\n", len(this.AvailableWorkerNodes), didDelete)
 
 	// find which SDFS files were affected by this node crash and
 	for sdfs_filename, shardsToNodes := range this.FileToNodes {

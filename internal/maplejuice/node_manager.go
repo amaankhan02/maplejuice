@@ -53,7 +53,7 @@ func (nm *MJNodeManager) HandleNodeFailure(info FailureDetectionInfo) {
 }
 
 func (nm *MJNodeManager) HandleNodeJoin(info NodeJoinInfo) {
-	// if a node joined our membership list, i need to reflect that in leaderService.ActiveNodes
+	// if a node joined our membership list, i need to reflect that in leaderService.AvailableWorkerNodes
 	if nm.sdfsNode.isLeader {
 		nm.sdfsNode.leaderService.AddNewActiveNode(info.JoinedNodeId)
 	}

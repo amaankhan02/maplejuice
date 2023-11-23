@@ -93,7 +93,7 @@ func (this *SDFSNode) Start() {
 //}
 //
 //func (this *SDFSNode) HandleNodeJoin(info NodeJoinInfo) {
-//	// if a node joined our membership list, i need to reflect that in leaderService.ActiveNodes
+//	// if a node joined our membership list, i need to reflect that in leaderService.AvailableWorkerNodes
 //	if this.isLeader {
 //		this.leaderService.AddNewActiveNode(info.JoinedNodeId)
 //	}
