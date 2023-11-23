@@ -1,6 +1,7 @@
 package maplejuice
 
 import (
+	"bufio"
 	"cs425_mp4/internal/tcp_net"
 	"fmt"
 	"net"
@@ -11,7 +12,7 @@ type MapleJuiceNode struct {
 	id            NodeID
 	leaderID      NodeID
 	isLeader      bool
-	leaderService *MJLeaderService
+	leaderService *MapleJuiceLeaderService
 	tcpServer     *tcp_net.TCPServer
 	logFile       *os.File
 }
@@ -25,19 +26,41 @@ func NewMapleJuiceNode(thisId NodeID, leaderId NodeID, loggingFile *os.File) *Ma
 	}
 	mj.tcpServer = tcp_net.NewTCPServer(thisId.MapleJuiceServerPort, mj)
 	if mj.isLeader {
-		fmt.Println("Initialized MJLeaderService")
+		fmt.Println("Initialized MapleJuiceLeaderService")
 		mj.leaderService = NewMJLeaderService()
 	} else {
-		fmt.Println("Initialized MJLeaderService to be NULL")
+		fmt.Println("Initialized MapleJuiceLeaderService to be NULL")
 		mj.leaderService = nil
 	}
 
 	return mj
 }
 
-func (m *MapleJuiceNode) HandleTCPServerConnection(conn net.Conn) {
-	//TODO implement me
-	panic("implement me")
+func (this *MapleJuiceNode) HandleTCPServerConnection(conn net.Conn) {
+	reader := bufio.NewReader(conn)
+
+	if this.isLeader {
+		mjNetworkMessage, recv_err := ReceiveMJNetworkMessage(reader)
+		if recv_err != nil {
+			this.logBoth(fmt.Sprintf("Error in ReceiveMJNetworkMessage: %s\n", recv_err))
+			return
+		}
+
+		switch mjNetworkMessage.MsgType {
+		case MAPLE_JOB_REQUEST:
+
+		case JUICE_JOB_REQUEST:
+			panic("not implemented")
+		case MAPLE_TASK_RESPONSE:
+			panic("not implemented")
+		case JUICE_TASK_RESPONSE:
+			panic("not implemented")
+			// TODO: can the leader act as a client to submit a job request?
+		}
+
+	} else {
+
+	}
 }
 
 func (this *MapleJuiceNode) Start() {
