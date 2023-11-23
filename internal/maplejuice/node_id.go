@@ -8,16 +8,17 @@ import (
 )
 
 type NodeID struct {
-	IpAddress      string
-	GossipPort     string // UDP port for the gossip failure detection communication
-	SDFSServerPort string // TCP port for the SDFS protocol communication
-	Timestamp      int64
-	Hostname       string
+	IpAddress            string
+	Hostname             string
+	GossipPort           string // UDP port for the gossip failure detection communication
+	SDFSServerPort       string // TCP port for the SDFS protocol communication
+	MapleJuiceServerPort string // TCP port for the MapleJuice protocol communication
+	Timestamp            int64  // Unix Nano timestamp of when this peer/machine was initialized
 }
 
 const DELIMINATOR = ";"
 
-func NewNodeID(ip string, gossipPort string, sdfsPort string, isIntroducerLeader bool, hostname string) *NodeID {
+func NewNodeID(ip string, gossipPort string, sdfsPort string, mapleJuicePort string, isIntroducerLeader bool, hostname string) *NodeID {
 	var timestamp int64
 	if isIntroducerLeader {
 		timestamp = 0
@@ -26,11 +27,12 @@ func NewNodeID(ip string, gossipPort string, sdfsPort string, isIntroducerLeader
 	}
 
 	return &NodeID{
-		IpAddress:      ip,
-		GossipPort:     gossipPort,
-		SDFSServerPort: sdfsPort,
-		Timestamp:      timestamp,
-		Hostname:       hostname,
+		IpAddress:            ip,
+		GossipPort:           gossipPort,
+		SDFSServerPort:       sdfsPort,
+		MapleJuiceServerPort: mapleJuicePort,
+		Timestamp:            timestamp,
+		Hostname:             hostname,
 	}
 }
 

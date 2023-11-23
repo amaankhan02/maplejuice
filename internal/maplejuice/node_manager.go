@@ -5,7 +5,7 @@ Defines a generic interface where the HandleFailure() message must
 be implemented and HandleNodeJoin()
 
 Current structs that implement INodeManager interface:
-  - SDFSNode
+  - MJNodeManager
 */
 type INodeManager interface {
 	HandleNodeFailure(info FailureDetectionInfo)

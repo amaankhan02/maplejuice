@@ -8,3 +8,8 @@ MapleJuice jobs
 */
 type MJLeaderService struct {
 }
+
+func (this *MJLeaderService) Start() {
+	// todo implement
+	panic("implement me")
+}

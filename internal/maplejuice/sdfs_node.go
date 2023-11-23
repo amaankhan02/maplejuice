@@ -85,20 +85,20 @@ func (this *SDFSNode) Start() {
 	LogMessageln(this.logFile, "SDFS Node has started")
 }
 
-func (this *SDFSNode) HandleNodeFailure(info FailureDetectionInfo) {
-	// only handle if we are the leader. cuz otherwise the gossip will eventually send it to the leader
-	if this.isLeader {
-		this.leaderService.IndicateNodeFailed(info.FailedNodeId)
-	}
-}
-
-func (this *SDFSNode) HandleNodeJoin(info NodeJoinInfo) {
-	// if a node joined our membership list, i need to reflect that in leaderService.ActiveNodes
-	if this.isLeader {
-		this.leaderService.AddNewActiveNode(info.JoinedNodeId)
-	}
-
-}
+//func (this *SDFSNode) HandleNodeFailure(info FailureDetectionInfo) {
+//	// only handle if we are the leader. cuz otherwise the gossip will eventually send it to the leader
+//	if this.isLeader {
+//		this.leaderService.IndicateNodeFailed(info.FailedNodeId)
+//	}
+//}
+//
+//func (this *SDFSNode) HandleNodeJoin(info NodeJoinInfo) {
+//	// if a node joined our membership list, i need to reflect that in leaderService.ActiveNodes
+//	if this.isLeader {
+//		this.leaderService.AddNewActiveNode(info.JoinedNodeId)
+//	}
+//
+//}
 
 /*
 Implementing TCPServerConnectionHandler interface

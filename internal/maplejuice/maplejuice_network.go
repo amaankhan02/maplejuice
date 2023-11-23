@@ -40,7 +40,7 @@ type MapleJuiceNetworkMessage struct {
 	SdfsIntermediateFilenamePrefix string // prefix of the intermediate filenames (output of Maple, input of Juice)
 	SdfsSrcDirectory               string // location of input files for Maple
 	SdfsDestFilename               string // filename location for output of Juice step where all key-value pairs are appended
-
+	ShouldDeleteJuiceInput         bool   // if true, after the juice phase is done, the sdfs intermediate files will be deleted (inputs for the juice phase)
 }
 
 func SendMJNetworkMessage(conn net.Conn, msg *MapleJuiceNetworkMessage) {
