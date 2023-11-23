@@ -78,7 +78,7 @@ Given the metadata of a shard, it finds it in the disk and reads it into memory
 */
 func (this *FileSystemService) ReadShard(shardMetadata ShardMetaData) Shard {
 	fullPath := filepath.Join(this.RootDirPath, shardMetadata.ShardFilename)
-	data, err := os.ReadFile(fullPath)
+	data, err := os.ReadFile(fullPath) // TODO:
 	if err != nil {
 		log.Fatalln("Error reading file!")
 		// TODO: Change this log.Fatal() to something else.. maybe just return an error

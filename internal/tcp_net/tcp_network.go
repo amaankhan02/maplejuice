@@ -83,11 +83,17 @@ func SendFile(filepath string, conn net.Conn, filesize int64) error {
 	}
 	defer f.Close()
 
-	b_written, read_err := io.Copy(conn, f)
-	if read_err != nil {
-		return read_err
+	reader := bufio.NewReaderSize(f, BUFFER_SIZE)
+	n_written, copy_err := io.Copy(conn, reader) // reads until the EOF
+	if copy_err != nil {
+		return copy_err
 	}
-
+	if n_written < filesize {
+		fmt.Println("Failed to copy entire file into connection!")
+		return errors.New("Failed to copy entire file into connection")
+	} else {
+		return nil
+	}
 }
 
 /*
@@ -147,6 +153,41 @@ func ReadMessageData(reader *bufio.Reader) ([]byte, error) {
 	}
 
 	return buff, nil
+}
+
+/*
+Reads a file from the TCP connection and writes it to 'filepath'.
+'filesize' represents the amount of data from the connection socket to read
+*/
+func ReadFile(save_filepath string, conn net.Conn, filesize int64) error {
+	// open the file for writing
+	f, err := os.OpenFile(save_filepath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0666)
+	if err != nil {
+		fmt.Println("Failed to open file for reading")
+		return err
+	}
+	defer f.Close()
+
+	reader := bufio.NewReaderSize(conn, BUFFER_SIZE)
+	var b_copied int64 = 0
+	var amt int64 = BUFFER_SIZE
+
+	for b_copied < filesize {
+		if b_copied+amt > filesize {
+			amt = filesize - b_copied
+		} else {
+			amt = BUFFER_SIZE
+		}
+		n, copy_err := io.CopyN(f, reader, amt)
+		if copy_err != nil {
+			fmt.Println("Failed to copy file from connection into local disk! - ", copy_err)
+			return copy_err
+		}
+
+		b_copied += n
+	}
+
+	return nil
 }
 
 /*
