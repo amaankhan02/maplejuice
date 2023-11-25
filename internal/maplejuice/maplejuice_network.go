@@ -41,8 +41,9 @@ type MapleJuiceNetworkMessage struct {
 	SdfsSrcDirectory               string // location of input files for Maple
 	SdfsDestFilename               string // filename location for output of Juice step where all key-value pairs are appended
 	ShouldDeleteJuiceInput         bool   // if true, after the juice phase is done, the sdfs intermediate files will be deleted (inputs for the juice phase)
-
-	CurrTaskIdx int
+	CurrTaskIdx                    int
+	ClientId                       NodeID
+	TaskOutputFileSize             int64
 }
 
 func SendMapleTaskRequest(conn net.Conn, numTasks int, exeFile string, sdfsIntermediateFilenamePrefix string,

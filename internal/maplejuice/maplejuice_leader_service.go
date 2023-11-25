@@ -44,6 +44,7 @@ type MapleJuiceJob struct {
 	// each worker node id has a list of integers representing the task indices they are assigned.
 	// the task index is a way for the worker to know which part of the input they have to deal with to be able to split
 	jobType                        MapleJuiceJobType
+	clientId                       NodeID // id of the client that requested this job
 	workerToTaskIndices            map[NodeID][]int
 	numTasks                       int
 	exeFile                        string
@@ -71,7 +72,7 @@ type MapleJuiceLeaderService struct {
 	logFile              *os.File
 	waitQueue            []*MapleJuiceJob
 	currentJob           *MapleJuiceJob
-	taskOutputDir        string
+	leaderTempDir        string
 }
 
 func NewMapleJuiceLeaderService() *MapleJuiceLeaderService {
@@ -130,7 +131,7 @@ task output files and then creating a new set of files to be saved in the SDFS f
 func (this *MapleJuiceLeaderService) ReceiveMapleTaskOutput(conn net.Conn, taskIndex int, filesize int64,
 	sdfsService *SDFSNode) {
 	// read the task output file from the network
-	save_filepath := filepath.Join(this.taskOutputDir, fmt.Sprintf(MAPLE_TASK_OUTPUT_FILENAME_FMT, taskIndex))
+	save_filepath := filepath.Join(this.leaderTempDir, fmt.Sprintf(MAPLE_TASK_OUTPUT_FILENAME_FMT, taskIndex))
 	err := tcp_net.ReadFile(save_filepath, conn, filesize)
 	if err != nil {
 		os.Exit(1) // TODO: for now exit, figure out the best course of action later
@@ -152,9 +153,9 @@ func (this *MapleJuiceLeaderService) ReceiveMapleTaskOutput(conn net.Conn, taskI
 func (this *MapleJuiceLeaderService) finishCurrentJob(sdfsService *SDFSNode) {
 	// write intermediate files to SDFS
 	for sdfsIntermFilepath := range this.currentJob.sdfsIntermediateFilenames {
-		sdfsService.PerformPut(filepath.Join(this.taskOutputDir, sdfsIntermFilepath), sdfsIntermFilepath)
+		sdfsService.PerformPut(filepath.Join(this.leaderTempDir, sdfsIntermFilepath), sdfsIntermFilepath)
 		// TODO!: need to add a way for me to get notified that the put operation was completed... the acknowledgement i receive must get a callback? maybe a listener? idrk... must figure out
-		// cuz after i know it's done i can delete that file...
+		// cuz after i know it's done i can delete interm local files...
 		// if that's too hard, i can just store these files in a separate folder, unique by the job id like "job 0"
 		// and then just have the entire directory deleted after my program is done. cuz space is not really an issue...
 		// or pass in a boolean into PerformPut() to have it block or not until it gets the ACK, and in this case we can block until it gets the ACK...
@@ -188,7 +189,7 @@ func (this *MapleJuiceLeaderService) processMapleTaskOutputFile(task_output_file
 
 		// open the soon-to-be sdfs_intermediate file and append to it
 		_sdfsIntermediateFileName := getSdfsIntermediateFilename(this.currentJob.sdfsIntermediateFilenamePrefix, key)
-		fullSdfsIntermediateFilePath := filepath.Join(this.taskOutputDir, _sdfsIntermediateFileName)
+		fullSdfsIntermediateFilePath := filepath.Join(this.leaderTempDir, _sdfsIntermediateFileName)
 		this.currentJob.sdfsIntermediateFilenames.Add(_sdfsIntermediateFileName)
 
 		// TODO: instead of writing to the file every iteration, you can make this a buffered write to make it faster! future improvement!
@@ -205,8 +206,9 @@ func (this *MapleJuiceLeaderService) processMapleTaskOutputFile(task_output_file
 		_ = intermediateFile.Close()
 		this.currentJob.sdfsIntermediateFileMutex.Unlock()
 	}
-
 	_ = csvFile.Close()
+
+	// TODO: delete the task output file since we no longer need it... but for testing purposes don't do it yet... add this as a functionality later
 }
 
 // Given the sdfs_intermediate_filename_prefix and the key it will put the 2 together
@@ -225,7 +227,8 @@ func (this *MapleJuiceLeaderService) markTaskAsCompleted(taskIndex int) {
 	for workerNodeId, taskIndicesList := range this.currentJob.workerToTaskIndices {
 		for i, currTaskIdx := range taskIndicesList {
 			if currTaskIdx == taskIndex { // found! -- remove this from the list
-				this.currentJob.workerToTaskIndices[workerNodeId] = utils.RemoveIthElementFromSlice(this.currentJob.workerToTaskIndices[workerNodeId], i)
+				this.currentJob.workerToTaskIndices[workerNodeId] =
+					utils.RemoveIthElementFromSlice(this.currentJob.workerToTaskIndices[workerNodeId], i)
 				return
 			}
 		}

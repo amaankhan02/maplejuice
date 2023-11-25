@@ -15,6 +15,7 @@ type MapleJuiceNode struct {
 	leaderService *MapleJuiceLeaderService
 	tcpServer     *tcp_net.TCPServer
 	logFile       *os.File
+	sdfsNode      *SDFSNode
 }
 
 /*
@@ -25,12 +26,13 @@ Parameters:
 	loggingFile:
 	tmp_dir_name: name of the directory that this node should be saving files to
 */
-func NewMapleJuiceNode(thisId NodeID, leaderId NodeID, loggingFile *os.File, task_output_dir string) *MapleJuiceNode {
+func NewMapleJuiceNode(thisId NodeID, leaderId NodeID, loggingFile *os.File, task_output_dir string, sdfsNode *SDFSNode) *MapleJuiceNode {
 	mj := &MapleJuiceNode{
 		id:       thisId,
 		leaderID: leaderId,
 		isLeader: leaderId == thisId,
 		logFile:  loggingFile,
+		sdfsNode: sdfsNode,
 	}
 	mj.tcpServer = tcp_net.NewTCPServer(thisId.MapleJuiceServerPort, mj)
 	if mj.isLeader {
@@ -71,36 +73,12 @@ func (this *MapleJuiceNode) HandleTCPServerConnection(conn net.Conn) {
 				mjNetworkMessage.JuicePartitionScheme,
 			)
 		case MAPLE_TASK_RESPONSE:
-			// receive that a task has finished... could we get a response that a task has failed though?
-			// maybe... but we won't handle that. only time we'll assume a task failed is if the node entirely failed
-
-			// read the file they sent with it which contains the
-			/*
-				read the file they sent with it which contains the key value pairs
-				this method should actually probably be in one of the maplejuice_network.go functions to handle all this
-				I should probably have MapleJuiceNode create a local tmp directory that contains any temporary files
-				so that we can store it in there.
-				and to make sure duplicates are avoided, we can maybe attach a job id (maybe have leader service store a
-				job id that keeps getting incremented? - maybe not needed though)
-
-				and after all task responses have been received, the leader service can then go in and read those files,
-				parse them, and create the corresponding SDFS files and save them.
-
-				we can call a function here to read the output into a local file that's in the maple juice node's local tmp dir.
-				and then when we call leaderService.recordtaskresopnseoutput(), we can send the saved filepath for the output
-				and we can give the corresponding task id.
-			*/
-
-			//tcp_net.ReadFile(somelocalfilename, conn, mjNetworkMessage.TaskOutputFileSize)
-			//this.leaderService.ReceiveTaskResponseOutput(conn, mjNetworkMessage.CurrTaskIdx, mjNetworkMessage.TaskOutputFileSize)
-			//this.leaderService.RecordFinishedTask(mjNetworkMessage.CurrTaskIdx)	// task index is how leader will know which task finished
-
-			/*
-				Task Response
-					* task index (id)
-					* file with key/value pairs for that particular task
-					*
-			*/
+			this.leaderService.ReceiveMapleTaskOutput(
+				conn,
+				mjNetworkMessage.CurrTaskIdx,
+				mjNetworkMessage.TaskOutputFileSize,
+				this.sdfsNode,
+			)
 		case JUICE_TASK_RESPONSE:
 			panic("not implemented")
 			// TODO: can the leader act as a client to submit a job request?
@@ -133,6 +111,7 @@ func (this *MapleJuiceNode) PerformMaple(maple_exe string, num_maples int, sdfs_
 		ExeFile:                        maple_exe,
 		SdfsIntermediateFilenamePrefix: sdfs_intermediate_filename_prefix,
 		SdfsSrcDirectory:               sdfs_src_directory,
+		ClientId:                       this.id,
 	}
 	leaderConn, err := net.Dial("tcp", this.leaderID.IpAddress+":"+this.leaderID.SDFSServerPort)
 	if err != nil {
@@ -155,6 +134,7 @@ func (this *MapleJuiceNode) PerformJuice(juice_exe string, num_juices int, sdfs_
 		SdfsIntermediateFilenamePrefix: sdfs_intermediate_filename_prefix,
 		SdfsDestFilename:               sdfs_dest_filename,
 		ShouldDeleteJuiceInput:         shouldDeleteInput,
+		ClientId:                       this.id,
 	}
 
 	leaderConn, err := net.Dial("tcp", this.leaderID.IpAddress+":"+this.leaderID.SDFSServerPort)
