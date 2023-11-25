@@ -39,6 +39,7 @@ func (nm *MJNodeManager) NewMJNodeManager(isTestMode bool, msgDropRate int, tGos
 }
 
 func (nm *MJNodeManager) Start() {
+	// TODO: clear out the maple juice tmp dir contents before creating it (if it exists), and then create it
 	nm.failureJoinService.JoinGroup()
 	nm.sdfsNode.Start()
 	//nm.mjNode.Start()

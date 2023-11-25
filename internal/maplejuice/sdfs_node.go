@@ -25,6 +25,8 @@ type LocalAck struct {
 Currently implementing the following interfaces
   - INodeManager
   - tcp_net.TCPServerConnectionHandler
+
+TODO: rename SDFSNode to SDFSEngine. As well as MapleJuiceNode to MapleJuiceEngine
 */
 type SDFSNode struct {
 	id       NodeID

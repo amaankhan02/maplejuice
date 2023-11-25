@@ -1,15 +1,28 @@
 package maplejuice
 
 import (
+	"bufio"
+	"cs425_mp4/internal/datastructures"
+	"cs425_mp4/internal/tcp_net"
+	"cs425_mp4/internal/utils"
+	"encoding/csv"
 	"fmt"
+	"io"
+	"log"
 	"math/rand"
 	"net"
 	"os"
+	"path/filepath"
+	"strings"
+	"sync"
 	"time"
 )
 
 type JobTaskStatus string
 type MapleJuiceJobType int
+
+// output file format for the singular maple task output (the file they send over containing the k,v pairs)
+const MAPLE_TASK_OUTPUT_FILENAME_FMT = "task_output_%d.csv"
 
 const (
 	NOT_STARTED JobTaskStatus = "NOT STARTED"
@@ -40,6 +53,9 @@ type MapleJuiceJob struct {
 	sdfsDestFilename               string             // only for juice job
 	delete_input                   bool               // only for juice job
 	juicePartitionScheme           JuicePartitionType // only for juice job
+
+	sdfsIntermediateFileMutex sync.Mutex
+	sdfsIntermediateFilenames datastructures.HashSet[string] // contains the path to the sdfsIntermediateFiles stored locally
 }
 
 /*
@@ -55,6 +71,11 @@ type MapleJuiceLeaderService struct {
 	logFile              *os.File
 	waitQueue            []*MapleJuiceJob
 	currentJob           *MapleJuiceJob
+	taskOutputDir        string
+}
+
+func NewMapleJuiceLeaderService() *MapleJuiceLeaderService {
+	panic("implement me")
 }
 
 func (this *MapleJuiceLeaderService) Start() {
@@ -74,9 +95,9 @@ func (this *MapleJuiceLeaderService) SubmitMapleJob(maple_exe string, num_maples
 		sdfsIntermediateFilenamePrefix: sdfs_intermediate_filename_prefix,
 		sdfsSrcDirectory:               sdfs_src_dir,
 		numTasksCompleted:              0,
+		sdfsIntermediateFilenames:      make(datastructures.HashSet[string]),
 	}
 
-	// workers will be chosen when the job is ready to be executed
 	this.waitQueue = append(this.waitQueue, &job)
 }
 
@@ -95,8 +116,120 @@ func (this *MapleJuiceLeaderService) SubmitJuiceJob(juice_exe string, num_juices
 		delete_input:                   delete_input,
 		numTasksCompleted:              0,
 		juicePartitionScheme:           juicePartitionScheme,
+		sdfsIntermediateFilenames:      make(datastructures.HashSet[string]),
 	}
 	this.waitQueue = append(this.waitQueue, &job)
+}
+
+/*
+Reads the file containing the key value pairs of the task's output from the tcp connection socket 'conn'
+Then of the currently running job, it marks the task with the matching taskIndex as finished.
+If all tasks have finished, it then proceeds to finish the job by processing the recorded
+task output files and then creating a new set of files to be saved in the SDFS file system as
+*/
+func (this *MapleJuiceLeaderService) ReceiveMapleTaskOutput(conn net.Conn, taskIndex int, filesize int64,
+	sdfsService *SDFSNode) {
+	// read the task output file from the network
+	save_filepath := filepath.Join(this.taskOutputDir, fmt.Sprintf(MAPLE_TASK_OUTPUT_FILENAME_FMT, taskIndex))
+	err := tcp_net.ReadFile(save_filepath, conn, filesize)
+	if err != nil {
+		os.Exit(1) // TODO: for now exit, figure out the best course of action later
+	}
+
+	// mark the task as completed now that we got the file
+	this.markTaskAsCompleted(taskIndex)
+	this.currentJob.numTasksCompleted += 1
+	if this.currentJob.jobType == MAPLE_JOB {
+		this.processMapleTaskOutputFile(save_filepath)
+	}
+
+	// if all tasks finished, process the output files and save into SDFS
+	if this.currentJob.numTasksCompleted == this.currentJob.numTasks {
+		this.finishCurrentJob(sdfsService)
+	}
+}
+
+func (this *MapleJuiceLeaderService) finishCurrentJob(sdfsService *SDFSNode) {
+	// write intermediate files to SDFS
+	for sdfsIntermFilepath := range this.currentJob.sdfsIntermediateFilenames {
+		sdfsService.PerformPut(filepath.Join(this.taskOutputDir, sdfsIntermFilepath), sdfsIntermFilepath)
+		// TODO!: need to add a way for me to get notified that the put operation was completed... the acknowledgement i receive must get a callback? maybe a listener? idrk... must figure out
+		// cuz after i know it's done i can delete that file...
+		// if that's too hard, i can just store these files in a separate folder, unique by the job id like "job 0"
+		// and then just have the entire directory deleted after my program is done. cuz space is not really an issue...
+		// or pass in a boolean into PerformPut() to have it block or not until it gets the ACK, and in this case we can block until it gets the ACK...
+	}
+	this.currentJob = nil
+	// TODO: send an ACK back to the client acknowledging that its done?
+
+}
+
+/*
+Opens up task output file, reads line by line. For each key value pair, it writes to the
+correct sdfsIntermediateFile (stored locally for now)
+*/
+func (this *MapleJuiceLeaderService) processMapleTaskOutputFile(task_output_file string) {
+	csvFile, file_err := os.OpenFile(task_output_file, os.O_RDONLY, 0444)
+	if file_err != nil {
+		return
+	}
+	csvReader := csv.NewReader(csvFile)
+
+	for {
+		record, csv_err := csvReader.Read()
+		if csv_err == io.EOF {
+			break
+		} else if csv_err != nil {
+			fmt.Println("Failed to parse CSV file - failed to read line! Exiting...")
+			log.Fatalln(csv_err)
+		}
+		key := record[0]
+		value := strings.TrimSuffix(record[1], "\n")
+
+		// open the soon-to-be sdfs_intermediate file and append to it
+		_sdfsIntermediateFileName := getSdfsIntermediateFilename(this.currentJob.sdfsIntermediateFilenamePrefix, key)
+		fullSdfsIntermediateFilePath := filepath.Join(this.taskOutputDir, _sdfsIntermediateFileName)
+		this.currentJob.sdfsIntermediateFilenames.Add(_sdfsIntermediateFileName)
+
+		// TODO: instead of writing to the file every iteration, you can make this a buffered write to make it faster! future improvement!
+		this.currentJob.sdfsIntermediateFileMutex.Lock()
+		intermediateFile, file2_err := os.OpenFile(fullSdfsIntermediateFilePath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
+		if file2_err != nil {
+			log.Fatalln("Failed to open sdfsIntermediateFileName. Error: ", file2_err)
+		}
+		writer := bufio.NewWriter(intermediateFile)
+		_, interm_write_err := writer.WriteString(key + "," + value + "\n")
+		if interm_write_err != nil {
+			log.Fatalln("Failed to write key value pair to intermediate file. Error: ", interm_write_err)
+		}
+		_ = intermediateFile.Close()
+		this.currentJob.sdfsIntermediateFileMutex.Unlock()
+	}
+
+	_ = csvFile.Close()
+}
+
+// Given the sdfs_intermediate_filename_prefix and the key it will put the 2 together
+func getSdfsIntermediateFilename(prefix string, key string) string {
+	// TODO: implement this to remove unnallowed characters! - do this later!
+	return prefix + "_" + key + ".csv"
+}
+
+/*
+Finds the task with index 'taskIndex' and marks it as completed.
+
+Currently marks it as completed by just removing the taskIndex from the
+map of worker nodes to task indices
+*/
+func (this *MapleJuiceLeaderService) markTaskAsCompleted(taskIndex int) {
+	for workerNodeId, taskIndicesList := range this.currentJob.workerToTaskIndices {
+		for i, currTaskIdx := range taskIndicesList {
+			if currTaskIdx == taskIndex { // found! -- remove this from the list
+				this.currentJob.workerToTaskIndices[workerNodeId] = utils.RemoveIthElementFromSlice(this.currentJob.workerToTaskIndices[workerNodeId], i)
+				return
+			}
+		}
+	}
 }
 
 func (this *MapleJuiceLeaderService) dispatcher() {

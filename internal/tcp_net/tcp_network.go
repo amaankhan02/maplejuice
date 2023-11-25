@@ -158,6 +158,10 @@ func ReadMessageData(reader *bufio.Reader) ([]byte, error) {
 /*
 Reads a file from the TCP connection and writes it to 'filepath'.
 'filesize' represents the amount of data from the connection socket to read
+
+If the save_filepath does not exist, it will create it.
+If the save_filepath does exist, it will truncate the file to be empty and then write
+the contents
 */
 func ReadFile(save_filepath string, conn net.Conn, filesize int64) error {
 	// open the file for writing
