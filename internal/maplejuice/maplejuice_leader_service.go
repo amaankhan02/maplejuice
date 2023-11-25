@@ -9,29 +9,37 @@ import (
 )
 
 type JobTaskStatus string
+type MapleJuiceJobType int
 
 const (
 	NOT_STARTED JobTaskStatus = "NOT STARTED"
 	RUNNING     JobTaskStatus = "RUNNING"
 	FINISHED    JobTaskStatus = "FINISHED"
+
+	MAPLE_JOB MapleJuiceJobType = 0
+	JUICE_JOB MapleJuiceJobType = 1
 )
 
-type MapleTask struct {
-	//status          JobTaskStatus
-	workerId            NodeID // node id of the worker machine
-	taskIndex           int    // 0-indexed - represents which worker this is so we can calculate which portion of the data it is assigned to
-	totalNumTasksForJob int    // represents the total number of workers for this job
-}
+//type MapleTask struct {
+//	//status          JobTaskStatus
+//	workerId            NodeID // node id of the worker machine
+//	taskIndex           int    // 0-indexed - represents which worker this is so we can calculate which portion of the data it is assigned to
+//	totalNumTasksForJob int    // represents the total number of workers for this job
+//}
 
-type MapleJob struct {
-	//tasks                          []MapleTask
-	workerToTasks                  map[NodeID][]MapleTask // records the maple tasks, in a map w/ key = node id that is responsible for that maple task
+type MapleJuiceJob struct {
+	// each worker node id has a list of integers representing the task indices they are assigned.
+	// the task index is a way for the worker to know which part of the input they have to deal with to be able to split
+	jobType                        MapleJuiceJobType
+	workerToTaskIndices            map[NodeID][]int
 	numTasks                       int
 	exeFile                        string
 	sdfsIntermediateFilenamePrefix string
-	sdfsSrcDirectory               string
-	//status                         JobTaskStatus
-	numTasksCompleted int
+	numTasksCompleted              int
+	sdfsSrcDirectory               string             // only for maple job
+	sdfsDestFilename               string             // only for juice job
+	delete_input                   bool               // only for juice job
+	juicePartitionScheme           JuicePartitionType // only for juice job
 }
 
 /*
@@ -45,8 +53,8 @@ type MapleJuiceLeaderService struct {
 	AvailableWorkerNodes []NodeID // leader cannot be a worker node
 	IsRunning            bool
 	logFile              *os.File
-	waitQueue            []*MapleJob
-	currentMapleJob      *MapleJob
+	waitQueue            []*MapleJuiceJob
+	currentJob           *MapleJuiceJob
 }
 
 func (this *MapleJuiceLeaderService) Start() {
@@ -55,13 +63,14 @@ func (this *MapleJuiceLeaderService) Start() {
 }
 
 // Submit a maple job to the wait queue. Dispatcher thread will execute it when its ready
-func (this *MapleJuiceLeaderService) SubmitMapleJob(maple_exe string, num_maples int, sdfs_intermediate_filename_prefix string,
-	sdfs_src_dir string) {
-	job := MapleJob{
-		exeFile:  maple_exe,
-		numTasks: num_maples,
-		//tasks:                          make([]MapleTask, num_maples),
-		workerToTasks:                  make(map[NodeID][]MapleTask),
+func (this *MapleJuiceLeaderService) SubmitMapleJob(maple_exe string, num_maples int,
+	sdfs_intermediate_filename_prefix string, sdfs_src_dir string) {
+
+	job := MapleJuiceJob{
+		jobType:                        MAPLE_JOB,
+		exeFile:                        maple_exe,
+		numTasks:                       num_maples,
+		workerToTaskIndices:            make(map[NodeID][]int),
 		sdfsIntermediateFilenamePrefix: sdfs_intermediate_filename_prefix,
 		sdfsSrcDirectory:               sdfs_src_dir,
 		numTasksCompleted:              0,
@@ -71,45 +80,73 @@ func (this *MapleJuiceLeaderService) SubmitMapleJob(maple_exe string, num_maples
 	this.waitQueue = append(this.waitQueue, &job)
 }
 
+func (this *MapleJuiceLeaderService) SubmitJuiceJob(juice_exe string, num_juices int,
+	sdfs_intermediate_filename_prefix string, sdfs_dest_filename string, delete_input bool,
+	juicePartitionScheme JuicePartitionType) {
+
+	// TODO: add mutex lock
+	job := MapleJuiceJob{
+		jobType:                        JUICE_JOB,
+		workerToTaskIndices:            make(map[NodeID][]int),
+		numTasks:                       num_juices,
+		exeFile:                        juice_exe,
+		sdfsIntermediateFilenamePrefix: sdfs_intermediate_filename_prefix,
+		sdfsDestFilename:               sdfs_dest_filename,
+		delete_input:                   delete_input,
+		numTasksCompleted:              0,
+		juicePartitionScheme:           juicePartitionScheme,
+	}
+	this.waitQueue = append(this.waitQueue, &job)
+}
+
 func (this *MapleJuiceLeaderService) dispatcher() {
 	for this.IsRunning {
-		if this.currentMapleJob == nil && len(this.waitQueue) > 0 {
+		if this.currentJob == nil && len(this.waitQueue) > 0 {
 			// schedule a new one
-			this.currentMapleJob = this.waitQueue[0]
+			this.currentJob = this.waitQueue[0]
 			this.waitQueue = this.waitQueue[1:]
 
-			this.startMapleJob(this.currentMapleJob)
+			this.startJob(this.currentJob)
 		}
 		time.Sleep(this.DispatcherWaitTime)
 	}
 }
 
 /*
-Starts the execution of the current job
+Starts the execution of the current job by distributing the tasks among the worker nodes
+and sending them task requests to have them begin their work
 */
-func (this *MapleJuiceLeaderService) startMapleJob(newJob *MapleJob) {
-	// TODO: we dont even need a MapleTask struct... all we're doing is sending the job info plus the task number...
-	// assign tasks to the worker nodes
-	this.shuffleAvailableWorkerNodes() // shuffle to randomize the selection
-	for i := 0; i < newJob.numTasks; i++ {
+func (this *MapleJuiceLeaderService) startJob(newJob *MapleJuiceJob) {
+	// TODO: add mutex locks
+	this.shuffleAvailableWorkerNodes() // randomize selection of worker nodes each time
+	this.assignTaskIndicesToWorkerNodes(newJob)
+	this.sendTasksToWorkerNodes(newJob)
+}
+
+func (this *MapleJuiceLeaderService) shuffleAvailableWorkerNodes() {
+	// Fisher-Yates shuffle (https://yourbasic.org/golang/shuffle-slice-array/)
+	for i := len(this.AvailableWorkerNodes) - 1; i > 0; i-- {
+		j := rand.Intn(i + 1)
+		this.AvailableWorkerNodes[i], this.AvailableWorkerNodes[j] = this.AvailableWorkerNodes[j], this.AvailableWorkerNodes[i]
+	}
+}
+
+func (this *MapleJuiceLeaderService) assignTaskIndicesToWorkerNodes(job *MapleJuiceJob) {
+	for i := 0; i < job.numTasks; i++ { // i = task index
 		currWorkerIdx := i % len(this.AvailableWorkerNodes)
 		currWorkerNodeId := this.AvailableWorkerNodes[currWorkerIdx]
 
-		tasksList, ok := newJob.workerToTasks[currWorkerNodeId]
+		taskIndicesList, ok := job.workerToTaskIndices[currWorkerNodeId]
 		if !ok { // create the list of tasks if this worker has not been assigned a task yet
-			newJob.workerToTasks[currWorkerNodeId] = make([]MapleTask, 0)
-			tasksList, _ = newJob.workerToTasks[currWorkerNodeId]
+			job.workerToTaskIndices[currWorkerNodeId] = make([]int, 0)
+			taskIndicesList, _ = job.workerToTaskIndices[currWorkerNodeId]
 		}
-		tasksList = append(tasksList,
-			MapleTask{
-				workerId:            currWorkerNodeId,
-				taskIndex:           i,
-				totalNumTasksForJob: newJob.numTasks,
-			})
+		taskIndicesList = append(taskIndicesList, i)
 	}
+}
 
-	// contact worker nodes and send them a task request
-	for workerNodeId, tasksList := range newJob.workerToTasks {
+func (this *MapleJuiceLeaderService) sendTasksToWorkerNodes(job *MapleJuiceJob) {
+	for workerNodeId, taskIndices := range job.workerToTaskIndices {
 		workerConn, conn_err := net.Dial("tcp", workerNodeId.IpAddress+":"+workerNodeId.MapleJuiceServerPort)
 		if conn_err != nil {
 			fmt.Println("*****Failed to connect to worker node!*****")
@@ -118,26 +155,31 @@ func (this *MapleJuiceLeaderService) startMapleJob(newJob *MapleJob) {
 			continue
 		}
 
-		for _, currTask := range tasksList {
-			msg := MapleJuiceNetworkMessage{
-				MsgType:                        MAPLE_TASK_REQUEST,
-				NumTasks:                       newJob.numTasks,
-				ExeFile:                        newJob.exeFile,
-				SdfsIntermediateFilenamePrefix: newJob.sdfsIntermediateFilenamePrefix,
-				SdfsSrcDirectory:               newJob.sdfsSrcDirectory,
-				CurrTaskIdx:                    currTask.taskIndex,
+		for _, taskIndex := range taskIndices {
+			if job.jobType == MAPLE_JOB {
+				SendMapleTaskRequest(
+					workerConn,
+					job.numTasks,
+					job.exeFile,
+					job.sdfsIntermediateFilenamePrefix,
+					job.sdfsSrcDirectory,
+					taskIndex,
+				)
+			} else {
+				SendJuiceTaskRequest(
+					workerConn,
+					job.numTasks,
+					job.exeFile,
+					job.sdfsIntermediateFilenamePrefix,
+					job.sdfsDestFilename,
+					job.delete_input,
+					job.juicePartitionScheme,
+					taskIndex,
+				)
 			}
-			SendMJNetworkMessage(workerConn, &msg)
+
 		}
 
-		workerConn.Close()
-	}
-}
-
-func (this *MapleJuiceLeaderService) shuffleAvailableWorkerNodes() {
-	// Fisher-Yates shuffle (https://yourbasic.org/golang/shuffle-slice-array/)
-	for i := len(this.AvailableWorkerNodes) - 1; i > 0; i-- {
-		j := rand.Intn(i + 1)
-		this.AvailableWorkerNodes[i], this.AvailableWorkerNodes[j] = this.AvailableWorkerNodes[j], this.AvailableWorkerNodes[i]
+		_ = workerConn.Close()
 	}
 }

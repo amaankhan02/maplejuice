@@ -45,6 +45,34 @@ type MapleJuiceNetworkMessage struct {
 	CurrTaskIdx int
 }
 
+func SendMapleTaskRequest(conn net.Conn, numTasks int, exeFile string, sdfsIntermediateFilenamePrefix string,
+	sdfsSrcDirectory string, taskIndex int) {
+	msg := MapleJuiceNetworkMessage{
+		MsgType:                        MAPLE_TASK_REQUEST,
+		NumTasks:                       numTasks,
+		ExeFile:                        exeFile,
+		SdfsIntermediateFilenamePrefix: sdfsIntermediateFilenamePrefix,
+		SdfsSrcDirectory:               sdfsSrcDirectory,
+		CurrTaskIdx:                    taskIndex,
+	}
+	SendMJNetworkMessage(conn, &msg)
+}
+
+func SendJuiceTaskRequest(conn net.Conn, numJuices int, juiceExe string, sdfsIntermediateFilenamePrefix string,
+	sdfsDestFilename string, deleteInput bool, juicePartitionScheme JuicePartitionType, taskIndex int) {
+	msg := MapleJuiceNetworkMessage{
+		MsgType:                        JUICE_TASK_REQUEST,
+		JuicePartitionScheme:           juicePartitionScheme,
+		NumTasks:                       numJuices,
+		ExeFile:                        juiceExe,
+		SdfsIntermediateFilenamePrefix: sdfsIntermediateFilenamePrefix,
+		SdfsDestFilename:               sdfsDestFilename,
+		ShouldDeleteJuiceInput:         deleteInput,
+		CurrTaskIdx:                    taskIndex,
+	}
+	SendMJNetworkMessage(conn, &msg)
+}
+
 func SendMJNetworkMessage(conn net.Conn, msg *MapleJuiceNetworkMessage) {
 	serialized_data, err := utils.SerializeData(*msg)
 	if err != nil {

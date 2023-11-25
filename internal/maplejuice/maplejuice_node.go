@@ -48,9 +48,21 @@ func (this *MapleJuiceNode) HandleTCPServerConnection(conn net.Conn) {
 
 		switch mjNetworkMessage.MsgType {
 		case MAPLE_JOB_REQUEST:
-
+			this.leaderService.SubmitMapleJob(
+				mjNetworkMessage.ExeFile,
+				mjNetworkMessage.NumTasks,
+				mjNetworkMessage.SdfsIntermediateFilenamePrefix,
+				mjNetworkMessage.SdfsSrcDirectory,
+			)
 		case JUICE_JOB_REQUEST:
-			panic("not implemented")
+			this.leaderService.SubmitJuiceJob(
+				mjNetworkMessage.ExeFile,
+				mjNetworkMessage.NumTasks,
+				mjNetworkMessage.SdfsIntermediateFilenamePrefix,
+				mjNetworkMessage.SdfsDestFilename,
+				mjNetworkMessage.ShouldDeleteJuiceInput,
+				mjNetworkMessage.JuicePartitionScheme,
+			)
 		case MAPLE_TASK_RESPONSE:
 			panic("not implemented")
 		case JUICE_TASK_RESPONSE:
