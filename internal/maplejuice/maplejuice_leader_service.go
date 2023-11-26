@@ -140,6 +140,7 @@ func (this *MapleJuiceLeaderService) ReceiveMapleTaskOutput(conn net.Conn, taskI
 	// mark the task as completed now that we got the file
 	this.markTaskAsCompleted(taskIndex)
 	this.currentJob.numTasksCompleted += 1
+	// TODO: do we wanna run this on a separate go routine instead? we can just close the conn object
 	if this.currentJob.jobType == MAPLE_JOB {
 		this.processMapleTaskOutputFile(save_filepath)
 	}
@@ -161,7 +162,8 @@ func (this *MapleJuiceLeaderService) finishCurrentJob(sdfsService *SDFSNode) {
 		// or pass in a boolean into PerformPut() to have it block or not until it gets the ACK, and in this case we can block until it gets the ACK...
 	}
 	this.currentJob = nil
-	// TODO: send an ACK back to the client acknowledging that its done?
+	// TODO: send an *_JOB_RESPONSE back to the client acknowledging that its done?
+	// TODO: should I send it right here? or should I first close this connection with the
 
 }
 

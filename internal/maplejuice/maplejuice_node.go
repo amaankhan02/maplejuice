@@ -85,8 +85,28 @@ func (this *MapleJuiceNode) HandleTCPServerConnection(conn net.Conn) {
 		}
 
 	} else {
+		switch mjNetworkMessage.MsgType {
+		case MAPLE_TASK_REQUEST: // must execute some task and send back to leader
+			// you don't know how long this will take... so run this on a separate go routine and then send back the
+			// data later
+			this.executeMapleTask(
+				mjNetworkMessage.NumTasks,
+				mjNetworkMessage.ExeFile,
+				mjNetworkMessage.SdfsIntermediateFilenamePrefix,
+				mjNetworkMessage.SdfsSrcDirectory,
+				mjNetworkMessage.CurrTaskIdx,
+			)
+		case JUICE_TASK_REQUEST: // must execute some task and send back to leader
+			panic("not implemented")
+		case MAPLE_JOB_RESPONSE: // acknowledging the job is done
+			panic("not implemented")
+		case JUICE_JOB_RESPONSE: // acknowledging the job is done
+			panic("not implemented")
 
+		}
 	}
+
+	_ = conn.Close()
 }
 
 func (this *MapleJuiceNode) Start() {
@@ -151,4 +171,28 @@ func (this *MapleJuiceNode) PerformJuice(juice_exe string, num_juices int, sdfs_
 func (this *MapleJuiceNode) logBoth(msg string) {
 	LogMessageln(os.Stdout, msg)
 	LogMessageln(this.logFile, msg)
+}
+
+/*
+Ideally this should run on a separate go routine because this may take some time to run...
+
+# Executes the maple task assigned to this worker node
+
+Every file int he sdfsSrcDirectory gets split up by the number of mapper tasks, and the current task id
+is used to determine split we are assigned to run for this file. We repeat this on every file.
+and we run the exe file on 20 lines at a time.
+
+TODO:
+  - Ideally, we should sort the outputs based on the key, and store it in separate files here, and then send
+    multiple files. in the MJNetworkMessage struct I can attach like the number of files its sending and the key
+    that they file belongs to as parallel lists. and then on the leader side we can just merge the sorted
+    stuff together so that its faster. and that way we won't have to read everything into memory either
+    cuz we can just do one line at a time.
+*/
+func (this *MapleJuiceNode) executeMapleTask(numTasks int, exeFile string, sdfsIntermediateFilenamePrefix string, sdfsSrcDirectory string, taskIndex int) {
+	// load the input data and find our portion of the data
+
+	// run the maple_exe's on all of them (sequentially or in parallel) & save them to one file
+
+	// send the task response back with the file data
 }
