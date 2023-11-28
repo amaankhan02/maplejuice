@@ -191,6 +191,9 @@ TODO:
 */
 func (this *MapleJuiceNode) executeMapleTask(numTasks int, exeFile string, sdfsIntermediateFilenamePrefix string, sdfsSrcDirectory string, taskIndex int) {
 	// load the input data and find our portion of the data
+	//dataset_files := this.sdfsNode.PerformPrefixMatch(sdfsSrcDirectory + ".")
+	//local_dataset_files :=
+	//this.sdfsNode.PerformBlockedGets(dataset_files, )
 	/*
 		sdfs.PerfomGet(sdfs_directory, sdfs_filename, localfilepath)
 		sdfs.PerformPut(sdfs_directory, sdfs_filename, localfilepath)
