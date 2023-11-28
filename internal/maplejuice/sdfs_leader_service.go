@@ -8,6 +8,7 @@ import (
 	"math/rand"
 	"net"
 	"os"
+	"strings"
 	"sync"
 	"time"
 )
@@ -485,6 +486,21 @@ func (this *SDFSLeaderService) LsOperation(sdfs_filename string) []NodeID {
 	this.MutexLock.Lock()
 	defer this.MutexLock.Unlock()
 	return this.getNodesStoringFile(sdfs_filename)
+}
+
+func (this *SDFSLeaderService) PrefixMatchOperation(prefix string) []string {
+	this.MutexLock.Lock()
+	defer this.MutexLock.Unlock()
+
+	matchingFilenames := make([]string, 0)
+
+	for filename := range this.FileToNodes { // iterate through all files in the distributed file system
+		if strings.HasPrefix(filename, prefix) {
+			matchingFilenames = append(matchingFilenames, filename)
+		}
+	}
+
+	return matchingFilenames
 }
 
 //func (this *SDFSLeaderService) AddFileToSDFS(sdfs_filename string, filesize int64) {
