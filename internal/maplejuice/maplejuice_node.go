@@ -27,7 +27,7 @@ func NewMapleJuiceNode(thisId NodeID, leaderId NodeID, loggingFile *os.File) *Ma
 	mj.tcpServer = tcp_net.NewTCPServer(thisId.MapleJuiceServerPort, mj)
 	if mj.isLeader {
 		fmt.Println("Initialized MapleJuiceLeaderService")
-		mj.leaderService = NewMJLeaderService()
+		//mj.leaderService = NewMJLeaderService()
 	} else {
 		fmt.Println("Initialized MapleJuiceLeaderService to be NULL")
 		mj.leaderService = nil
