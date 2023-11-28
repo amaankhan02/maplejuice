@@ -562,6 +562,9 @@ func (this *SDFSNode) PerformBlockedGets(sdfs_filenames []string, local_filename
 
 	for i := 0; i < len(sdfs_filenames); i++ {
 		wg.Add(1)
+
+		// TODO: ideally the key should be the ID of the GET so that its gauranteed to be unique. change this later in future
+		// right now its just the sdfs_filename + local_filename
 		this.blockedClientGets[sdfs_filenames[i]+local_filenames[i]] = &wg
 		this.PerformGet(sdfs_filenames[i], local_filenames[i])
 	}

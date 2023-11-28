@@ -4,8 +4,10 @@ import (
 	"bufio"
 	"cs425_mp4/internal/tcp_net"
 	"fmt"
+	"log"
 	"net"
 	"os"
+	"path/filepath"
 )
 
 type MapleJuiceNode struct {
@@ -16,6 +18,8 @@ type MapleJuiceNode struct {
 	tcpServer     *tcp_net.TCPServer
 	logFile       *os.File
 	sdfsNode      *SDFSNode
+	workerTmpDir  string
+	leaderTmpDir  string
 }
 
 /*
@@ -26,7 +30,7 @@ Parameters:
 	loggingFile:
 	tmp_dir_name: name of the directory that this node should be saving files to
 */
-func NewMapleJuiceNode(thisId NodeID, leaderId NodeID, loggingFile *os.File, task_output_dir string, sdfsNode *SDFSNode) *MapleJuiceNode {
+func NewMapleJuiceNode(thisId NodeID, leaderId NodeID, loggingFile *os.File, sdfsNode *SDFSNode) *MapleJuiceNode {
 	mj := &MapleJuiceNode{
 		id:       thisId,
 		leaderID: leaderId,
@@ -191,26 +195,39 @@ TODO:
 */
 func (this *MapleJuiceNode) executeMapleTask(numTasks int, exeFile string, sdfsIntermediateFilenamePrefix string, sdfsSrcDirectory string, taskIndex int) {
 	// load the input data and find our portion of the data
-	//dataset_files := this.sdfsNode.PerformPrefixMatch(sdfsSrcDirectory + ".")
-	//local_dataset_files :=
-	//this.sdfsNode.PerformBlockedGets(dataset_files, )
-	/*
-		sdfs.PerfomGet(sdfs_directory, sdfs_filename, localfilepath)
-		sdfs.PerformPut(sdfs_directory, sdfs_filename, localfilepath)
+	sdfs_dataset_filenames := this.sdfsNode.PerformPrefixMatch(sdfsSrcDirectory + ".")
+	local_dataset_filenames := make([]string, 0)
+	for _, sdfs_dataset_filename := range sdfs_dataset_filenames {
+		local_dataset_filenames = append(local_dataset_filenames, filepath.Join(this.workerTmpDir, "local-" + sdfs_dataset_filename))
+	}
 
-		leader (PUT)
-			if directory == "":
-				then store as sdfs_filename
-			else:
-				store as "sdfs_directory.sdfs_filename" (i.e., delimit w/ a period)
-		leader (GET):
-			if directory == "":
-				store as sdfs_filename
-			else:
-				store as "sdfs_directory.sdfs_filename" (i.e, delimit w/ a period)
-	*/
+	err := this.sdfsNode.PerformBlockedGets(sdfs_dataset_filenames, local_dataset_filenames)
+	if err != nil {
+		log.Fatalln("Error! Could not do PerformBlockedGets(): ", err)
+	}
+
 
 	// run the maple_exe's on all of them (sequentially or in parallel) & save them to one file
+	/*
+	Create an output file to save the key-value pairs to
+	For every file,
+		* count number of lines
+		* based on this taskIndex, go to the line count that is assigned to this task
+		* loop through the start and end of the task portion
+			* read 100 lines, pipe into stdin for maple_exe
+			* run maple_exe
+			* pipe stdout out
+			* loop through the stdout line by line and save it to the file
+	 */
+
+	kv_pairs_filename := filepath.Join(this.workerTmpDir, fmt.Sprintf("%s-task-%d", sdfsIntermediateFilenamePrefix, taskIndex)
+	output_kv_tmp_file, open_file_err := os.OpenFile(kv_pairs_filename, os.O_CREATE | os.O_RDWR, 0644)
+	if open_file_err != nil {
+		log.Fatalln("Failed to open temporary file for storing outputs of KV pairs for this worker task")
+	}
+
+
+
 
 	// send the task response back with the file data
 }
