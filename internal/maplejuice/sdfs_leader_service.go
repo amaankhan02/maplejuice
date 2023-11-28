@@ -90,7 +90,7 @@ type SDFSLeaderService struct {
 	FileToNodes map[string]map[int][]NodeID // TODO: you can move this into FileOperationMetadata structure, no need to keep it separate
 
 	// maps sdfs_filename to a FileOperationMetadata struct which holds information about the current write/read
-	// operations occurring on the current maplejuice file. This is used by the leader to schedule tasks,
+	// operations occurring on the current sdfs file. This is used by the leader to schedule tasks,
 	FileOperations     map[string]*FileOperationsMetadata
 	ActiveNodes        []NodeID // list of alive nodes in the distributed file system
 	IsRunning          bool

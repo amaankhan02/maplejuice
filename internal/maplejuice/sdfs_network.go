@@ -55,11 +55,13 @@ const (
 	PUT_DATA_REQUEST    byte = 0x9
 	DELETE_DATA_REQUEST byte = 0xA
 
-	LS_REQUEST           byte = 0xB
-	LS_RESPONSE          byte = 0xC
-	MULTIREAD_REQUEST    byte = 0xD // sent to start multi-read
-	REREPLICATE_REQUEST  byte = 0xE
-	REREPLICATE_RESPONSE byte = 0x11
+	LS_REQUEST            byte = 0xB
+	LS_RESPONSE           byte = 0xC
+	MULTIREAD_REQUEST     byte = 0xD // sent to start multi-read
+	REREPLICATE_REQUEST   byte = 0xE
+	REREPLICATE_RESPONSE  byte = 0x11
+	PREFIX_MATCH_REQUEST  byte = 0x12
+	PREFIX_MATCH_RESPONSE byte = 0x13
 
 	ACK_RESPONSE byte = 0xFF
 )
@@ -89,6 +91,15 @@ type LsRequest struct {
 type LsResponse struct {
 	SdfsFilename string
 	Replicas     []NodeID
+}
+
+// --------------------------- PREFIX MATCH STRUCTS ----------------------------------------
+type PrefixMatchRequest struct {
+	SdfsFilenamePrefix string
+}
+
+type PrefixMatchResponse struct {
+	SdfsFilenames []string // strinsg with the matching prefix
 }
 
 // --------------------------- PUT STRUCTS ----------------------------------------
@@ -384,6 +395,94 @@ func ReceiveLsResponse(reader *bufio.Reader, shouldReadMessageType bool) *LsResp
 	info_struct, err := DeserializeLsResponse(info)
 	if err != nil {
 		log.Fatal("Error in Deserializing Data. Could not complete Receive Ls Response")
+	}
+
+	return info_struct
+}
+
+// --------------------------------------------- PREFIX MATCH ROUTING -------------------------------------------------
+
+func SendPrefixMatchRequest(conn net.Conn, prefix string) {
+	info := PrefixMatchRequest{SdfsFilenamePrefix: prefix}
+
+	serialized_data, err := utils.SerializeData(info)
+	if err != nil {
+		fmt.Println("Error Serializing Data. Could not complete Send LS Request")
+		return
+	}
+	err_send := tcp_net.SendMessageType(PREFIX_MATCH_REQUEST, conn)
+	if err_send != nil {
+		log.Fatalln(err_send)
+	}
+	err_send2 := tcp_net.SendMessageData(serialized_data, conn)
+	if err_send2 != nil {
+		log.Fatalln(err_send2)
+	}
+}
+
+func ReceivePrefixMatchRequest(reader *bufio.Reader, shouldReadMessageType bool) *PrefixMatchRequest {
+	if shouldReadMessageType {
+		msgType, err := tcp_net.ReadMessageType(reader)
+		if err != nil {
+			log.Fatalln("(ReceivePrefixMatchRequest()): Failed to read message type")
+		}
+		if msgType != PREFIX_MATCH_REQUEST {
+			log.Fatalln("msgType != PREFIX_MATCH_REQUEST!")
+		}
+	}
+
+	info, err1 := tcp_net.ReadMessageData(reader)
+	if err1 != nil {
+		log.Fatalln("Error reading message data for PREFIX_MATCH_REQUEST - ", err1)
+	}
+
+	info_struct, err := DeserializePrefixMatchRequest(info)
+	if err != nil {
+		log.Fatal("Error in Deserializing Data. Could not complete Receive PREFIX_MATCH_REQUEST")
+	}
+
+	return info_struct
+}
+
+func SendPrefixMatchResponse(conn net.Conn, filenames []string) {
+	info := PrefixMatchResponse{
+		SdfsFilenames: filenames,
+	}
+
+	serialized_data, err := utils.SerializeData(info)
+	if err != nil {
+		fmt.Println("Error Serializing Data. Could not complete")
+		return
+	}
+	err_send := tcp_net.SendMessageType(PREFIX_MATCH_RESPONSE, conn)
+	if err_send != nil {
+		log.Fatalln(err_send)
+	}
+	err_send2 := tcp_net.SendMessageData(serialized_data, conn)
+	if err_send2 != nil {
+		log.Fatalln(err_send2)
+	}
+}
+
+func ReceivePrefixMatchResponse(reader *bufio.Reader, shouldReadMessageType bool) *PrefixMatchResponse {
+	if shouldReadMessageType {
+		msgType, err := tcp_net.ReadMessageType(reader)
+		if err != nil {
+			log.Fatalln("(ReceivePrefixMatchResponse()): Failed to read message type")
+		}
+		if msgType != PREFIX_MATCH_RESPONSE {
+			log.Fatalln("msgType != PREFIX_MATCH_RESPONSE!")
+		}
+	}
+
+	info, err1 := tcp_net.ReadMessageData(reader)
+	if err1 != nil {
+		log.Fatalln("Error reading message data for PrefixMatchResponse - ", err1)
+	}
+
+	info_struct, err := DeserializePrefixMatchResponse(info)
+	if err != nil {
+		log.Fatal("Error in Deserializing Data. Could not complete Receive PrefixMatchResponse")
 	}
 
 	return info_struct
@@ -1022,6 +1121,32 @@ func DeserializeLsRequest(byteToDeserialize []byte) (*LsRequest, error) {
 
 func DeserializeLsResponse(byteToDeserialize []byte) (*LsResponse, error) {
 	deserialized_struct := new(LsResponse)
+	byteBuffer := bytes.NewBuffer(byteToDeserialize)
+	decoder := gob.NewDecoder(byteBuffer)
+
+	err := decoder.Decode(deserialized_struct)
+	if err != nil {
+		return nil, err
+	}
+
+	return deserialized_struct, nil
+}
+
+func DeserializePrefixMatchRequest(byteToDeserialize []byte) (*PrefixMatchRequest, error) {
+	deserialized_struct := new(PrefixMatchRequest)
+	byteBuffer := bytes.NewBuffer(byteToDeserialize)
+	decoder := gob.NewDecoder(byteBuffer)
+
+	err := decoder.Decode(deserialized_struct)
+	if err != nil {
+		return nil, err
+	}
+
+	return deserialized_struct, nil
+}
+
+func DeserializePrefixMatchResponse(byteToDeserialize []byte) (*PrefixMatchResponse, error) {
+	deserialized_struct := new(PrefixMatchResponse)
 	byteBuffer := bytes.NewBuffer(byteToDeserialize)
 	decoder := gob.NewDecoder(byteBuffer)
 

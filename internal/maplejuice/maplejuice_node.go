@@ -191,6 +191,21 @@ TODO:
 */
 func (this *MapleJuiceNode) executeMapleTask(numTasks int, exeFile string, sdfsIntermediateFilenamePrefix string, sdfsSrcDirectory string, taskIndex int) {
 	// load the input data and find our portion of the data
+	/*
+		sdfs.PerfomGet(sdfs_directory, sdfs_filename, localfilepath)
+		sdfs.PerformPut(sdfs_directory, sdfs_filename, localfilepath)
+
+		leader (PUT)
+			if directory == "":
+				then store as sdfs_filename
+			else:
+				store as "sdfs_directory.sdfs_filename" (i.e., delimit w/ a period)
+		leader (GET):
+			if directory == "":
+				store as sdfs_filename
+			else:
+				store as "sdfs_directory.sdfs_filename" (i.e, delimit w/ a period)
+	*/
 
 	// run the maple_exe's on all of them (sequentially or in parallel) & save them to one file
 

@@ -558,6 +558,7 @@ func (this *SDFSNode) PerformPut(localfilename string, sdfsfilename string) {
 	defer leaderConn.Close()
 
 	file_size := utils.GetFileSize(localfilename)
+
 	SendPutInfoRequest(leaderConn, sdfsfilename, localfilename, file_size, this.id)
 }
 
@@ -600,6 +601,19 @@ func (this *SDFSNode) PerformLs(sdfs_file_name string) {
 	lsResp := ReceiveLsResponse(reader, true)
 	//logMessageHelper(this.logFile, "Received LS RESPONSE")
 	this.printLsResponse(lsResp)
+}
+
+/*
+Requests the leader to return all filenames that match a certain prefix in the sdfs_filename
+*/
+func (this *SDFSNode) PerformPrefixMatch(sdfs_filename_prefix string) {
+	leaderConn, err1 := net.Dial("tcp", this.leaderID.IpAddress+":"+this.leaderID.SDFSServerPort)
+	if err1 != nil {
+		fmt.Println("Failed to Dial to leader server. Error: ", err1)
+		return
+	}
+	defer leaderConn.Close()
+	reader := bufio.NewReader(leaderConn)
 }
 
 /*
