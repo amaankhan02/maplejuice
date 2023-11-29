@@ -1,0 +1,8 @@
+id firstname lastname age
+1234 Samaah Khan 22
+5678 Amaan Khan 21
+9101 Man Kumar 21
+2131 John Doe 8
+4151 Jane Doe 40
+6171 Ken Klee 90
+

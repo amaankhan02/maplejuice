@@ -38,7 +38,7 @@ func MapleWordCount(scanner *bufio.Scanner, num_lines int) map[string]int {
 }
 
 // get the number of lines
-func get_args() int {
+func getArgs() int {
 	// get the command line arg which tells you the number of lines
 	num_lines_string := os.Args[1]
 	num_lines, _ := strconv.Atoi(num_lines_string) // Convert the argument to an integer
@@ -53,8 +53,8 @@ func PrintKeyValuePairs(kv_pairs map[string]int) {
 }
 
 // actual executable
-func main() {
-	num_lines := get_args()
+func MainMapleWordCount() {
+	num_lines := getArgs()
 	word_to_word_count := MapleWordCount(bufio.NewScanner(os.Stdin), num_lines)
 	PrintKeyValuePairs(word_to_word_count)
 }
