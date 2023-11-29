@@ -93,13 +93,13 @@ func NewMapleJuiceLeaderService() *MapleJuiceLeaderService {
 	panic("implement me")
 }
 
-func (this *MapleJuiceLeaderService) Start() {
+func (leader *MapleJuiceLeaderService) Start() {
 	// todo implement
 	panic("implement me")
 }
 
 // Submit a maple job to the wait queue. Dispatcher thread will execute it when its ready
-func (this *MapleJuiceLeaderService) SubmitMapleJob(maple_exe MapleJuiceExeFile, num_maples int,
+func (leader *MapleJuiceLeaderService) SubmitMapleJob(maple_exe MapleJuiceExeFile, num_maples int,
 	sdfs_intermediate_filename_prefix string, sdfs_src_dir string) {
 
 	job := MapleJuiceJob{
@@ -113,10 +113,10 @@ func (this *MapleJuiceLeaderService) SubmitMapleJob(maple_exe MapleJuiceExeFile,
 		sdfsIntermediateFilenames:      make(datastructures.HashSet[string]),
 	}
 
-	this.waitQueue = append(this.waitQueue, &job)
+	leader.waitQueue = append(leader.waitQueue, &job)
 }
 
-func (this *MapleJuiceLeaderService) SubmitJuiceJob(juice_exe MapleJuiceExeFile, num_juices int,
+func (leader *MapleJuiceLeaderService) SubmitJuiceJob(juice_exe MapleJuiceExeFile, num_juices int,
 	sdfs_intermediate_filename_prefix string, sdfs_dest_filename string, delete_input bool,
 	juicePartitionScheme JuicePartitionType) {
 
@@ -133,7 +133,7 @@ func (this *MapleJuiceLeaderService) SubmitJuiceJob(juice_exe MapleJuiceExeFile,
 		juicePartitionScheme:           juicePartitionScheme,
 		sdfsIntermediateFilenames:      make(datastructures.HashSet[string]),
 	}
-	this.waitQueue = append(this.waitQueue, &job)
+	leader.waitQueue = append(leader.waitQueue, &job)
 }
 
 /*
@@ -142,41 +142,41 @@ Then of the currently running job, it marks the task with the matching taskIndex
 If all tasks have finished, it then proceeds to finish the job by processing the recorded
 task output files and then creating a new set of files to be saved in the SDFS file system as
 */
-func (this *MapleJuiceLeaderService) ReceiveMapleTaskOutput(conn net.Conn, taskIndex int, filesize int64,
+func (leader *MapleJuiceLeaderService) ReceiveMapleTaskOutput(conn net.Conn, taskIndex int, filesize int64,
 	sdfsService *SDFSNode) {
 
 	// read the task output file from the network
-	save_filepath := filepath.Join(this.leaderTempDir, fmt.Sprintf(MAPLE_TASK_OUTPUT_FILENAME_FMT, taskIndex))
+	save_filepath := filepath.Join(leader.leaderTempDir, fmt.Sprintf(MAPLE_TASK_OUTPUT_FILENAME_FMT, taskIndex))
 	err := tcp_net.ReadFile(save_filepath, conn, filesize)
 	if err != nil {
 		os.Exit(1) // TODO: for now exit, figure out the best course of action later
 	}
 
 	// mark the task as completed now that we got the file
-	this.markTaskAsCompleted(taskIndex)
-	this.currentJob.numTasksCompleted += 1
+	leader.markTaskAsCompleted(taskIndex)
+	leader.currentJob.numTasksCompleted += 1
 	// TODO: do we wanna run this on a separate go routine instead? we can just close the conn object
-	if this.currentJob.jobType == MAPLE_JOB {
-		this.processMapleTaskOutputFile(save_filepath)
+	if leader.currentJob.jobType == MAPLE_JOB {
+		leader.processMapleTaskOutputFile(save_filepath)
 	}
 
 	// if all tasks finished, process the output files and save into SDFS
-	if this.currentJob.numTasksCompleted == this.currentJob.numTasks {
-		this.finishCurrentJob(sdfsService)
+	if leader.currentJob.numTasksCompleted == leader.currentJob.numTasks {
+		leader.finishCurrentJob(sdfsService)
 	}
 }
 
-func (this *MapleJuiceLeaderService) finishCurrentJob(sdfsService *SDFSNode) {
+func (leader *MapleJuiceLeaderService) finishCurrentJob(sdfsService *SDFSNode) {
 	// write intermediate files to SDFS
-	for sdfsIntermFilepath := range this.currentJob.sdfsIntermediateFilenames {
-		sdfsService.PerformPut(filepath.Join(this.leaderTempDir, sdfsIntermFilepath), sdfsIntermFilepath)
+	for sdfsIntermFilepath := range leader.currentJob.sdfsIntermediateFilenames {
+		sdfsService.PerformPut(filepath.Join(leader.leaderTempDir, sdfsIntermFilepath), sdfsIntermFilepath)
 		// TODO!: need to add a way for me to get notified that the put operation was completed... the acknowledgement i receive must get a callback? maybe a listener? idrk... must figure out
 		// cuz after i know it's done i can delete interm local files...
 		// if that's too hard, i can just store these files in a separate folder, unique by the job id like "job 0"
 		// and then just have the entire directory deleted after my program is done. cuz space is not really an issue...
 		// or pass in a boolean into PerformPut() to have it block or not until it gets the ACK, and in this case we can block until it gets the ACK...
 	}
-	this.currentJob = nil
+	leader.currentJob = nil
 	// TODO: send an *_JOB_RESPONSE back to the client acknowledging that its done?
 	// TODO: should I send it right here? or should I first close this connection with the
 

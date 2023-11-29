@@ -23,8 +23,7 @@ type MapleJuiceNode struct {
 	tcpServer     *tcp_net.TCPServer
 	logFile       *os.File
 	sdfsNode      *SDFSNode
-	workerTmpDir  string
-	leaderTmpDir  string
+	nodeTmpDir  string				// temporary directory used by this node to store temporary files for maple/juice tasks & leader service
 
 	localWorkerTaskID int // just used internally by the worker to keep track of task number to create unique directories
 }
@@ -282,7 +281,7 @@ Creates temporary directory and files for a maple task inside the directory give
 	|- maple_task_output_file				(CREATED HERE)
 */
 func (mjn *MapleJuiceNode) createTempDirsAndFilesForMapleTask(taskIndex int, sdfsIntermediateFilenamePrefix string) (string, string, *os.File) {
-	task_dirpath := filepath.Join(mjn.workerTmpDir, fmt.Sprintf(MAPLE_TASK_DIR_NAME_FMT, mjn.localWorkerTaskID, taskIndex, sdfsIntermediateFilenamePrefix))
+	task_dirpath := filepath.Join(mjn.nodeTmpDir, fmt.Sprintf(MAPLE_TASK_DIR_NAME_FMT, mjn.localWorkerTaskID, taskIndex, sdfsIntermediateFilenamePrefix))
 	dataset_dirpath := filepath.Join(task_dirpath, MAPLE_TASK_DATASET_DIR_NAME)
 	output_kv_filepath := filepath.Join(task_dirpath, MAPLE_TASK_OUTPUT_FILENAME)
 
