@@ -107,7 +107,7 @@ func (this *MapleJuiceNode) HandleTCPServerConnection(conn net.Conn) {
 		case MAPLE_TASK_REQUEST: // must execute some task and send back to leader
 			// you don't know how long this will take... so run this on a separate go routine and then send back the
 			// data later
-			_ := conn.Close() // close leader connection becaus executeMapleTask() will later dial the leader
+			_ = conn.Close() // close leader connection becaus executeMapleTask() will later dial the leader
 			alreadyClosedLeaderConn = true
 
 			this.executeMapleTask(
@@ -118,7 +118,7 @@ func (this *MapleJuiceNode) HandleTCPServerConnection(conn net.Conn) {
 				mjNetworkMessage.CurrTaskIdx,
 			)
 		case JUICE_TASK_REQUEST: // must execute some task and send back to leader
-			_ := conn.Close() // close leader connection becaus executeMapleTask() will later dial the leader
+			_ = conn.Close() // close leader connection becaus executeMapleTask() will later dial the leader
 			alreadyClosedLeaderConn = true
 
 			panic("not implemented")
@@ -256,12 +256,17 @@ func (this *MapleJuiceNode) executeMapleTask(
 
 		_ = inputFile.Close()
 	}
+	_ = maple_task_output_file.Close()		// close file since we are done writing to it.
 
 	// send the task response back with the file data
 	leaderConn, conn_err := net.Dial("tcp", this.leaderID.IpAddress+":"+this.leaderID.MapleJuiceServerPort)
+	if conn_err != nil {
+		log.Fatalln("Failed to dial to leader server. Error: ", conn_err)
+	}
+	SendMapleTaskResponse(leaderConn, taskIndex, maple_task_output_file.Name())
+	
 
 	// close and delete the temporary files & dirs
-	_ = maple_task_output_file.Close()
 	if delete_tmp_dir_err := utils.DeleteDirAndAllContents(maple_task_dirpath); delete_tmp_dir_err != nil {
 		log.Fatalln("Failed to delete maple_task_dirpath and all its contents. Error: ", delete_tmp_dir_err)
 	}
@@ -276,8 +281,8 @@ Creates temporary directory and files for a maple task inside the directory give
 		|- dataset files pulled from sdfs 	(NOT CREATED HERE)
 	|- maple_task_output_file				(CREATED HERE)
 */
-func (this *MapleJuiceNode) createTempDirsAndFilesForMapleTask(taskIndex int, sdfsIntermediateFilenamePrefix string) (string, string, *os.File) {
-	task_dirpath := filepath.Join(this.workerTmpDir, fmt.Sprintf(MAPLE_TASK_DIR_NAME_FMT, this.localWorkerTaskID, taskIndex, sdfsIntermediateFilenamePrefix))
+func (mjn *MapleJuiceNode) createTempDirsAndFilesForMapleTask(taskIndex int, sdfsIntermediateFilenamePrefix string) (string, string, *os.File) {
+	task_dirpath := filepath.Join(mjn.workerTmpDir, fmt.Sprintf(MAPLE_TASK_DIR_NAME_FMT, mjn.localWorkerTaskID, taskIndex, sdfsIntermediateFilenamePrefix))
 	dataset_dirpath := filepath.Join(task_dirpath, MAPLE_TASK_DATASET_DIR_NAME)
 	output_kv_filepath := filepath.Join(task_dirpath, MAPLE_TASK_OUTPUT_FILENAME)
 
@@ -293,8 +298,6 @@ func (this *MapleJuiceNode) createTempDirsAndFilesForMapleTask(taskIndex int, sd
 }
 
 /*
-	calculateStartAndEndLinesForTask
-
 Helper function used to determine the start and end lines that the current maple task
 should operate on. Given the entire file, we need to know which portion that this task
 is assigned to. This function figures that out.

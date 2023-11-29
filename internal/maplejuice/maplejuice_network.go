@@ -82,6 +82,7 @@ func SendMapleTaskResponse(conn net.Conn, taskIndex int, taskOutputFilepath stri
 		CurrTaskIdx:        taskIndex,
 		TaskOutputFileSize: fileSize,
 	}
+		
 	SendMapleJuiceNetworkMessage(conn, &msg)
 
 	send_file_err := tcp_net.SendFile(taskOutputFilepath, conn, fileSize)
