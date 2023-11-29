@@ -2,14 +2,17 @@ package maplejuice
 
 import (
 	"bufio"
+	"cs425_mp4/internal/config"
 	"cs425_mp4/internal/tcp_net"
 	"cs425_mp4/internal/utils"
 	"fmt"
+	"io"
 	"log"
 	"net"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 )
 
 type MapleJuiceNode struct {
@@ -25,6 +28,10 @@ type MapleJuiceNode struct {
 
 	localWorkerTaskID int // just used internally by the worker to keep track of task number to create unique directories
 }
+
+const MAPLE_TASK_DIR_NAME_FMT = "maple-%d-%d-%s"
+const MAPLE_TASK_DATASET_DIR_NAME = "dataset"
+const MAPLE_TASK_OUTPUT_FILENAME = "maple_task_output.csv"
 
 /*
 Parameters:
@@ -200,7 +207,8 @@ TODO:
 func (this *MapleJuiceNode) executeMapleTask(
 	numTasks int,
 	exeFile string,
-	exeFileArgs []string, // TODO: add compatibility to send this information from the client to leader to worker
+	exeColumnSchema string, // TODO: wrap these 3 exe parameters into a struct - this is an optional
+	exeAdditionalInfo string, // TODO: add compatibility to send this information from the client to leader to worker
 	sdfsIntermediateFilenamePrefix string,
 	sdfsSrcDirectory string,
 	taskIndex int,
@@ -211,53 +219,24 @@ func (this *MapleJuiceNode) executeMapleTask(
 
 	// TODO: delete these directories later - do a defer
 	// create a temporary directory to store temporary files that this maple task needs to use
-	// TODO: change this into a modular function - and test it
-	tmp_task_dirname := filepath.Join(this.workerTmpDir, fmt.Sprintf("maple-%d-%d-%s", this.localWorkerTaskID, taskIndex, sdfsIntermediateFilenamePrefix))
-	dataset_dir := filepath.Join(tmp_task_dirname, "dataset")
-	output_kv_dir := filepath.Join(tmp_task_dirname, "output_kvs") // TODO: make these strings constants later
-	dataset_dir_creation_err := os.MkdirAll(dataset_dir, 0744)
-	if dataset_dir_creation_err != nil {
-		log.Fatalln("Failed to create temporary dataset directory for maple task. Error: ", dataset_dir_creation_err)
-	}
-	output_dir_err := os.MkdirAll(output_kv_dir, 0744)
-	if output_dir_err != nil {
-		log.Fatalln("Failed to create temporary output directory for maple task. Error: ", dataset_dir_creation_err)
-	}
+	maple_task_dirname, dataset_dirname, maple_task_output_file := this.createTempDirsAndFilesForMapleTask(taskIndex, sdfsIntermediateFilenamePrefix)
 
 	// get the dataset filenames & create corresponding local filenames to save it to
 	sdfs_dataset_filenames := this.sdfsNode.PerformPrefixMatch(sdfsSrcDirectory + ".")
 	local_dataset_filenames := make([]string, 0)
 	for _, sdfs_dataset_filename := range sdfs_dataset_filenames {
 		// TODO: make this a function or a constant formatter string above
-		new_local_filename := filepath.Join(dataset_dir, "local-"+sdfs_dataset_filename)
+		new_local_filename := filepath.Join(dataset_dirname, "local-"+sdfs_dataset_filename)
 		local_dataset_filenames = append(local_dataset_filenames, new_local_filename)
 	}
 
 	// retrieve the dataset files from distributed file system
-	err := this.sdfsNode.PerformBlockedGets(sdfs_dataset_filenames, local_dataset_filenames)
-	if err != nil {
-		log.Fatalln("Error! Could not do PerformBlockedGets(): ", err)
+	if get_err := this.sdfsNode.PerformBlockedGets(sdfs_dataset_filenames, local_dataset_filenames); get_err != nil {
+		log.Fatalln("Error! Could not do PerformBlockedGets(): ", get_err)
 	}
 
-	// run the maple_exe's on all of them (sequentially or in parallel) & save them to one file
-	/*
-		Create an output file to save the key-value pairs to
-		For every file,
-			* count number of lines
-			* based on this taskIndex, go to the line count that is assigned to this task
-			* loop through the start and end of the task portion
-				* read 100 lines, pipe into stdin for maple_exe
-				* run maple_exe
-				* pipe stdout out
-				* loop through the stdout line by line and save it to the file
-
-			* save it on separate files here based on keys...
-
-			**NOTE: make this whole thing a separate function - and run test cases on it to ensure it works before sending it across...
-	*/
-
-	// inside tmp_kvpair_dir, we want to create a new file per key and store it in there, the name will be
-	// sdfsIntermediate_filename_prefix_K where K is the key,
+	// for each dataset file, find the portion this task runs on, execute maple exe on it for how many
+	// ever times it needs to finish the entire portion, and output the outputs for maple exe to output_kv_file
 	for _, local_dataset_filename := range local_dataset_filenames {
 		inputFile, open_input_err := os.OpenFile(local_dataset_filename, os.O_RDONLY, 0744)
 		if open_input_err != nil {
@@ -265,42 +244,166 @@ func (this *MapleJuiceNode) executeMapleTask(
 		}
 
 		totalLines := utils.CountNumLinesInFile(inputFile)
+		startLine, endLine := this.calculateStartAndEndLinesForTask(totalLines, numTasks, taskIndex)
+		utils.MoveFilePointerToLineNumber(inputFile, startLine)
+		var numLinesForExe int64
 
-		// calculate the start and end lines this task should handle
-		linesPerTask := totalLines / int64(numTasks)
-		remainder := totalLines % int64(numTasks)
-		var numLinesToHandle int64
-
-		if taskIndex == numTasks-1 && remainder != 0 { // handling last task and doesn't divide evenly
-			numLinesToHandle = linesPerTask + remainder
-		} else {
-			numLinesToHandle = linesPerTask
+		// increment currLine by the amount of lines that it read
+		for currLine := startLine; currLine < endLine; currLine += numLinesForExe {
+			numLinesForExe = min(endLine-currLine, int64(config.LINES_PER_MAPLE_EXE))
+			exe_args := []string{strconv.FormatInt(numLinesForExe, 10), exeColumnSchema, exeAdditionalInfo}
+			this.executeMapleExe(exeFile, exe_args, inputFile, maple_task_output_file, numLinesForExe)
 		}
 
-		startLine := int64(taskIndex) * linesPerTask
-		endLine := startLine + numLinesToHandle
-		currLine := startLine
-
-		this.moveFilePointerToLine(currLine)
-		// read config.LINES_PER_MAPLE_EXE at a time
-		for currLine < endLine { // TODO: is this < or <=
-			/*
-				1. read line by line and pipe into stdin of the maple_exe - store it in a buffer and then pass in maybe
-				2. execute maple_exe
-				3. pipe out stdout into a buffer or read it line by line
-					a) per line, open its respective kv file and append to it
-					b) close that file
-				4.
-			*/
-			// TODO: For SQL commands I also need to pass in the first line as well everytime
-			cmd := exec.Command(exeFile)
-
-			// TODO: IDEA - instead of piping in STDIN and STDOUT, just give the filename, startLine, and number of lines it should read
-			// that way, it can handle the extra logic of if it wants the first line or not - makes it easy on my end
-			// args: file, startline, numLinesToRead, additionalInfo
-			// and the additional info will contain the column and regex information
-		}
+		_ = inputFile.Close()
 	}
 
 	// send the task response back with the file data
+
+	// close and delete the temporary files & dirs
+	_ = maple_task_output_file.Close()
+	this.deleteTempDirsAndFilesForMapleTask(maple_task_dirname, dataset_dirname, maple_task_output_file)
+}
+
+/*
+Creates temporary directory and files for a maple task inside the directory given for this MapleJuiceNode
+
+/task_dirname								(CREATED HERE)
+
+	|- /dataset_dirname  					(CREATED HERE)
+		|- dataset files pulled from sdfs 	(NOT CREATED HERE)
+	|- maple_task_output_file				(CREATED HERE)
+*/
+func (this *MapleJuiceNode) createTempDirsAndFilesForMapleTask(taskIndex int, sdfsIntermediateFilenamePrefix string) (string, string, *os.File) {
+	task_dirname := filepath.Join(this.workerTmpDir, fmt.Sprintf(MAPLE_TASK_DIR_NAME_FMT, this.localWorkerTaskID, taskIndex, sdfsIntermediateFilenamePrefix))
+	dataset_dirname := filepath.Join(task_dirname, MAPLE_TASK_DATASET_DIR_NAME)
+	output_kv_filename := filepath.Join(task_dirname, MAPLE_TASK_OUTPUT_FILENAME)
+	if dataset_dir_creation_err := os.MkdirAll(dataset_dirname, 0744); dataset_dir_creation_err != nil {
+		log.Fatalln("Failed to create temporary dataset directory for maple task. Error: ", dataset_dir_creation_err)
+	}
+
+	maple_task_output_file, output_file_open_err := os.OpenFile(output_kv_filename, os.O_CREATE|os.O_APPEND, 0744)
+	if output_file_open_err != nil {
+		log.Fatalln("Failed to create temporary output file for maple task. Error: ", output_file_open_err)
+	}
+
+	return task_dirname, dataset_dirname, maple_task_output_file
+}
+
+/*
+Deletes the temporary files & dirs created for a maple task.
+The dir structure is as follows
+
+/task_dirname								(DELETED HERE)
+
+	|- /dataset_dirname						(DELETED HERE)
+		|- dataset files pulled from sdfs 	(DELETED HERE)
+	|- maple_task_output_file				(DELETED HERE)
+*/
+func (this *MapleJuiceNode) deleteTempDirsAndFilesForMapleTask(task_dirpath string) {
+
+}
+
+/*
+	calculateStartAndEndLinesForTask
+
+Helper function used to determine the start and end lines that the current maple task
+should operate on. Given the entire file, we need to know which portion that this task
+is assigned to. This function figures that out.
+
+Parameters:
+
+	totalLines (int64): number of total lines in the file
+	numTasks (int): number of total tasks that this map/juice job is doing
+	taskIndex (int): 0-indexed number representing the task that this is working on. Based on this number,
+					it will determine the start and end lines
+
+Returns
+
+	startLine (int64): 1-indexed number representing the line number we should start reading from
+	endLine (int64): 1-index number representing the line number to stop at - exclusive. Meaning, we should NOT read the
+				line with line number 'endLine'.
+*/
+func (this *MapleJuiceNode) calculateStartAndEndLinesForTask(totalLines int64, numTasks int, taskIndex int) (int64, int64) {
+	linesPerTask := totalLines / int64(numTasks)
+	remainder := totalLines % int64(numTasks)
+	var numLinesTaskShouldHandle int64
+
+	if taskIndex == numTasks-1 && remainder != 0 { // handling last task and doesn't divide evenly
+		numLinesTaskShouldHandle = linesPerTask + remainder
+	} else {
+		numLinesTaskShouldHandle = linesPerTask
+	}
+
+	startLine := int64(taskIndex)*linesPerTask + 1  // + 1 so that its 1-indexed
+	endLine := startLine + numLinesTaskShouldHandle // exclusive
+
+	return startLine, endLine
+}
+
+/*
+Executes the maple exe.
+
+Reads inputFile line by line, and feeds it into stdin pipe for maple_exe shell command.
+It also reads the stdout line by line and writes it to outputFile, line by line
+*/
+func (this *MapleJuiceNode) executeMapleExe(
+	maple_exe string,
+	args []string,
+	inputFile *os.File,
+	outputFile *os.File,
+	numLinesToProcess int64,
+) {
+	cmd := exec.Command(maple_exe, args...)
+
+	stdin_pipe, in_pipe_err := cmd.StdinPipe()
+	if in_pipe_err != nil {
+		panic(in_pipe_err)
+	}
+	stdout_pipe, out_pipe_err := cmd.StdoutPipe()
+	if out_pipe_err != nil {
+		panic(out_pipe_err)
+	}
+
+	// start command but don't block
+	if start_err := cmd.Start(); start_err != nil {
+		panic(start_err)
+	}
+
+	// read from input file, and write line by line to stdin pipe
+	inputFileScanner := bufio.NewScanner(inputFile)
+	stdinInPipeWriter := bufio.NewWriter(stdin_pipe)
+	for linesRead := int64(0); linesRead < numLinesToProcess; linesRead++ {
+		if inputFileScanner.Scan() == false { // if = false, then got an EOF
+			panic("Failed to read a line from input file! This shouldn't happen!")
+		}
+		line := inputFileScanner.Text() + "\n" // Scan() does not contain the new line character
+		_, write_err := stdinInPipeWriter.WriteString(line)
+		if write_err != nil {
+			panic(write_err)
+		}
+	}
+	_ = stdinInPipeWriter.Flush() // make sure everything was written to it
+	if in_pipe_close_err := stdin_pipe.Close(); in_pipe_close_err != nil {
+		panic(in_pipe_close_err)
+	}
+
+	// read stdout
+	// TODO: will io.ReadAll() work? Because maple_exe doesn't output an EOF... will this block forever? test this out
+	stdout_bytes, read_stdout_err := io.ReadAll(stdout_pipe)
+	if read_stdout_err != nil {
+		panic(read_stdout_err)
+	}
+
+	// write stdout to output file
+	output_writer := bufio.NewWriter(outputFile)
+	_, output_write_err := output_writer.Write(stdout_bytes)
+	if output_write_err != nil {
+		panic(output_write_err)
+	}
+
+	// wait for program to finish
+	if wait_err := cmd.Wait(); wait_err != nil {
+		panic(wait_err)
+	}
 }

@@ -195,6 +195,7 @@ func (this *MapleJuiceLeaderService) processMapleTaskOutputFile(task_output_file
 		this.currentJob.sdfsIntermediateFilenames.Add(_sdfsIntermediateFileName)
 
 		// TODO: instead of writing to the file every iteration, you can make this a buffered write to make it faster! future improvement!
+		// ^ you can first append it to a map, and once the map reaches a certain size you can then write the map to its respective files
 		this.currentJob.sdfsIntermediateFileMutex.Lock()
 		intermediateFile, file2_err := os.OpenFile(fullSdfsIntermediateFilePath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
 		if file2_err != nil {
