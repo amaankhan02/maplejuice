@@ -41,11 +41,19 @@ const (
 //	totalNumTasksForJob int    // represents the total number of workers for this job
 //}
 
+// each worker node id has a list of integers representing the task indices they are assigned.
+// the task index is a way for the worker to know which part of the input they have to deal with to be able to split
+
+/*
+We assume that there is only 1 job running at a time, therefore we don't need to keep track of the job id.
+Future improvement can be to allow multiple jobs running at same time based on some policy.
+
+Whenever we recieve a task response from a worker, we assume its for the current job.
+*/
 type MapleJuiceJob struct {
-	// each worker node id has a list of integers representing the task indices they are assigned.
-	// the task index is a way for the worker to know which part of the input they have to deal with to be able to split
-	jobType                        MapleJuiceJobType
-	jobId                          int
+	//jobId   int
+	jobType MapleJuiceJobType
+
 	clientId                       NodeID // id of the client that requested this job
 	workerToTaskIndices            map[NodeID][]int
 	numTasks                       int
@@ -66,6 +74,9 @@ Maple Juice Leader Service
 
 Initialized only at the leader node. Handles scheduling of various
 MapleJuice jobs
+
+We assume that there is only ever 1 job currently being executed. The others will be queued in FIFO manner
+and only executed once the current job finishes.
 */
 type MapleJuiceLeaderService struct {
 	DispatcherWaitTime   time.Duration
@@ -75,7 +86,7 @@ type MapleJuiceLeaderService struct {
 	waitQueue            []*MapleJuiceJob
 	currentJob           *MapleJuiceJob
 	leaderTempDir        string
-	jobsSubmitted        int // used as the ID for a job. incremented...
+	//jobsSubmitted        int // used as the ID for a job. incremented...
 }
 
 func NewMapleJuiceLeaderService() *MapleJuiceLeaderService {
@@ -229,6 +240,8 @@ Finds the task with index 'taskIndex' and marks it as completed.
 
 Currently marks it as completed by just removing the taskIndex from the
 map of worker nodes to task indices
+
+TODO: this assumes that we have only 1 job running at a time... but we should just simply use a
 */
 func (this *MapleJuiceLeaderService) markTaskAsCompleted(taskIndex int) {
 	for workerNodeId, taskIndicesList := range this.currentJob.workerToTaskIndices {

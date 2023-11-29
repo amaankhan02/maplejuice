@@ -166,7 +166,7 @@ func (this *MapleJuiceNode) PerformMaple(maple_exe MapleJuiceExeFile, num_maples
 	}
 	defer leaderConn.Close()
 
-	SendMJNetworkMessage(leaderConn, mjJob) // submit job to leader
+	SendMapleJuiceNetworkMessage(leaderConn, mjJob) // submit job to leader
 }
 
 func (this *MapleJuiceNode) PerformJuice(juice_exe MapleJuiceExeFile, num_juices int, sdfs_intermediate_filename_prefix string,
@@ -190,7 +190,7 @@ func (this *MapleJuiceNode) PerformJuice(juice_exe MapleJuiceExeFile, num_juices
 	}
 	defer leaderConn.Close()
 
-	SendMJNetworkMessage(leaderConn, mjJob)
+	SendMapleJuiceNetworkMessage(leaderConn, mjJob)
 }
 
 // --------------------------------------------------------------------

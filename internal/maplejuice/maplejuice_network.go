@@ -57,10 +57,38 @@ func SendMapleTaskRequest(conn net.Conn, numTasks int, exeFile MapleJuiceExeFile
 		SdfsSrcDirectory:               sdfsSrcDirectory,
 		CurrTaskIdx:                    taskIndex,
 	}
-	SendMJNetworkMessage(conn, &msg)
+	SendMapleJuiceNetworkMessage(conn, &msg)
 }
 
-func SendMapleTaskResponse(conn net.Conn)
+/*
+Sent by the worker node to the leader after it has finished executing its maple task.
+It sends back the output file with the key value pairs of the maple task.
+
+Since we assume ony 1 job is ever running at a time, we can just send the taskIndex.
+When we add support for multiple jobs running simulataneously, we must send the job id along
+with the taskIndex
+
+Parameters:
+
+	conn (net.Conn): 				leader connection
+	taskIndex (int):				the task index that this worker was assigned to and processed on
+	taskOutputFilePpath (string):	file path to the output file containing key value pairs of the maple task output
+*/
+func SendMapleTaskResponse(conn net.Conn, taskIndex int, taskOutputFilepath string) {
+	fileSize := utils.GetFileSize(taskOutputFilepath)
+
+	msg := MapleJuiceNetworkMessage{
+		MsgType:            MAPLE_TASK_RESPONSE,
+		CurrTaskIdx:        taskIndex,
+		TaskOutputFileSize: fileSize,
+	}
+	SendMapleJuiceNetworkMessage(conn, &msg)
+
+	send_file_err := tcp_net.SendFile(taskOutputFilepath, conn, fileSize)
+	if send_file_err != nil {
+		log.Fatalln("Failed to send file in SendMapleTaskResponse(). error: ", send_file_err)
+	}
+}
 
 func SendJuiceTaskRequest(conn net.Conn, numJuices int, juiceExe MapleJuiceExeFile, sdfsIntermediateFilenamePrefix string,
 	sdfsDestFilename string, deleteInput bool, juicePartitionScheme JuicePartitionType, taskIndex int) {
@@ -74,13 +102,13 @@ func SendJuiceTaskRequest(conn net.Conn, numJuices int, juiceExe MapleJuiceExeFi
 		ShouldDeleteJuiceInput:         deleteInput,
 		CurrTaskIdx:                    taskIndex,
 	}
-	SendMJNetworkMessage(conn, &msg)
+	SendMapleJuiceNetworkMessage(conn, &msg)
 }
 
-func SendMJNetworkMessage(conn net.Conn, msg *MapleJuiceNetworkMessage) {
+func SendMapleJuiceNetworkMessage(conn net.Conn, msg *MapleJuiceNetworkMessage) {
 	serialized_data, err := utils.SerializeData(*msg)
 	if err != nil {
-		fmt.Println("Error Serializing Data. Could not complete SendMJNetworkMessage")
+		fmt.Println("Error Serializing Data. Could not complete SendMapleJuiceNetworkMessage")
 		return
 	}
 	err_send2 := tcp_net.SendMessageData(serialized_data, conn)
