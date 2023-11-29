@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"bytes"
 	"log"
+	"path/filepath"
 
 	//"cs425_mp4/internal/maplejuice"
 	"encoding/gob"
@@ -96,4 +97,37 @@ func MoveFilePointerToLineNumber(file *os.File, lineNumber int64) {
 	for currLine < lineNumber && scanner.Scan() {
 		currLine++
 	}
+}
+
+// TODO: test this
+func DeleteDirAndAllContents(dirPath string) error {
+	// Walk through all files and directories in the specified directory
+	err := filepath.Walk(dirPath,
+		// anonymous function
+		func(path string, info os.FileInfo, err error) error {
+			if err != nil {
+				return err // propagate the error
+			}
+
+			// Skip the root directory itself
+			if path == dirPath {
+				return nil
+			}
+
+			// Remove the file or directory
+			if remove_err := os.RemoveAll(path); remove_err != nil {
+				return remove_err // propagate the error
+			}
+
+			return nil
+		},
+	)
+
+	if err != nil {
+		return err // propagate the error
+	}
+
+	// Finally, remove the root directory itself
+	err = os.Remove(dirPath)
+	return err
 }

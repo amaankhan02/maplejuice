@@ -29,9 +29,10 @@ type MapleJuiceNode struct {
 	localWorkerTaskID int // just used internally by the worker to keep track of task number to create unique directories
 }
 
-const MAPLE_TASK_DIR_NAME_FMT = "maple-%d-%d-%s"
+const MAPLE_TASK_DIR_NAME_FMT = "maple-%d-%d-%s" // formats: this.localWorkerTaskID, taskIndex, sdfsIntermediateFilenamePrefix
 const MAPLE_TASK_DATASET_DIR_NAME = "dataset"
 const MAPLE_TASK_OUTPUT_FILENAME = "maple_task_output.csv"
+const LOCAL_SDFS_DATASET_FILENAME_FMT = "local-%s" // when you GET the sdfs_filename, this is the localfilename you want to save it as
 
 /*
 Parameters:
@@ -213,20 +214,18 @@ func (this *MapleJuiceNode) executeMapleTask(
 	sdfsSrcDirectory string,
 	taskIndex int,
 ) {
-	// load the input data and find our portion of the data
 	// TODO: add mutex lock
 	this.localWorkerTaskID++
 
-	// TODO: delete these directories later - do a defer
-	// create a temporary directory to store temporary files that this maple task needs to use
-	maple_task_dirname, dataset_dirname, maple_task_output_file := this.createTempDirsAndFilesForMapleTask(taskIndex, sdfsIntermediateFilenamePrefix)
+	maple_task_dirpath, dataset_dirpath, maple_task_output_file :=
+		this.createTempDirsAndFilesForMapleTask(taskIndex, sdfsIntermediateFilenamePrefix)
 
 	// get the dataset filenames & create corresponding local filenames to save it to
 	sdfs_dataset_filenames := this.sdfsNode.PerformPrefixMatch(sdfsSrcDirectory + ".")
 	local_dataset_filenames := make([]string, 0)
-	for _, sdfs_dataset_filename := range sdfs_dataset_filenames {
+	for _, curr_sdfs_dataset_filename := range sdfs_dataset_filenames {
 		// TODO: make this a function or a constant formatter string above
-		new_local_filename := filepath.Join(dataset_dirname, "local-"+sdfs_dataset_filename)
+		new_local_filename := filepath.Join(dataset_dirpath, fmt.Sprintf(LOCAL_SDFS_DATASET_FILENAME_FMT, curr_sdfs_dataset_filename))
 		local_dataset_filenames = append(local_dataset_filenames, new_local_filename)
 	}
 
@@ -262,7 +261,9 @@ func (this *MapleJuiceNode) executeMapleTask(
 
 	// close and delete the temporary files & dirs
 	_ = maple_task_output_file.Close()
-	this.deleteTempDirsAndFilesForMapleTask(maple_task_dirname, dataset_dirname, maple_task_output_file)
+	if delete_tmp_dir_err := utils.DeleteDirAndAllContents(maple_task_dirpath); delete_tmp_dir_err != nil {
+		log.Fatalln("Failed to delete maple_task_dirpath and all its contents. Error: ", delete_tmp_dir_err)
+	}
 }
 
 /*
@@ -275,33 +276,19 @@ Creates temporary directory and files for a maple task inside the directory give
 	|- maple_task_output_file				(CREATED HERE)
 */
 func (this *MapleJuiceNode) createTempDirsAndFilesForMapleTask(taskIndex int, sdfsIntermediateFilenamePrefix string) (string, string, *os.File) {
-	task_dirname := filepath.Join(this.workerTmpDir, fmt.Sprintf(MAPLE_TASK_DIR_NAME_FMT, this.localWorkerTaskID, taskIndex, sdfsIntermediateFilenamePrefix))
-	dataset_dirname := filepath.Join(task_dirname, MAPLE_TASK_DATASET_DIR_NAME)
-	output_kv_filename := filepath.Join(task_dirname, MAPLE_TASK_OUTPUT_FILENAME)
-	if dataset_dir_creation_err := os.MkdirAll(dataset_dirname, 0744); dataset_dir_creation_err != nil {
+	task_dirpath := filepath.Join(this.workerTmpDir, fmt.Sprintf(MAPLE_TASK_DIR_NAME_FMT, this.localWorkerTaskID, taskIndex, sdfsIntermediateFilenamePrefix))
+	dataset_dirpath := filepath.Join(task_dirpath, MAPLE_TASK_DATASET_DIR_NAME)
+	output_kv_filepath := filepath.Join(task_dirpath, MAPLE_TASK_OUTPUT_FILENAME)
+
+	if dataset_dir_creation_err := os.MkdirAll(dataset_dirpath, 0744); dataset_dir_creation_err != nil {
 		log.Fatalln("Failed to create temporary dataset directory for maple task. Error: ", dataset_dir_creation_err)
 	}
-
-	maple_task_output_file, output_file_open_err := os.OpenFile(output_kv_filename, os.O_CREATE|os.O_APPEND, 0744)
+	maple_task_output_file, output_file_open_err := os.OpenFile(output_kv_filepath, os.O_CREATE|os.O_APPEND, 0744)
 	if output_file_open_err != nil {
 		log.Fatalln("Failed to create temporary output file for maple task. Error: ", output_file_open_err)
 	}
 
-	return task_dirname, dataset_dirname, maple_task_output_file
-}
-
-/*
-Deletes the temporary files & dirs created for a maple task.
-The dir structure is as follows
-
-/task_dirname								(DELETED HERE)
-
-	|- /dataset_dirname						(DELETED HERE)
-		|- dataset files pulled from sdfs 	(DELETED HERE)
-	|- maple_task_output_file				(DELETED HERE)
-*/
-func (this *MapleJuiceNode) deleteTempDirsAndFilesForMapleTask(task_dirpath string) {
-
+	return task_dirpath, dataset_dirpath, maple_task_output_file
 }
 
 /*
