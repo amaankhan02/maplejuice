@@ -37,7 +37,7 @@ func TestJuiceSQLFilter(t *testing.T) {
 
 	// Create a scanner to read the file line by line
 	filescanner := bufio.NewScanner(file)
-	matched_lines := juice_exe.JuiceSQLFilter(filescanner)
+	matched_lines := juice_exe.JuiceSQL(filescanner)
 
 	juice_exe.PrintSliceString(matched_lines)
 }

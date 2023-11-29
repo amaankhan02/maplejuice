@@ -14,7 +14,6 @@ import (
 // SELECT ALL FROM dataset WHERE <regex>
 
 func MapleSQLFilter(scanner *bufio.Scanner, regex_string string, column string, num_lines int) map[string]string {
-
 	// loop through the lines in the map task
 	// first line is always the schema
 	// first column is always the id
@@ -52,10 +51,9 @@ func MapleSQLFilter(scanner *bufio.Scanner, regex_string string, column string, 
 		words := strings.Fields(line)
 
 		field := words[column_index]
-		id := words[0]
 
 		if regex.MatchString(field) {
-			id_to_row[id] = line
+			id_to_row[line] = ""
 		}
 	}
 	return id_to_row
@@ -70,11 +68,9 @@ func GetColumnIndex(schema_line string, column string) int {
 			index = i
 		}
 	}
-
 	return index
 }
 
-// TODO: confirm with amaan - input?
 func getArgsSQLFilter() (string, string, int) {
 	// get the command line arg which tells you the number of lines
 	// SELECT ALL FROM dataset WHERE COL = <regex> num_lines ?
@@ -87,7 +83,7 @@ func getArgsSQLFilter() (string, string, int) {
 	regex := os.Args[0]
 	column := os.Args[1]
 
-	num_lines_string := os.Args[1]                 // QUESTION =: should I add a 1 to this to account for the schema being the first line every time
+	num_lines_string := os.Args[2]                 // QUESTION =: should I add a 1 to this to account for the schema being the first line every time
 	num_lines, _ := strconv.Atoi(num_lines_string) // Convert the argument to an integer
 	return regex, column, num_lines
 }

@@ -25,7 +25,7 @@ func TestMapleExeWordCount(t *testing.T) {
 }
 
 func TestJuiceExeWordCount(t *testing.T) {
-	file_path := "C:\\Users\\samaa\\Documents\\2023-2024\\DistributedSystems\\MP4\\cs425_mp4\\test\\test_files\\juice_exe_test_file.txt"
+	file_path := "C:\\Users\\samaa\\Documents\\2023-2024\\DistributedSystems\\MP4\\cs425_mp4\\test\\test_files\\juice_word_count_test.txt"
 	file, err := os.Open(file_path)
 	if err != nil {
 		fmt.Errorf("Error opening file: %s", err)
