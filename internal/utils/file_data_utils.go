@@ -1,7 +1,10 @@
 package utils
 
 import (
+	"bufio"
 	"bytes"
+	"log"
+
 	//"cs425_mp4/internal/maplejuice"
 	"encoding/gob"
 	"fmt"
@@ -41,4 +44,33 @@ func SerializeData(structToSerialize interface{}) ([]byte, error) {
 
 	serialized_data := binary_buff.Bytes()
 	return serialized_data, nil
+}
+
+/*
+Counts the number of lines in the file by reading the entire file
+line by line. Additionaly, moves the file pointer back to the start before exiting out
+of the function.
+
+Parameters:
+
+	file: file to read. Must be opened in read mode. Can NOT be in APPEND mode!
+*/
+func CountNumLinesInFile(file *os.File) int64 {
+	scanner := bufio.NewScanner(file)
+	var count int64 = 0
+
+	for scanner.Scan() {
+		count += 1
+	}
+
+	if err := scanner.Err(); err != nil {
+		log.Fatalln("Error reading file:", err)
+	}
+
+	_, err := file.Seek(0, 0)
+	if err != nil {
+		log.Fatalln("Failed to reset file pointer back to 0! - Error: ", err)
+	}
+
+	return count
 }
