@@ -33,10 +33,11 @@ const (
 )
 
 type MapleJuiceNetworkMessage struct {
-	MsgType                        MapleJuiceNetworkMessageType
-	JuicePartitionScheme           JuicePartitionType
-	NumTasks                       int    // number of maples or juice tasks (depending on the type)
-	ExeFile                        string // maple_exe or juice_exe
+	MsgType              MapleJuiceNetworkMessageType
+	JuicePartitionScheme JuicePartitionType
+	NumTasks             int // number of maples or juice tasks (depending on the type)
+	//ExeFile                        string // maple_exe or juice_exe
+	ExeFile                        MapleJuiceExeFile
 	SdfsIntermediateFilenamePrefix string // prefix of the intermediate filenames (output of Maple, input of Juice)
 	SdfsSrcDirectory               string // location of input files for Maple
 	SdfsDestFilename               string // filename location for output of Juice step where all key-value pairs are appended
@@ -46,7 +47,7 @@ type MapleJuiceNetworkMessage struct {
 	TaskOutputFileSize             int64
 }
 
-func SendMapleTaskRequest(conn net.Conn, numTasks int, exeFile string, sdfsIntermediateFilenamePrefix string,
+func SendMapleTaskRequest(conn net.Conn, numTasks int, exeFile MapleJuiceExeFile, sdfsIntermediateFilenamePrefix string,
 	sdfsSrcDirectory string, taskIndex int) {
 	msg := MapleJuiceNetworkMessage{
 		MsgType:                        MAPLE_TASK_REQUEST,
@@ -59,7 +60,9 @@ func SendMapleTaskRequest(conn net.Conn, numTasks int, exeFile string, sdfsInter
 	SendMJNetworkMessage(conn, &msg)
 }
 
-func SendJuiceTaskRequest(conn net.Conn, numJuices int, juiceExe string, sdfsIntermediateFilenamePrefix string,
+func SendMapleTaskResponse(conn net.Conn)
+
+func SendJuiceTaskRequest(conn net.Conn, numJuices int, juiceExe MapleJuiceExeFile, sdfsIntermediateFilenamePrefix string,
 	sdfsDestFilename string, deleteInput bool, juicePartitionScheme JuicePartitionType, taskIndex int) {
 	msg := MapleJuiceNetworkMessage{
 		MsgType:                        JUICE_TASK_REQUEST,

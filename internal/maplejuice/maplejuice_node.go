@@ -29,19 +29,19 @@ type MapleJuiceNode struct {
 	localWorkerTaskID int // just used internally by the worker to keep track of task number to create unique directories
 }
 
+type MapleJuiceExeFile struct {
+	ExeFilePath string
+
+	// Maple exe additional args (other than the number of lines that's passed in)
+	ExeColumnSchema   string
+	ExeAdditionalInfo string
+}
+
 const MAPLE_TASK_DIR_NAME_FMT = "maple-%d-%d-%s" // formats: this.localWorkerTaskID, taskIndex, sdfsIntermediateFilenamePrefix
 const MAPLE_TASK_DATASET_DIR_NAME = "dataset"
 const MAPLE_TASK_OUTPUT_FILENAME = "maple_task_output.csv"
 const LOCAL_SDFS_DATASET_FILENAME_FMT = "local-%s" // when you GET the sdfs_filename, this is the localfilename you want to save it as
 
-/*
-Parameters:
-
-	thisId:
-	leaderId:
-	loggingFile:
-	tmp_dir_name: name of the directory that this node should be saving files to
-*/
 func NewMapleJuiceNode(thisId NodeID, leaderId NodeID, loggingFile *os.File, sdfsNode *SDFSNode) *MapleJuiceNode {
 	mj := &MapleJuiceNode{
 		id:       thisId,
@@ -66,6 +66,8 @@ func NewMapleJuiceNode(thisId NodeID, leaderId NodeID, loggingFile *os.File, sdf
 func (this *MapleJuiceNode) HandleTCPServerConnection(conn net.Conn) {
 	reader := bufio.NewReader(conn)
 	mjNetworkMessage, recv_err := ReceiveMJNetworkMessage(reader)
+	alreadyClosedLeaderConn := false
+
 	if recv_err != nil {
 		this.logBoth(fmt.Sprintf("Error in ReceiveMJNetworkMessage: %s\n", recv_err))
 		return
@@ -105,6 +107,9 @@ func (this *MapleJuiceNode) HandleTCPServerConnection(conn net.Conn) {
 		case MAPLE_TASK_REQUEST: // must execute some task and send back to leader
 			// you don't know how long this will take... so run this on a separate go routine and then send back the
 			// data later
+			_ := conn.Close() // close leader connection becaus executeMapleTask() will later dial the leader
+			alreadyClosedLeaderConn = true
+
 			this.executeMapleTask(
 				mjNetworkMessage.NumTasks,
 				mjNetworkMessage.ExeFile,
@@ -113,6 +118,9 @@ func (this *MapleJuiceNode) HandleTCPServerConnection(conn net.Conn) {
 				mjNetworkMessage.CurrTaskIdx,
 			)
 		case JUICE_TASK_REQUEST: // must execute some task and send back to leader
+			_ := conn.Close() // close leader connection becaus executeMapleTask() will later dial the leader
+			alreadyClosedLeaderConn = true
+
 			panic("not implemented")
 		case MAPLE_JOB_RESPONSE: // acknowledging the job is done
 			panic("not implemented")
@@ -122,7 +130,9 @@ func (this *MapleJuiceNode) HandleTCPServerConnection(conn net.Conn) {
 		}
 	}
 
-	_ = conn.Close()
+	if !alreadyClosedLeaderConn {
+		_ = conn.Close()
+	}
 }
 
 func (this *MapleJuiceNode) Start() {
@@ -138,7 +148,7 @@ Executes a Maple phase given the input parameters. Submits a Maple Job to the le
 and the leader takes care of scheduling the job. Leader later responds back with
 an acknowledgement
 */
-func (this *MapleJuiceNode) PerformMaple(maple_exe string, num_maples int, sdfs_intermediate_filename_prefix string,
+func (this *MapleJuiceNode) PerformMaple(maple_exe MapleJuiceExeFile, num_maples int, sdfs_intermediate_filename_prefix string,
 	sdfs_src_directory string) {
 
 	mjJob := &MapleJuiceNetworkMessage{
@@ -159,7 +169,7 @@ func (this *MapleJuiceNode) PerformMaple(maple_exe string, num_maples int, sdfs_
 	SendMJNetworkMessage(leaderConn, mjJob) // submit job to leader
 }
 
-func (this *MapleJuiceNode) PerformJuice(juice_exe string, num_juices int, sdfs_intermediate_filename_prefix string,
+func (this *MapleJuiceNode) PerformJuice(juice_exe MapleJuiceExeFile, num_juices int, sdfs_intermediate_filename_prefix string,
 	sdfs_dest_filename string, shouldDeleteInput bool, partitionScheme JuicePartitionType) {
 
 	mjJob := &MapleJuiceNetworkMessage{
@@ -197,19 +207,10 @@ Ideally this should run on a separate go routine because this may take some time
 Every file int he sdfsSrcDirectory gets split up by the number of mapper tasks, and the current task id
 is used to determine split we are assigned to run for this file. We repeat this on every file.
 and we run the exe file on 20 lines at a time.
-
-TODO:
-  - Ideally, we should sort the outputs based on the key, and store it in separate files here, and then send
-    multiple files. in the MJNetworkMessage struct I can attach like the number of files its sending and the key
-    that they file belongs to as parallel lists. and then on the leader side we can just merge the sorted
-    stuff together so that its faster. and that way we won't have to read everything into memory either
-    cuz we can just do one line at a time.
 */
 func (this *MapleJuiceNode) executeMapleTask(
 	numTasks int,
-	exeFile string,
-	exeColumnSchema string, // TODO: wrap these 3 exe parameters into a struct - this is an optional
-	exeAdditionalInfo string, // TODO: add compatibility to send this information from the client to leader to worker
+	mapleExe MapleJuiceExeFile,
 	sdfsIntermediateFilenamePrefix string,
 	sdfsSrcDirectory string,
 	taskIndex int,
@@ -224,7 +225,6 @@ func (this *MapleJuiceNode) executeMapleTask(
 	sdfs_dataset_filenames := this.sdfsNode.PerformPrefixMatch(sdfsSrcDirectory + ".")
 	local_dataset_filenames := make([]string, 0)
 	for _, curr_sdfs_dataset_filename := range sdfs_dataset_filenames {
-		// TODO: make this a function or a constant formatter string above
 		new_local_filename := filepath.Join(dataset_dirpath, fmt.Sprintf(LOCAL_SDFS_DATASET_FILENAME_FMT, curr_sdfs_dataset_filename))
 		local_dataset_filenames = append(local_dataset_filenames, new_local_filename)
 	}
@@ -250,14 +250,15 @@ func (this *MapleJuiceNode) executeMapleTask(
 		// increment currLine by the amount of lines that it read
 		for currLine := startLine; currLine < endLine; currLine += numLinesForExe {
 			numLinesForExe = min(endLine-currLine, int64(config.LINES_PER_MAPLE_EXE))
-			exe_args := []string{strconv.FormatInt(numLinesForExe, 10), exeColumnSchema, exeAdditionalInfo}
-			this.executeMapleExe(exeFile, exe_args, inputFile, maple_task_output_file, numLinesForExe)
+			exe_args := []string{strconv.FormatInt(numLinesForExe, 10), mapleExe.ExeColumnSchema, mapleExe.ExeAdditionalInfo}
+			this.executeMapleExe(mapleExe.ExeFilePath, exe_args, inputFile, maple_task_output_file, numLinesForExe)
 		}
 
 		_ = inputFile.Close()
 	}
 
 	// send the task response back with the file data
+	leaderConn, conn_err := net.Dial("tcp", this.leaderID.IpAddress+":"+this.leaderID.MapleJuiceServerPort)
 
 	// close and delete the temporary files & dirs
 	_ = maple_task_output_file.Close()

@@ -23,6 +23,7 @@ type MapleJuiceJobType int
 
 // output file format for the singular maple task output (the file they send over containing the k,v pairs)
 const MAPLE_TASK_OUTPUT_FILENAME_FMT = "task_output_%d.csv"
+const SDFS_INTERMEDIATE_FILE_EXTENSION = ".csv"
 
 const (
 	NOT_STARTED JobTaskStatus = "NOT STARTED"
@@ -44,10 +45,11 @@ type MapleJuiceJob struct {
 	// each worker node id has a list of integers representing the task indices they are assigned.
 	// the task index is a way for the worker to know which part of the input they have to deal with to be able to split
 	jobType                        MapleJuiceJobType
+	jobId                          int
 	clientId                       NodeID // id of the client that requested this job
 	workerToTaskIndices            map[NodeID][]int
 	numTasks                       int
-	exeFile                        string
+	exeFile                        MapleJuiceExeFile
 	sdfsIntermediateFilenamePrefix string
 	numTasksCompleted              int
 	sdfsSrcDirectory               string             // only for maple job
@@ -73,6 +75,7 @@ type MapleJuiceLeaderService struct {
 	waitQueue            []*MapleJuiceJob
 	currentJob           *MapleJuiceJob
 	leaderTempDir        string
+	jobsSubmitted        int // used as the ID for a job. incremented...
 }
 
 func NewMapleJuiceLeaderService() *MapleJuiceLeaderService {
@@ -85,7 +88,7 @@ func (this *MapleJuiceLeaderService) Start() {
 }
 
 // Submit a maple job to the wait queue. Dispatcher thread will execute it when its ready
-func (this *MapleJuiceLeaderService) SubmitMapleJob(maple_exe string, num_maples int,
+func (this *MapleJuiceLeaderService) SubmitMapleJob(maple_exe MapleJuiceExeFile, num_maples int,
 	sdfs_intermediate_filename_prefix string, sdfs_src_dir string) {
 
 	job := MapleJuiceJob{
@@ -102,7 +105,7 @@ func (this *MapleJuiceLeaderService) SubmitMapleJob(maple_exe string, num_maples
 	this.waitQueue = append(this.waitQueue, &job)
 }
 
-func (this *MapleJuiceLeaderService) SubmitJuiceJob(juice_exe string, num_juices int,
+func (this *MapleJuiceLeaderService) SubmitJuiceJob(juice_exe MapleJuiceExeFile, num_juices int,
 	sdfs_intermediate_filename_prefix string, sdfs_dest_filename string, delete_input bool,
 	juicePartitionScheme JuicePartitionType) {
 
@@ -130,6 +133,7 @@ task output files and then creating a new set of files to be saved in the SDFS f
 */
 func (this *MapleJuiceLeaderService) ReceiveMapleTaskOutput(conn net.Conn, taskIndex int, filesize int64,
 	sdfsService *SDFSNode) {
+
 	// read the task output file from the network
 	save_filepath := filepath.Join(this.leaderTempDir, fmt.Sprintf(MAPLE_TASK_OUTPUT_FILENAME_FMT, taskIndex))
 	err := tcp_net.ReadFile(save_filepath, conn, filesize)
@@ -217,7 +221,7 @@ func (this *MapleJuiceLeaderService) processMapleTaskOutputFile(task_output_file
 // Given the sdfs_intermediate_filename_prefix and the key it will put the 2 together
 func getSdfsIntermediateFilename(prefix string, key string) string {
 	// TODO: implement this to remove unnallowed characters! - do this later!
-	return prefix + "_" + key + ".csv"
+	return prefix + "_" + key + SDFS_INTERMEDIATE_FILE_EXTENSION
 }
 
 /*
