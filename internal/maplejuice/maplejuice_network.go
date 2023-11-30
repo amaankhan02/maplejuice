@@ -48,7 +48,13 @@ type MapleJuiceNetworkMessage struct {
 	ClientJobId                    int // id that the client created for the job it submitted
 }
 
-func SendMapleJobResponse(conn net.Conn)
+func SendMapleJobResponse(conn net.Conn, clientJobId int) {
+	msg := MapleJuiceNetworkMessage{
+		MsgType:     MAPLE_JOB_RESPONSE,
+		ClientJobId: clientJobId,
+	}
+	SendMapleJuiceNetworkMessage(conn, &msg)
+}
 
 func SendMapleTaskRequest(conn net.Conn, numTasks int, exeFile MapleJuiceExeFile, sdfsIntermediateFilenamePrefix string,
 	sdfsSrcDirectory string, taskIndex int) {
