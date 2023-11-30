@@ -124,7 +124,7 @@ func (this *MapleJuiceNode) HandleTCPServerConnection(conn net.Conn) {
 			panic("not implemented")
 			// TODO: can the leader act as a client to submit a job request?
 		}
-	} else { // NOT LEADER NODE
+	} else { // NOT LEADER NODE 
 
 		// You don't know how long maple/juice task execution may take. So we close the conn object in the switch case
 		// immediately once we don't need it anymore.
@@ -144,8 +144,13 @@ func (this *MapleJuiceNode) HandleTCPServerConnection(conn net.Conn) {
 		case JUICE_TASK_REQUEST: // must execute some task and send back to leader
 			_ = conn.Close() // close leader connection becaus executeMapleTask() will later dial the leader
 			alreadyClosedLeaderConn = true
+			// juiceExe MapleJuiceExeFile, sdfsIntermediateFilenamePrefix string, assignedKeys []string
+			this.executeJuiceTask(
+				mjNetworkMessage.ExeFile,
+				mjNetworkMessage.SdfsIntermediateFilenamePrefix,
+				mjNetworkMessage.Keys,
+			)
 
-			panic("not implemented")
 		case MAPLE_JOB_RESPONSE: // acknowledging the job is done
 			this.handleJobResponse(mjNetworkMessage.ClientJobId)
 		case JUICE_JOB_RESPONSE: // acknowledging the job is done
@@ -263,6 +268,22 @@ func (mjNode *MapleJuiceNode) handleJobResponse(clientJobId int) {
 func (this *MapleJuiceNode) logBoth(msg string) {
 	LogMessageln(os.Stdout, msg)
 	LogMessageln(this.logFile, msg)
+}
+
+/*
+Handles the juice tasks assigned to this worker node. Each key is another juice task. 
+
+Each juice task will output one key,value pair. So for all the juice tasks, we can save their outputs to just one file.
+
+Handle each key in parallel in a separate go routine to make it faster. 
+For each key, grab the one intermediate file that has the key, and run the juice exe on it. Read in from stdin 
+and pass it the input file, and read the stdout which should be one key value pair. Return that through a channel.
+On the outside, we can run a select{} to wait for all the channels to return, and then write the key value pairs
+to the output file. 
+Once all channels have been read from, we can send the output file back to the leader.
+*/
+func (mjNode *MapleJuiceNode) executeJuiceTask(juiceExe MapleJuiceExeFile, sdfsIntermediateFilenamePrefix string, assignedKeys []string) {
+	
 }
 
 /*

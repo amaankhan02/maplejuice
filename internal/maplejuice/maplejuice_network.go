@@ -45,7 +45,7 @@ type MapleJuiceNetworkMessage struct {
 	ClientId                       NodeID
 	TaskOutputFileSize             int64
 	ClientJobId                    int // id that the client created for the job it submitted
-	keys 						   []string	// used for juice tasks (to know what keys to operate on)
+	Keys 						   []string	// used for juice tasks (to know what keys to operate on)
 }
 
 func SendMapleJobResponse(conn net.Conn, clientJobId int) {
@@ -100,13 +100,12 @@ func SendMapleTaskResponse(conn net.Conn, taskIndex int, taskOutputFilepath stri
 	}
 }
 
-func SendJuiceTaskRequest(conn net.Conn, juiceExe MapleJuiceExeFile, sdfsIntermediateFilenamePrefix string, 
-	assignedKeys []string) {
+func SendJuiceTaskRequest(conn net.Conn, juiceExe MapleJuiceExeFile, sdfsIntermediateFilenamePrefix string, assignedKeys []string) {
 	msg := MapleJuiceNetworkMessage{
 		MsgType:                        JUICE_TASK_REQUEST,
 		ExeFile:                        juiceExe,
 		SdfsIntermediateFilenamePrefix: sdfsIntermediateFilenamePrefix,
-		keys:							assignedKeys,
+		Keys:							assignedKeys,
 	}
 	SendMapleJuiceNetworkMessage(conn, &msg)
 }
