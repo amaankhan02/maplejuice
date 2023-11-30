@@ -1,7 +1,7 @@
 package tcp_net
 
 import (
-    "testing"
+	"testing"
 )
 
 func TestSendFileSmall(t *testing.T) {
@@ -18,4 +18,4 @@ func TestReadFileSmall(t *testing.T) {
 
 func TestReadFileLarge(t *testing.T) {
 
-}   
+}

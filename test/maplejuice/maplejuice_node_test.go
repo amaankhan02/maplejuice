@@ -4,12 +4,6 @@ import (
     "testing"
 )
 
-/*
-Functions to test:
-    - executeMapleTask
-    - 
-*/
-
 
 func TestExecuteMapleTask(t *testing.T) {
 
