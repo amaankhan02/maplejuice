@@ -284,11 +284,15 @@ to the output file.
 Once all channels have been read from, we can send the output file back to the leader.
 */
 func (mjNode *MapleJuiceNode) executeJuiceTask(juiceExe MapleJuiceExeFile, sdfsIntermediateFilenamePrefix string, assignedKeys []string) {
+
+	// TODO: add mutex lock
+	this.localWorkerTaskID++
+
 	juiceExeOutputsChan := make(chan string, len(assignedKeys)) // buffered channel so that we don't block on the go routines
 	sdfsInputFilenames := mjNode.createSdfsFilenamesFromIntermediateAndKeys(sdfsIntermediateFilenamePrefix, assignedKeys)
 	localInputFilenames := make([]string, 0)
 	for _, sdfsInputFilename := range sdfsInputFilenames {
-		
+
 	}
 	mjNode.sdfsNode.PerformBlockedGets(sdfsInputFilenames, localInputFilenames)
 
