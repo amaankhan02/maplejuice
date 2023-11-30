@@ -1,0 +1,4 @@
+id firstname lastname age
+1234 Samaah Khan 22
+5678 Amaan Khan 21
+9101 Man Kumar 21
