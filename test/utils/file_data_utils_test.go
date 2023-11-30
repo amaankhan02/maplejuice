@@ -1,4 +1,4 @@
-package test
+package utils
 
 //
 //import (
@@ -170,3 +170,15 @@ package test
 //		fmt.Println()
 //	}
 //}
+
+func TestDeleteDirAndAllContents(t *testing.T) {
+    panic ("Test not implemented")
+}
+
+func TestMoveFilePointerToLineNumber(t *testing.T) {
+    panic ("Test not implemented")
+}
+
+func TestCountNumLinesInFile(t *testing.T) {
+    panic ("Test not implemented")
+}
