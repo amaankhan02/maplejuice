@@ -15,6 +15,15 @@ import (
 	"strconv"
 )
 
+/*
+Used ONLY by the client for its own bookkeeping
+*/
+type ClientMapleJuiceJob struct {
+	ClientJobId int
+	JobType 	MapleJuiceJobType
+	// * you can store more infomation in this struct later if you want
+}
+
 type MapleJuiceNode struct {
 	id            NodeID
 	leaderID      NodeID
@@ -23,9 +32,11 @@ type MapleJuiceNode struct {
 	tcpServer     *tcp_net.TCPServer
 	logFile       *os.File
 	sdfsNode      *SDFSNode
-	nodeTmpDir  string				// temporary directory used by this node to store temporary files for maple/juice tasks & leader service
+	nodeTmpDir    string // temporary directory used by this node to store temporary files for maple/juice tasks & leader service
 
-	localWorkerTaskID int // just used internally by the worker to keep track of task number to create unique directories
+	localWorkerTaskID        int // just used internally by the worker to keep track of task number to create unique directories
+	clientJobs               map[int]*ClientMapleJuiceJob
+	totalClientJobsSubmitted int // used for generating unique job ids
 }
 
 type MapleJuiceExeFile struct {
@@ -79,6 +90,7 @@ func (this *MapleJuiceNode) HandleTCPServerConnection(conn net.Conn) {
 				mjNetworkMessage.NumTasks,
 				mjNetworkMessage.SdfsIntermediateFilenamePrefix,
 				mjNetworkMessage.SdfsSrcDirectory,
+				mjNetworkMessage.ClientJobId,
 			)
 		case JUICE_JOB_REQUEST:
 			this.leaderService.SubmitJuiceJob(
@@ -90,12 +102,14 @@ func (this *MapleJuiceNode) HandleTCPServerConnection(conn net.Conn) {
 				mjNetworkMessage.JuicePartitionScheme,
 			)
 		case MAPLE_TASK_RESPONSE:
+			// this function will read from the connection to get the file and then close the connection
 			this.leaderService.ReceiveMapleTaskOutput(
 				conn,
 				mjNetworkMessage.CurrTaskIdx,
 				mjNetworkMessage.TaskOutputFileSize,
 				this.sdfsNode,
 			)
+			alreadyClosedLeaderConn = true
 		case JUICE_TASK_RESPONSE:
 			panic("not implemented")
 			// TODO: can the leader act as a client to submit a job request?
@@ -104,8 +118,8 @@ func (this *MapleJuiceNode) HandleTCPServerConnection(conn net.Conn) {
 	} else {
 		switch mjNetworkMessage.MsgType {
 		case MAPLE_TASK_REQUEST: // must execute some task and send back to leader
-			// you don't know how long this will take... so run this on a separate go routine and then send back the
-			// data later
+			// you don't know how long this will take... so close this leader connection for now, process data,
+			// and then dial the leader again to send the data back
 			_ = conn.Close() // close leader connection becaus executeMapleTask() will later dial the leader
 			alreadyClosedLeaderConn = true
 
@@ -147,8 +161,20 @@ Executes a Maple phase given the input parameters. Submits a Maple Job to the le
 and the leader takes care of scheduling the job. Leader later responds back with
 an acknowledgement
 */
-func (this *MapleJuiceNode) PerformMaple(maple_exe MapleJuiceExeFile, num_maples int, sdfs_intermediate_filename_prefix string,
+func (node *MapleJuiceNode) PerformMaple(maple_exe MapleJuiceExeFile, num_maples int, sdfs_intermediate_filename_prefix string,
 	sdfs_src_directory string) {
+	
+	// TODO: mutex lock
+	clientJob := &ClientMapleJuiceJob{
+		ClientJobId: node.totalClientJobsSubmitted
+		JobType: MAPLE_JOB_TYPE,
+	}
+
+	node.totalClientJobsSubmitted++
+	node.clientJobs[clientJob.ClientJobId] = clientJob		// store it for later... until we recieve the ACK
+	// TODO: mutex unlock
+
+	logMessageHelper(node.logFile, fmt.Sprintf("Sending Maple Job with ClientJobID %d to leader\n", clientJob.ClientJobId))
 
 	mjJob := &MapleJuiceNetworkMessage{
 		MsgType:                        MAPLE_JOB_REQUEST,
@@ -156,9 +182,10 @@ func (this *MapleJuiceNode) PerformMaple(maple_exe MapleJuiceExeFile, num_maples
 		ExeFile:                        maple_exe,
 		SdfsIntermediateFilenamePrefix: sdfs_intermediate_filename_prefix,
 		SdfsSrcDirectory:               sdfs_src_directory,
-		ClientId:                       this.id,
+		ClientId:                       node.id,
+		ClientJobId: 				  clientJob.ClientJobId,
 	}
-	leaderConn, err := net.Dial("tcp", this.leaderID.IpAddress+":"+this.leaderID.SDFSServerPort)
+	leaderConn, err := net.Dial("tcp", node.leaderID.IpAddress+":"+node.leaderID.SDFSServerPort)
 	if err != nil {
 		fmt.Println("Failed to Dial to leader server. Error: ", err)
 		return
@@ -255,7 +282,7 @@ func (this *MapleJuiceNode) executeMapleTask(
 
 		_ = inputFile.Close()
 	}
-	_ = maple_task_output_file.Close()		// close file since we are done writing to it.
+	_ = maple_task_output_file.Close() // close file since we are done writing to it.
 
 	// send the task response back with the file data
 	leaderConn, conn_err := net.Dial("tcp", this.leaderID.IpAddress+":"+this.leaderID.MapleJuiceServerPort)
@@ -263,7 +290,6 @@ func (this *MapleJuiceNode) executeMapleTask(
 		log.Fatalln("Failed to dial to leader server. Error: ", conn_err)
 	}
 	SendMapleTaskResponse(leaderConn, taskIndex, maple_task_output_file.Name())
-	
 
 	// close and delete the temporary files & dirs
 	if delete_tmp_dir_err := utils.DeleteDirAndAllContents(maple_task_dirpath); delete_tmp_dir_err != nil {

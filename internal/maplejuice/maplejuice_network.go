@@ -45,7 +45,10 @@ type MapleJuiceNetworkMessage struct {
 	CurrTaskIdx                    int
 	ClientId                       NodeID
 	TaskOutputFileSize             int64
+	ClientJobId                    int // id that the client created for the job it submitted
 }
+
+func SendMapleJobResponse(conn net.Conn)
 
 func SendMapleTaskRequest(conn net.Conn, numTasks int, exeFile MapleJuiceExeFile, sdfsIntermediateFilenamePrefix string,
 	sdfsSrcDirectory string, taskIndex int) {
@@ -82,7 +85,7 @@ func SendMapleTaskResponse(conn net.Conn, taskIndex int, taskOutputFilepath stri
 		CurrTaskIdx:        taskIndex,
 		TaskOutputFileSize: fileSize,
 	}
-		
+
 	SendMapleJuiceNetworkMessage(conn, &msg)
 
 	send_file_err := tcp_net.SendFile(taskOutputFilepath, conn, fileSize)

@@ -49,12 +49,20 @@ We assume that there is only 1 job running at a time, therefore we don't need to
 Future improvement can be to allow multiple jobs running at same time based on some policy.
 
 Whenever we recieve a task response from a worker, we assume its for the current job.
+
+This struct is handled on the leader side. The client cannot decide, for instance, what the job id is since
+the job id should be unique to the system, not the client. The client has its own ClientMapleJuiceJob struct
 */
-type MapleJuiceJob struct {
-	//jobId   int
+type LeaderMapleJuiceJob struct {
+	// leaderJobId   int
 	jobType MapleJuiceJobType
 
-	clientId                       NodeID // id of the client that requested this job
+	// id of the job as seen by the client. This is used when sending a response back to
+	// the client to tell it which job is finished (cuz client may send multiple jobs)
+	clientJobId int
+	clientId    NodeID // id of the client that requested this job
+
+	// for each nodeID, it holds the task indices that it is responsible for. Once the task is completed, it will be removed from this list
 	workerToTaskIndices            map[NodeID][]int
 	numTasks                       int
 	exeFile                        MapleJuiceExeFile
@@ -83,8 +91,8 @@ type MapleJuiceLeaderService struct {
 	AvailableWorkerNodes []NodeID // leader cannot be a worker node
 	IsRunning            bool
 	logFile              *os.File
-	waitQueue            []*MapleJuiceJob
-	currentJob           *MapleJuiceJob
+	waitQueue            []*LeaderMapleJuiceJob
+	currentJob           *LeaderMapleJuiceJob
 	leaderTempDir        string
 	//jobsSubmitted        int // used as the ID for a job. incremented...
 }
@@ -95,14 +103,15 @@ func NewMapleJuiceLeaderService() *MapleJuiceLeaderService {
 
 func (leader *MapleJuiceLeaderService) Start() {
 	// todo implement
+	go leader.dispatcher()
 	panic("implement me")
 }
 
 // Submit a maple job to the wait queue. Dispatcher thread will execute it when its ready
 func (leader *MapleJuiceLeaderService) SubmitMapleJob(maple_exe MapleJuiceExeFile, num_maples int,
-	sdfs_intermediate_filename_prefix string, sdfs_src_dir string) {
+	sdfs_intermediate_filename_prefix string, sdfs_src_dir string, clientJobId int) {
 
-	job := MapleJuiceJob{
+	job := LeaderMapleJuiceJob{
 		jobType:                        MAPLE_JOB,
 		exeFile:                        maple_exe,
 		numTasks:                       num_maples,
@@ -111,6 +120,7 @@ func (leader *MapleJuiceLeaderService) SubmitMapleJob(maple_exe MapleJuiceExeFil
 		sdfsSrcDirectory:               sdfs_src_dir,
 		numTasksCompleted:              0,
 		sdfsIntermediateFilenames:      make(datastructures.HashSet[string]),
+		clientJobId:                    clientJobId,
 	}
 
 	leader.waitQueue = append(leader.waitQueue, &job)
@@ -121,7 +131,7 @@ func (leader *MapleJuiceLeaderService) SubmitJuiceJob(juice_exe MapleJuiceExeFil
 	juicePartitionScheme JuicePartitionType) {
 
 	// TODO: add mutex lock
-	job := MapleJuiceJob{
+	job := LeaderMapleJuiceJob{
 		jobType:                        JUICE_JOB,
 		workerToTaskIndices:            make(map[NodeID][]int),
 		numTasks:                       num_juices,
@@ -141,21 +151,27 @@ Reads the file containing the key value pairs of the task's output from the tcp 
 Then of the currently running job, it marks the task with the matching taskIndex as finished.
 If all tasks have finished, it then proceeds to finish the job by processing the recorded
 task output files and then creating a new set of files to be saved in the SDFS file system as
+
+* NOTE: this function reads the file from the connection object, and then closes the connection
 */
 func (leader *MapleJuiceLeaderService) ReceiveMapleTaskOutput(conn net.Conn, taskIndex int, filesize int64,
 	sdfsService *SDFSNode) {
 
+	// todo: ADD MUTEX LOCKS FOR CURRENT_JOB
 	// read the task output file from the network
+	// TODO: delete these maple task output files after we are done with the job (after we send to sdfs)
+	// but for testing purposes, don't delete it
 	save_filepath := filepath.Join(leader.leaderTempDir, fmt.Sprintf(MAPLE_TASK_OUTPUT_FILENAME_FMT, taskIndex))
 	err := tcp_net.ReadFile(save_filepath, conn, filesize)
 	if err != nil {
 		os.Exit(1) // TODO: for now exit, figure out the best course of action later
 	}
+	_ = conn.Close() // close the connection with this worker since we got all the data we needed from it
 
 	// mark the task as completed now that we got the file
 	leader.markTaskAsCompleted(taskIndex)
 	leader.currentJob.numTasksCompleted += 1
-	// TODO: do we wanna run this on a separate go routine instead? we can just close the conn object
+	// TODO: do we wanna run this on a separate go routine instead?
 	if leader.currentJob.jobType == MAPLE_JOB {
 		leader.processMapleTaskOutputFile(save_filepath)
 	}
@@ -169,14 +185,18 @@ func (leader *MapleJuiceLeaderService) ReceiveMapleTaskOutput(conn net.Conn, tas
 func (leader *MapleJuiceLeaderService) finishCurrentJob(sdfsService *SDFSNode) {
 	// write intermediate files to SDFS
 	for sdfsIntermFilepath := range leader.currentJob.sdfsIntermediateFilenames {
-		sdfsService.PerformPut(filepath.Join(leader.leaderTempDir, sdfsIntermFilepath), sdfsIntermFilepath)
-		// TODO!: need to add a way for me to get notified that the put operation was completed... the acknowledgement i receive must get a callback? maybe a listener? idrk... must figure out
-		// cuz after i know it's done i can delete interm local files...
-		// if that's too hard, i can just store these files in a separate folder, unique by the job id like "job 0"
-		// and then just have the entire directory deleted after my program is done. cuz space is not really an issue...
-		// or pass in a boolean into PerformPut() to have it block or not until it gets the ACK, and in this case we can block until it gets the ACK...
+		sdfsService.PerformBlockedPut(filepath.Join(leader.leaderTempDir, sdfsIntermFilepath), sdfsIntermFilepath)
 	}
 	leader.currentJob = nil
+
+	// establish connection with the client and send a response indicating the job is finished
+	clientConn, conn_err := net.Dial("tcp", leader.currentJob.clientId.IpAddress+":"+leader.currentJob.clientId.MapleJuiceServerPort)
+	if conn_err != nil {
+		fmt.Println("Inside finishCurrentJob(). ")
+		fmt.Println("Failed to connect to client node! Unable to notify client that job is finished. Error: ", conn_err)
+		return
+	}
+
 	// TODO: send an *_JOB_RESPONSE back to the client acknowledging that its done?
 	// TODO: should I send it right here? or should I first close this connection with the
 
@@ -241,7 +261,7 @@ Finds the task with index 'taskIndex' and marks it as completed.
 Currently marks it as completed by just removing the taskIndex from the
 map of worker nodes to task indices
 
-TODO: this assumes that we have only 1 job running at a time... but we should just simply use a
+* this assumes that we have only 1 job running at a time... but we should just simply use a job id instead (future improvement)
 */
 func (this *MapleJuiceLeaderService) markTaskAsCompleted(taskIndex int) {
 	for workerNodeId, taskIndicesList := range this.currentJob.workerToTaskIndices {
@@ -255,16 +275,17 @@ func (this *MapleJuiceLeaderService) markTaskAsCompleted(taskIndex int) {
 	}
 }
 
-func (this *MapleJuiceLeaderService) dispatcher() {
-	for this.IsRunning {
-		if this.currentJob == nil && len(this.waitQueue) > 0 {
+// TODO: future improvement: allow multiple jobs of the same type to run at the same time (see if any sources of conflicts can happen tho)
+func (leader *MapleJuiceLeaderService) dispatcher() {
+	for leader.IsRunning {
+		if leader.currentJob == nil && len(leader.waitQueue) > 0 {
 			// schedule a new one
-			this.currentJob = this.waitQueue[0]
-			this.waitQueue = this.waitQueue[1:]
+			leader.currentJob = leader.waitQueue[0]
+			leader.waitQueue = leader.waitQueue[1:]
 
-			this.startJob(this.currentJob)
+			leader.startJob(leader.currentJob)
 		}
-		time.Sleep(this.DispatcherWaitTime)
+		time.Sleep(leader.DispatcherWaitTime)
 	}
 }
 
@@ -272,7 +293,7 @@ func (this *MapleJuiceLeaderService) dispatcher() {
 Starts the execution of the current job by distributing the tasks among the worker nodes
 and sending them task requests to have them begin their work
 */
-func (this *MapleJuiceLeaderService) startJob(newJob *MapleJuiceJob) {
+func (this *MapleJuiceLeaderService) startJob(newJob *LeaderMapleJuiceJob) {
 	// TODO: add mutex locks
 	this.shuffleAvailableWorkerNodes() // randomize selection of worker nodes each time
 	this.assignTaskIndicesToWorkerNodes(newJob)
@@ -287,7 +308,7 @@ func (this *MapleJuiceLeaderService) shuffleAvailableWorkerNodes() {
 	}
 }
 
-func (this *MapleJuiceLeaderService) assignTaskIndicesToWorkerNodes(job *MapleJuiceJob) {
+func (this *MapleJuiceLeaderService) assignTaskIndicesToWorkerNodes(job *LeaderMapleJuiceJob) {
 	for i := 0; i < job.numTasks; i++ { // i = task index
 		currWorkerIdx := i % len(this.AvailableWorkerNodes)
 		currWorkerNodeId := this.AvailableWorkerNodes[currWorkerIdx]
@@ -301,7 +322,7 @@ func (this *MapleJuiceLeaderService) assignTaskIndicesToWorkerNodes(job *MapleJu
 	}
 }
 
-func (this *MapleJuiceLeaderService) sendTasksToWorkerNodes(job *MapleJuiceJob) {
+func (this *MapleJuiceLeaderService) sendTasksToWorkerNodes(job *LeaderMapleJuiceJob) {
 	for workerNodeId, taskIndices := range job.workerToTaskIndices {
 		workerConn, conn_err := net.Dial("tcp", workerNodeId.IpAddress+":"+workerNodeId.MapleJuiceServerPort)
 		if conn_err != nil {
