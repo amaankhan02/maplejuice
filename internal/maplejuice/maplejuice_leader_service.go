@@ -195,11 +195,10 @@ func (leader *MapleJuiceLeaderService) finishCurrentJob(sdfsService *SDFSNode) {
 	if conn_err != nil {
 		fmt.Println("Inside finishCurrentJob(). ")
 		fmt.Println("Failed to connect to client node! Unable to notify client that job is finished. Error: ", conn_err)
-		return
+	} else {
+		SendMapleJobResponse(clientConn, leader.currentJob.clientJobId)		// notify client that job is finished by sending a JOP RESPONSE
 	}
 	defer clientConn.Close()
-
-	SendMapleJobResponse(clientConn, leader.currentJob.clientJobId)		// notify client that job is finished by sending a JOP RESPONSE
 	leader.currentJob = nil
 }
 
