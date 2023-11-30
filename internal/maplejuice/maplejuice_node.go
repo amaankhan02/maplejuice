@@ -125,7 +125,7 @@ func (this *MapleJuiceNode) HandleTCPServerConnection(conn net.Conn) {
 			panic("not implemented")
 			// TODO: can the leader act as a client to submit a job request?
 		}
-	} else { // NOT LEADER NODE 
+	} else { // NOT LEADER NODE
 
 		// You don't know how long maple/juice task execution may take. So we close the conn object in the switch case
 		// immediately once we don't need it anymore.
@@ -272,29 +272,25 @@ func (this *MapleJuiceNode) logBoth(msg string) {
 }
 
 /*
-Handles the juice tasks assigned to this worker node. Each key is another juice task. 
+Handles the juice tasks assigned to this worker node. Each key is another juice task.
 
 Each juice task will output one key,value pair. So for all the juice tasks, we can save their outputs to just one file.
 
-Handle each key in parallel in a separate go routine to make it faster. 
-For each key, grab the one intermediate file that has the key, and run the juice exe on it. Read in from stdin 
+Handle each key in parallel in a separate go routine to make it faster.
+For each key, grab the one intermediate file that has the key, and run the juice exe on it. Read in from stdin
 and pass it the input file, and read the stdout which should be one key value pair. Return that through a channel.
 On the outside, we can run a select{} to wait for all the channels to return, and then write the key value pairs
-to the output file. 
+to the output file.
 Once all channels have been read from, we can send the output file back to the leader.
 */
 func (mjNode *MapleJuiceNode) executeJuiceTask(juiceExe MapleJuiceExeFile, sdfsIntermediateFilenamePrefix string, assignedKeys []string) {
 	juiceExeOutputsChan := make(chan string, len(assignedKeys)) // buffered channel so that we don't block on the go routines
-
-	// todo: grab the intermediate files from the sdfs and save it to the local tmp dir
-	// ^ and make the key to corresponding local filename so we know which file to run the exe on
-	sdfsInputFilenames := mjNode.filterJuiceSdfsFilesOnKeys(sdfsNode.PerformPrefixMatch(sdfsIntermediateFilenamePrefix), assignedKeys)
-	// localInputFilenames := make(map[string]string)
+	sdfsInputFilenames := mjNode.createSdfsFilenamesFromIntermediateAndKeys(sdfsIntermediateFilenamePrefix, assignedKeys)
 	localInputFilenames := make([]string, 0)
 	for _, sdfsInputFilename := range sdfsInputFilenames {
-		// these are just tempoary, so just call the local input filenames based on like "local-<sdfsInputFilename>"
+		
 	}
-	sdfsNode.PerformBlockedGets(sdfsInputFilenames, localInputFilenames)
+	mjNode.sdfsNode.PerformBlockedGets(sdfsInputFilenames, localInputFilenames)
 
 	var wg sync.WaitGroup
 
@@ -308,7 +304,7 @@ func (mjNode *MapleJuiceNode) executeJuiceTask(juiceExe MapleJuiceExeFile, sdfsI
 	go func() {
 		wg.Wait()
 		// we must close otherwise the for-loop below where we read from the channel will block forever cuz it will read as long as the channel is open
-		close(juiceExeOutputsChan)	
+		close(juiceExeOutputsChan)
 	}()
 
 	// todo: store the output file in the tmp dir - tmp dir should be based on the juice task's id in the current node
@@ -320,7 +316,7 @@ func (mjNode *MapleJuiceNode) executeJuiceTask(juiceExe MapleJuiceExeFile, sdfsI
 
 	for result := range juiceExeOutputsChan {
 		// write the result to the output file
-		outputFile.WriteString(result)	
+		outputFile.WriteString(result)
 	}
 
 	// send the task response back with the file data to the leader
@@ -328,7 +324,16 @@ func (mjNode *MapleJuiceNode) executeJuiceTask(juiceExe MapleJuiceExeFile, sdfsI
 	if conn_err != nil {
 		log.Fatalln("Failed to dial to leader server. Error: ", conn_err)
 	}
-	SendJuiceTaskResponse(leaderConn, outputFilename)	// ? any other information we gotta send back? 
+	SendJuiceTaskResponse(leaderConn, outputFilename) // ? any other information we gotta send back?
+}
+
+func (mjNode *MapleJuiceNode) createSdfsFilenamesFromIntermediateAndKeys(sdfsIntermediateFilenamePrefix string, assignedKeys []string) []string {
+	sdfsFilenames := make([]string, 0)
+	for _, key := range assignedKeys {
+		// use the same function to generate the filename that the leader uses to generate the filename when storing it
+		sdfsFilenames = append(sdfsFilenames, getSdfsIntermediateFilename(sdfsIntermediateFilenamePrefix, key))
+	}
+	return sdfsFilenames
 }
 
 /*
