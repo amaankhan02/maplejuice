@@ -36,7 +36,6 @@ type MapleJuiceNetworkMessage struct {
 	MsgType              MapleJuiceNetworkMessageType
 	JuicePartitionScheme JuicePartitionType
 	NumTasks             int // number of maples or juice tasks (depending on the type)
-	//ExeFile                        string // maple_exe or juice_exe
 	ExeFile                        MapleJuiceExeFile
 	SdfsIntermediateFilenamePrefix string // prefix of the intermediate filenames (output of Maple, input of Juice)
 	SdfsSrcDirectory               string // location of input files for Maple
@@ -46,6 +45,7 @@ type MapleJuiceNetworkMessage struct {
 	ClientId                       NodeID
 	TaskOutputFileSize             int64
 	ClientJobId                    int // id that the client created for the job it submitted
+	keys 						   []string	// used for juice tasks (to know what keys to operate on)
 }
 
 func SendMapleJobResponse(conn net.Conn, clientJobId int) {
@@ -100,17 +100,13 @@ func SendMapleTaskResponse(conn net.Conn, taskIndex int, taskOutputFilepath stri
 	}
 }
 
-func SendJuiceTaskRequest(conn net.Conn, numJuices int, juiceExe MapleJuiceExeFile, sdfsIntermediateFilenamePrefix string,
-	sdfsDestFilename string, deleteInput bool, juicePartitionScheme JuicePartitionType, taskIndex int) {
+func SendJuiceTaskRequest(conn net.Conn, juiceExe MapleJuiceExeFile, sdfsIntermediateFilenamePrefix string, 
+	assignedKeys []string) {
 	msg := MapleJuiceNetworkMessage{
 		MsgType:                        JUICE_TASK_REQUEST,
-		JuicePartitionScheme:           juicePartitionScheme,
-		NumTasks:                       numJuices,
 		ExeFile:                        juiceExe,
 		SdfsIntermediateFilenamePrefix: sdfsIntermediateFilenamePrefix,
-		SdfsDestFilename:               sdfsDestFilename,
-		ShouldDeleteJuiceInput:         deleteInput,
-		CurrTaskIdx:                    taskIndex,
+		keys:							assignedKeys,
 	}
 	SendMapleJuiceNetworkMessage(conn, &msg)
 }

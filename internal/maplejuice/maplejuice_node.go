@@ -88,6 +88,9 @@ func (this *MapleJuiceNode) HandleTCPServerConnection(conn net.Conn) {
 	if this.isLeader { // LEADER NODE
 		switch mjNetworkMessage.MsgType {
 		case MAPLE_JOB_REQUEST:
+			_ = conn.Close()
+			alreadyClosedLeaderConn = true
+
 			this.leaderService.SubmitMapleJob(
 				mjNetworkMessage.ExeFile,
 				mjNetworkMessage.NumTasks,
@@ -96,6 +99,9 @@ func (this *MapleJuiceNode) HandleTCPServerConnection(conn net.Conn) {
 				mjNetworkMessage.ClientJobId,
 			)
 		case JUICE_JOB_REQUEST:
+			_ = conn.Close()
+			alreadyClosedLeaderConn = true
+
 			this.leaderService.SubmitJuiceJob(
 				mjNetworkMessage.ExeFile,
 				mjNetworkMessage.NumTasks,

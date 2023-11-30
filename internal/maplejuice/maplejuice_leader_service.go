@@ -318,6 +318,23 @@ func (this *MapleJuiceLeaderService) startJob(newJob *LeaderMapleJuiceJob) {
 
 }
 
+func (this *MapleJuiceLeaderService) sendJuiceTasksToWorkerNodes(job *LeaderMapleJuiceJob) {
+	if job.jobType != JUICE_JOB {
+		log.Fatalln("sendJuiceTasksToWorkerNodes() called on a non-juice job!")
+	}
+
+	for workerNodeId, assignedKeys := range job.workerToKeys {
+		workerConn, conn_err := net.Dial("tcp", workerNodeId.IpAddress+":"+workerNodeId.MapleJuiceServerPort)
+		if conn_err != nil {
+			fmt.Println("*****Failed to connect to worker node!*****")
+			fmt.Println(conn_err)
+		} else {
+			SendJuiceTaskRequest(workerConn, job.exeFile, job.sdfsIntermediateFilenamePrefix, assignedKeys)
+		}
+		_ = workerConn.Close()
+	}
+}
+
 func (this *MapleJuiceLeaderService) getAllKeysForJuiceJob(job *LeaderMapleJuiceJob) {
 	// get the corresponding maple job
 	mapleJob, ok := this.finishedMapleJobs[job.sdfsIntermediateFilenamePrefix]
@@ -335,7 +352,7 @@ func (this *MapleJuiceLeaderService) partitionKeysToWorkerNodes(job *LeaderMaple
 		// now assign the keys to the worker nodes
 		for i, keys := range keysForTasks {
 			workerNodeId := this.AvailableWorkerNodes[i%len(this.AvailableWorkerNodes)]
-
+			job.workerToKeys[workerNodeId] = keys
 		}
 
 	} else if job.juicePartitionScheme == RANGE_PARTITIONING {
