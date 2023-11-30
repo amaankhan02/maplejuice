@@ -291,7 +291,7 @@ func (leader *MapleJuiceLeaderService) dispatcher() {
 }
 
 /*
-Starts the execution of the current job by distributing the tasks among the worker nodes
+Starts the execution of the job passed in by distributing the tasks among the worker nodes
 and sending them task requests to have them begin their work
 */
 func (this *MapleJuiceLeaderService) startJob(newJob *LeaderMapleJuiceJob) {

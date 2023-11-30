@@ -143,8 +143,7 @@ func (this *MapleJuiceNode) HandleTCPServerConnection(conn net.Conn) {
 		case MAPLE_JOB_RESPONSE: // acknowledging the job is done
 			this.handleJobResponse(mjNetworkMessage.ClientJobId)
 		case JUICE_JOB_RESPONSE: // acknowledging the job is done
-			panic("not implemented")
-
+			this.handleJobResponse(mjNetworkMessage.ClientJobId)
 		}
 	}
 
