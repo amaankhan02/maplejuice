@@ -281,7 +281,7 @@ This function does not lock any mutex locks. the caller is expected to lock
 func (this *SDFSLeaderService) notifyClientToExecuteTask(task *FileOperationTask) {
 	conn, err1 := net.Dial("tcp", task.ClientNode.IpAddress+":"+task.ClientNode.SDFSServerPort)
 	if err1 != nil {
-		fmt.Println("Failed to Dial() client node: %s", err1)
+		fmt.Printf("Failed to Dial() client node: %s", err1)
 		return
 	}
 
