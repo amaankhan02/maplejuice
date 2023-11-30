@@ -8,6 +8,7 @@ import (
 	"math/rand"
 	"net"
 	"os"
+	"strings"
 	"sync"
 	"time"
 )
@@ -90,7 +91,7 @@ type SDFSLeaderService struct {
 	FileToNodes map[string]map[int][]NodeID // TODO: you can move this into FileOperationMetadata structure, no need to keep it separate
 
 	// maps sdfs_filename to a FileOperationMetadata struct which holds information about the current write/read
-	// operations occurring on the current maplejuice file. This is used by the leader to schedule tasks,
+	// operations occurring on the current sdfs file. This is used by the leader to schedule tasks,
 	FileOperations     map[string]*FileOperationsMetadata
 	ActiveNodes        []NodeID // list of alive nodes in the distributed file system
 	IsRunning          bool
@@ -280,7 +281,7 @@ This function does not lock any mutex locks. the caller is expected to lock
 func (this *SDFSLeaderService) notifyClientToExecuteTask(task *FileOperationTask) {
 	conn, err1 := net.Dial("tcp", task.ClientNode.IpAddress+":"+task.ClientNode.SDFSServerPort)
 	if err1 != nil {
-		fmt.Println("Failed to Dial() client node: %s", err1)
+		fmt.Printf("Failed to Dial() client node: %s", err1)
 		return
 	}
 
@@ -487,6 +488,21 @@ func (this *SDFSLeaderService) LsOperation(sdfs_filename string) []NodeID {
 	return this.getNodesStoringFile(sdfs_filename)
 }
 
+func (this *SDFSLeaderService) PrefixMatchOperation(prefix string) []string {
+	this.MutexLock.Lock()
+	defer this.MutexLock.Unlock()
+
+	matchingFilenames := make([]string, 0)
+
+	for filename := range this.FileToNodes { // iterate through all files in the distributed file system
+		if strings.HasPrefix(filename, prefix) {
+			matchingFilenames = append(matchingFilenames, filename)
+		}
+	}
+
+	return matchingFilenames
+}
+
 //func (this *SDFSLeaderService) AddFileToSDFS(sdfs_filename string, filesize int64) {
 //	/* based on the filesize and the shard size, it will
 //		1. Figure out how many shards will be required
@@ -533,9 +549,9 @@ re-replicating process
 func (this *SDFSLeaderService) IndicateNodeFailed(failed_nodeId NodeID) {
 	this.MutexLock.Lock()
 	// double check that it actually removes...
-	//fmt.Printf("Len(ActiveNodes) before Deletion = %d\n", len(this.ActiveNodes))
+	//fmt.Printf("Len(AvailableWorkerNodes) before Deletion = %d\n", len(this.AvailableWorkerNodes))
 	_ = this.deleteActiveNode(failed_nodeId)
-	//fmt.Printf("Len(ActiveNodes) after Deletion = %d\nAnd didDelete = %d\n", len(this.ActiveNodes), didDelete)
+	//fmt.Printf("Len(AvailableWorkerNodes) after Deletion = %d\nAnd didDelete = %d\n", len(this.AvailableWorkerNodes), didDelete)
 
 	// find which SDFS files were affected by this node crash and
 	for sdfs_filename, shardsToNodes := range this.FileToNodes {

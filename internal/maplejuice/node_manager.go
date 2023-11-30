@@ -39,6 +39,7 @@ func (nm *MJNodeManager) NewMJNodeManager(isTestMode bool, msgDropRate int, tGos
 }
 
 func (nm *MJNodeManager) Start() {
+	// TODO: clear out the maple juice tmp dir contents before creating it (if it exists), and then create it
 	nm.failureJoinService.JoinGroup()
 	nm.sdfsNode.Start()
 	//nm.mjNode.Start()
@@ -53,7 +54,7 @@ func (nm *MJNodeManager) HandleNodeFailure(info FailureDetectionInfo) {
 }
 
 func (nm *MJNodeManager) HandleNodeJoin(info NodeJoinInfo) {
-	// if a node joined our membership list, i need to reflect that in leaderService.ActiveNodes
+	// if a node joined our membership list, i need to reflect that in leaderService.AvailableWorkerNodes
 	if nm.sdfsNode.isLeader {
 		nm.sdfsNode.leaderService.AddNewActiveNode(info.JoinedNodeId)
 	}

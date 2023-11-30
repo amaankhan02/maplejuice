@@ -5,6 +5,7 @@ import (
 	"cs425_mp4/internal/config"
 	"cs425_mp4/internal/tcp_net"
 	"cs425_mp4/internal/utils"
+	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -25,6 +26,8 @@ type LocalAck struct {
 Currently implementing the following interfaces
   - INodeManager
   - tcp_net.TCPServerConnectionHandler
+
+TODO: rename SDFSNode to SDFSEngine. As well as MapleJuiceNode to MapleJuiceEngine
 */
 type SDFSNode struct {
 	id       NodeID
@@ -36,6 +39,10 @@ type SDFSNode struct {
 	tcpServer         *tcp_net.TCPServer
 	fileSystemService *FileSystemService
 	leaderService     *SDFSLeaderService
+
+	// store a map of key = sdfs_filename+local_filename concatenated - just a unique way to ID a get operation
+	// value is the wait group that we need to do a wg.Done() to ONLY IF IT EXISTS. if it DOES NOT EXIST, then no need to do it!
+	blockedClientGets map[string]*sync.WaitGroup
 
 	ackMutex   sync.Mutex
 	clientAcks []LocalAck // store all Acks received to this client
@@ -52,6 +59,7 @@ func NewSDFSNode(thisId NodeID, introducerLeaderId NodeID, isIntroducerLeader bo
 		fileSystemService: nil,
 		leaderService:     nil, // leaderService is nil if this node is not the leader
 		clientAcks:        make([]LocalAck, 0),
+		blockedClientGets: make(map[string]*sync.WaitGroup),
 	}
 	sdfsNode.tcpServer = tcp_net.NewTCPServer(thisId.SDFSServerPort, sdfsNode)
 
@@ -93,7 +101,7 @@ func (this *SDFSNode) Start() {
 //}
 //
 //func (this *SDFSNode) HandleNodeJoin(info NodeJoinInfo) {
-//	// if a node joined our membership list, i need to reflect that in leaderService.ActiveNodes
+//	// if a node joined our membership list, i need to reflect that in leaderService.AvailableWorkerNodes
 //	if this.isLeader {
 //		this.leaderService.AddNewActiveNode(info.JoinedNodeId)
 //	}
@@ -165,6 +173,11 @@ func (this *SDFSNode) HandleTCPServerConnection(conn net.Conn) {
 			lsReq := ReceiveLsRequest(reader, false)
 			replicas := this.leaderService.LsOperation(lsReq.SdfsFilename)
 			SendLsResponse(conn, lsReq.SdfsFilename, replicas)
+
+		case PREFIX_MATCH_REQUEST:
+			req := ReceivePrefixMatchRequest(reader, false)
+			filenames := this.leaderService.PrefixMatchOperation(req.SdfsFilenamePrefix)
+			SendPrefixMatchResponse(conn, filenames)
 
 		case ACK_RESPONSE: // leader receiving an ACK means a file operation was completed
 			ack_struct := ReceiveOnlyAckResponseData(reader)
@@ -358,10 +371,17 @@ func (this *SDFSNode) clientHandleReceiveGetInfoResponse(leaderConn1 net.Conn, l
 	this.printAck(&localAck)
 	this.addAcknowledgement(&localAck)
 
+	// check if this was a blocking get operation - if so, then call wg.Done() to indicate it's done
+	wg, key_exists := this.blockedClientGets[getInfoResponse.SdfsFilename+getInfoResponse.ClientLocalFilename]
+	if key_exists {
+		wg.Done()
+	}
+
 	errL := leaderConn2.Close()
 	if errL != nil {
 		log.Fatalln("Failed to close connection to leader: ", errL)
 	}
+
 }
 
 func (this *SDFSNode) printAck(localAck *LocalAck) {
@@ -533,6 +553,33 @@ func (this *SDFSNode) PerformGet(sdfsfilename string, localFilename string) {
 	}
 }
 
+func (this *SDFSNode) PerformBlockedGets(sdfs_filenames []string, local_filenames []string) error {
+	if len(sdfs_filenames) != len(local_filenames) {
+		return errors.New("sdfs_filenames has different length than local_filenames. Invalid input!")
+	}
+
+	var wg sync.WaitGroup
+
+	for i := 0; i < len(sdfs_filenames); i++ {
+		wg.Add(1)
+
+		// TODO: ideally the key should be the ID of the GET so that its gauranteed to be unique. change this later in future
+		// right now its just the sdfs_filename + local_filename
+		this.blockedClientGets[sdfs_filenames[i]+local_filenames[i]] = &wg
+		this.PerformGet(sdfs_filenames[i], local_filenames[i])
+	}
+
+	// block here
+	wg.Wait()
+
+	// just delete all the key value pairs created from this performblockedget()
+	for i := 0; i < len(sdfs_filenames); i++ {
+		delete(this.blockedClientGets, sdfs_filenames[i]+local_filenames[i])
+	}
+
+	return nil
+}
+
 /*
 Performs the PUT file operation.
 
@@ -556,6 +603,7 @@ func (this *SDFSNode) PerformPut(localfilename string, sdfsfilename string) {
 	defer leaderConn.Close()
 
 	file_size := utils.GetFileSize(localfilename)
+
 	SendPutInfoRequest(leaderConn, sdfsfilename, localfilename, file_size, this.id)
 }
 
@@ -598,6 +646,23 @@ func (this *SDFSNode) PerformLs(sdfs_file_name string) {
 	lsResp := ReceiveLsResponse(reader, true)
 	//logMessageHelper(this.logFile, "Received LS RESPONSE")
 	this.printLsResponse(lsResp)
+}
+
+/*
+Requests the leader to return all filenames that match a certain prefix in the sdfs_filename
+*/
+func (this *SDFSNode) PerformPrefixMatch(sdfs_filename_prefix string) []string {
+	leaderConn, err1 := net.Dial("tcp", this.leaderID.IpAddress+":"+this.leaderID.SDFSServerPort)
+	if err1 != nil {
+		fmt.Println("Failed to Dial to leader server. Error: ", err1)
+		return nil
+	}
+	defer leaderConn.Close()
+	reader := bufio.NewReader(leaderConn)
+	SendPrefixMatchRequest(leaderConn, sdfs_filename_prefix)
+
+	response := ReceivePrefixMatchResponse(reader, true)
+	return response.SdfsFilenames
 }
 
 /*

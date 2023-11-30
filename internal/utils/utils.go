@@ -39,6 +39,13 @@ func GetCurrentTime() string {
 	return fmt.Sprintf("%02d:%02d:%02d.%03d", hours, minutes, seconds, milliseconds)
 }
 
+func RemoveIthElementFromSlice[T int](s []T, i int) []T {
+	// replace ith element with the last element and then return everything up to but not including
+	// the last element
+	s[i] = s[len(s)-1]
+	return s[:len(s)-1]
+}
+
 //func CreateDataBlocks(local_file_path string, shards_list []string) []DataBlock {
 //	data_blocks_list := make([]DataBlock, 0)
 //

@@ -76,7 +76,7 @@ sends as a stream. Always use this function when sending a file over TCP
 */
 func SendFile(filepath string, conn net.Conn, filesize int64) error {
 	// open the file for reading
-	f, err := os.Open(filepath)
+	f, err := os.OpenFile(filepath, os.O_RDONLY, 0666)
 	if err != nil {
 		fmt.Println("Failed to open file for reading")
 		return err
@@ -90,7 +90,7 @@ func SendFile(filepath string, conn net.Conn, filesize int64) error {
 	}
 	if n_written < filesize {
 		fmt.Println("Failed to copy entire file into connection!")
-		return errors.New("Failed to copy entire file into connection")
+		return errors.New("failed to copy entire file into connection")
 	} else {
 		return nil
 	}
@@ -158,6 +158,10 @@ func ReadMessageData(reader *bufio.Reader) ([]byte, error) {
 /*
 Reads a file from the TCP connection and writes it to 'filepath'.
 'filesize' represents the amount of data from the connection socket to read
+
+If the save_filepath does not exist, it will create it.
+If the save_filepath does exist, it will truncate the file to be empty and then write
+the contents
 */
 func ReadFile(save_filepath string, conn net.Conn, filesize int64) error {
 	// open the file for writing

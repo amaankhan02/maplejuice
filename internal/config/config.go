@@ -42,3 +42,8 @@ const (
 	MAX_NUM_CONCURRENT_WRITES      int           = 1
 	MAX_NUM_CONSECUTIVE_OPERATIONS               = 4
 )
+
+// MP4 Configuration Variables
+const (
+	LINES_PER_MAPLE_EXE int = 20
+)
