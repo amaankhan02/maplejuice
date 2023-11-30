@@ -7,6 +7,7 @@ import (
 	"cs425_mp4/internal/utils"
 	"encoding/csv"
 	"fmt"
+	"hash/fnv"
 	"io"
 	"log"
 	"math/rand"
@@ -63,7 +64,8 @@ type LeaderMapleJuiceJob struct {
 	clientId    NodeID // id of the client that requested this job
 
 	// for each nodeID, it holds the task indices that it is responsible for. Once the task is completed, it will be removed from this list
-	workerToTaskIndices            map[NodeID][]int
+	workerToTaskIndices            map[NodeID][]int    // only for maple job
+	workerToKeys                   map[NodeID][]string // only for juice job
 	numTasks                       int
 	exeFile                        MapleJuiceExeFile
 	sdfsIntermediateFilenamePrefix string
@@ -72,6 +74,10 @@ type LeaderMapleJuiceJob struct {
 	sdfsDestFilename               string             // only for juice job
 	delete_input                   bool               // only for juice job
 	juicePartitionScheme           JuicePartitionType // only for juice job
+
+	// TODO: implement on map side to update this set of keys
+	keys datastructures.HashSet[string] // map job updates this, juice job will look at this later to know what keys are there
+	// ! is it fine that I'm storing all the keys in memory? maybe we can store it in a file instead? (future improvement)
 
 	sdfsIntermediateFileMutex sync.Mutex
 	sdfsIntermediateFilenames datastructures.HashSet[string] // contains the path to the sdfsIntermediateFiles stored locally
@@ -94,6 +100,12 @@ type MapleJuiceLeaderService struct {
 	waitQueue            []*LeaderMapleJuiceJob
 	currentJob           *LeaderMapleJuiceJob
 	leaderTempDir        string
+
+	// store the maple jobs that finished, but the juice job has not started/finished yet OR the corresponding
+	// juice job didn't tell it to delete the intermediate files yet
+	finishedMapleJobs map[string]*LeaderMapleJuiceJob // key=sdfs_intermediate_filename_prefix, value=job
+	// TODO: update on map side for when the map job finishes, it should move the job to this map
+
 	//jobsSubmitted        int // used as the ID for a job. incremented...
 }
 
@@ -188,7 +200,6 @@ func (leader *MapleJuiceLeaderService) finishCurrentJob(sdfsService *SDFSNode) {
 	for sdfsIntermFilepath := range leader.currentJob.sdfsIntermediateFilenames {
 		sdfsService.PerformBlockedPut(filepath.Join(leader.leaderTempDir, sdfsIntermFilepath), sdfsIntermFilepath)
 	}
-	
 
 	// establish connection with the client and send a response indicating the job is finished
 	clientConn, conn_err := net.Dial("tcp", leader.currentJob.clientId.IpAddress+":"+leader.currentJob.clientId.MapleJuiceServerPort)
@@ -196,7 +207,7 @@ func (leader *MapleJuiceLeaderService) finishCurrentJob(sdfsService *SDFSNode) {
 		fmt.Println("Inside finishCurrentJob(). ")
 		fmt.Println("Failed to connect to client node! Unable to notify client that job is finished. Error: ", conn_err)
 	} else {
-		SendMapleJobResponse(clientConn, leader.currentJob.clientJobId)		// notify client that job is finished by sending a JOP RESPONSE
+		SendMapleJobResponse(clientConn, leader.currentJob.clientJobId) // notify client that job is finished by sending a JOP RESPONSE
 	}
 	defer clientConn.Close()
 	leader.currentJob = nil
@@ -296,8 +307,59 @@ and sending them task requests to have them begin their work
 func (this *MapleJuiceLeaderService) startJob(newJob *LeaderMapleJuiceJob) {
 	// TODO: add mutex locks
 	this.shuffleAvailableWorkerNodes() // randomize selection of worker nodes each time
-	this.assignTaskIndicesToWorkerNodes(newJob)
-	this.sendTasksToWorkerNodes(newJob)
+	if newJob.jobType == MAPLE_JOB {
+		this.mapleAssignTaskIndicesToWorkerNodes(newJob)
+		this.sendMapleTasksToWorkerNodes(newJob)
+	} else { // JUICE_JOB
+		this.getAllKeysForJuiceJob(newJob)
+		this.partitionKeysToWorkerNodes(newJob)
+		this.sendJuiceTasksToWorkerNodes(newJob)
+	}
+
+}
+
+func (this *MapleJuiceLeaderService) getAllKeysForJuiceJob(job *LeaderMapleJuiceJob) {
+	// get the corresponding maple job
+	mapleJob, ok := this.finishedMapleJobs[job.sdfsIntermediateFilenamePrefix]
+	if !ok {
+		log.Fatalln("Juice job unable to find a corresponding maple job to get its keys... Exiting...")
+	}
+	job.keys = mapleJob.keys // copy it over...
+}
+
+func (this *MapleJuiceLeaderService) partitionKeysToWorkerNodes(job *LeaderMapleJuiceJob) {
+	if job.juicePartitionScheme == HASH_PARTITIONING {
+		// get a list of keys assigned to each task. the index of the list represents the task index
+		keysForTasks := this.hashPartitionKeysToJuiceTasks(job)
+
+		// now assign the keys to the worker nodes
+		for i, keys := range keysForTasks {
+			workerNodeId := this.AvailableWorkerNodes[i%len(this.AvailableWorkerNodes)]
+
+		}
+
+	} else if job.juicePartitionScheme == RANGE_PARTITIONING {
+		panic("range based partitioning not implemented!") // TODO: add this panic on the client side so that I don't crash the leader.
+	} else {
+		log.Fatalln("Invalid juice partition scheme! Exiting...")
+	}
+}
+
+func (this *MapleJuiceLeaderService) hashPartitionKeysToJuiceTasks(job *LeaderMapleJuiceJob) [][]string {
+	hasher := fnv.New32()
+	tasks := make([][]string, job.numTasks) // create a list of tasks where index = taskIndex and value = list of keys assigned to this task
+	for key := range job.keys {
+		hasher.Write([]byte(key)) // write the key to the hash
+
+		// compute the hash and assign it to a task number
+		taskIndex := int(hasher.Sum32()) % job.numTasks
+		if tasks[taskIndex] == nil {
+			tasks[taskIndex] = make([]string, 0)
+		}
+		tasks[taskIndex] = append(tasks[taskIndex], key) // add key to this juice task
+	}
+
+	return tasks
 }
 
 func (this *MapleJuiceLeaderService) shuffleAvailableWorkerNodes() {
@@ -308,7 +370,13 @@ func (this *MapleJuiceLeaderService) shuffleAvailableWorkerNodes() {
 	}
 }
 
-func (this *MapleJuiceLeaderService) assignTaskIndicesToWorkerNodes(job *LeaderMapleJuiceJob) {
+/*
+Helper function used for maple.
+
+Given the number of maple tasks, it assigns each task to a worker node for those nodes to
+be contacted later
+*/
+func (this *MapleJuiceLeaderService) mapleAssignTaskIndicesToWorkerNodes(job *LeaderMapleJuiceJob) {
 	for i := 0; i < job.numTasks; i++ { // i = task index
 		currWorkerIdx := i % len(this.AvailableWorkerNodes)
 		currWorkerNodeId := this.AvailableWorkerNodes[currWorkerIdx]
@@ -322,39 +390,30 @@ func (this *MapleJuiceLeaderService) assignTaskIndicesToWorkerNodes(job *LeaderM
 	}
 }
 
-func (this *MapleJuiceLeaderService) sendTasksToWorkerNodes(job *LeaderMapleJuiceJob) {
+func (this *MapleJuiceLeaderService) sendMapleTasksToWorkerNodes(job *LeaderMapleJuiceJob) {
+	if job.jobType != MAPLE_JOB {
+		log.Fatalln("sendMapleTasksToWorkerNodes() called on a non-maple job!")
+	}
+
 	for workerNodeId, taskIndices := range job.workerToTaskIndices {
 		workerConn, conn_err := net.Dial("tcp", workerNodeId.IpAddress+":"+workerNodeId.MapleJuiceServerPort)
 		if conn_err != nil {
 			fmt.Println("*****Failed to connect to worker node!*****")
 			fmt.Println(conn_err)
 			// TODO: is this the best way to handle? we should probably abort right? or maybe just continue with the other nodes?
+			// * we would have to move those task indices to another worker node tho to make sure the job is executed
 			continue
 		}
 
 		for _, taskIndex := range taskIndices {
-			if job.jobType == MAPLE_JOB {
-				SendMapleTaskRequest(
-					workerConn,
-					job.numTasks,
-					job.exeFile,
-					job.sdfsIntermediateFilenamePrefix,
-					job.sdfsSrcDirectory,
-					taskIndex,
-				)
-			} else {
-				SendJuiceTaskRequest(
-					workerConn,
-					job.numTasks,
-					job.exeFile,
-					job.sdfsIntermediateFilenamePrefix,
-					job.sdfsDestFilename,
-					job.delete_input,
-					job.juicePartitionScheme,
-					taskIndex,
-				)
-			}
-
+			SendMapleTaskRequest(
+				workerConn,
+				job.numTasks,
+				job.exeFile,
+				job.sdfsIntermediateFilenamePrefix,
+				job.sdfsSrcDirectory,
+				taskIndex,
+			)
 		}
 
 		_ = workerConn.Close()
