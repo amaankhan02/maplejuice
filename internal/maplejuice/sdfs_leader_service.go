@@ -62,8 +62,8 @@ type FileOperationsMetadata struct {
 	CurrentReadOps  []*FileOperationTask // max of 2 allowed
 
 	// these can't exceed 4
-	NumConsecutiveWrites int
-	NumConsecutiveReads  int
+	NumConsecutiveWritesWithWaitingReads int // number of consecutive writes that have been executed with at least one read waiting
+	NumConsecutiveReadsWithWaitingWrites int // number of consecutive reads that have been executed with at least one write waiting
 }
 
 /*
@@ -97,9 +97,9 @@ type SDFSLeaderService struct {
 	IsRunning          bool
 	DispatcherWaitTime time.Duration
 
-	MaxNumConcurrentReads  int // MP3 spec => 2
-	MaxNumConcurrentWrites int // MP3 spec => 1
-	MaxNumConsecutiveOps   int // MP3 spec => 4
+	MaxNumConcurrentReads             int // MP3 spec => 2
+	MaxNumConcurrentWrites            int // MP3 spec => 1
+	MaxNumConsecutiveOpsWithOtherWait int // MP3 spec => 4
 
 	MutexLock sync.Mutex
 	logFile   *os.File
@@ -164,24 +164,36 @@ func (this *SDFSLeaderService) dispatcher() {
 			}
 
 			if fileOpMD.NeedsReReplication == false && numCurrentWrites < this.MaxNumConcurrentWrites &&
-				numCurrentReads == 0 && areWritesWaiting && fileOpMD.NumConsecutiveWrites < this.MaxNumConsecutiveOps { // schedule write
-				// pop using FIFO policy from the Buffer to the list of current operations
-				fileOpMD.NumConsecutiveWrites += 1
-				fileOpMD.NumConsecutiveReads = 0 // 0 cuz we reset it
+				numCurrentReads == 0 && areWritesWaiting && fileOpMD.NumConsecutiveWritesWithWaitingReads < this.MaxNumConsecutiveOpsWithOtherWait { // schedule WRITE
 
+				// pop using FIFO policy from the Buffer to the list of current operations
 				newTask, fileOpMD.WriteBuffer = fileOpMD.WriteBuffer[0], fileOpMD.WriteBuffer[1:]
 				fileOpMD.CurrentWriteOps = append(fileOpMD.CurrentWriteOps, newTask)
-				//logMessageHelper(this.logFile, "Dispatcher scheduling new WRITE task")
+
+				// check if there is a read waiting, if there is, then we need to increment the number of consecutive writes with read waiting var
+				if areReadsWaiting {
+					fileOpMD.NumConsecutiveWritesWithWaitingReads += 1
+				} else {
+					fileOpMD.NumConsecutiveWritesWithWaitingReads = 0
+				}
+				fileOpMD.NumConsecutiveReadsWithWaitingWrites = 0 // reset this var since we are writing now
+
 				this.notifyClientToExecuteTask(newTask)
 			} else if numCurrentReads < this.MaxNumConcurrentReads && numCurrentWrites == 0 && areReadsWaiting &&
-				fileOpMD.NumConsecutiveReads < this.MaxNumConsecutiveOps { // schedule read
-
-				fileOpMD.NumConsecutiveReads += 1
-				fileOpMD.NumConsecutiveWrites = 0
+				fileOpMD.NumConsecutiveReadsWithWaitingWrites < this.MaxNumConsecutiveOpsWithOtherWait { // schedule READ
 
 				// move from buffer to current read operation queue to indicate its currently running - using FIFO
 				newTask, fileOpMD.ReadBuffer = fileOpMD.ReadBuffer[0], fileOpMD.ReadBuffer[1:]
 				fileOpMD.CurrentReadOps = append(fileOpMD.CurrentReadOps, newTask)
+
+				// check if there is a write waiting, if there is, then we need to increment the number of consecutive reads with write waiting var
+				if areWritesWaiting {
+					fileOpMD.NumConsecutiveReadsWithWaitingWrites += 1
+				} else {
+					fileOpMD.NumConsecutiveReadsWithWaitingWrites = 0
+				}
+				fileOpMD.NumConsecutiveWritesWithWaitingReads = 0 // reset this var since we are reading now
+
 				this.notifyClientToExecuteTask(newTask)
 			}
 		}
