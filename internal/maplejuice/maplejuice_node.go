@@ -342,13 +342,21 @@ func (mjNode *MapleJuiceNode) executeJuiceTask(juiceExe MapleJuiceExeFile, sdfsI
 }
 
 /*
+Execute juice_exe on the inputFilepath, and write the output to the outputChan
+Juice Exe will execute on the entire input file. 
+
+This function pipes the input file to the stdin of the juice_exe, and reads the stdout of the juice_exe
+and returns that output through the outputChan
+
 Parameters:
 
 	juice_exe (string): name of the juice exe file, exactly as you would type it in the terminal
+	inputFilepath (string): path to the input file that the juice exe will read from
+	outputChan (chan string): channel to write the output of the juice exe to. This function will write to this channel
 
 TODO: must test this function
 */
-func (mjNode *MapleJuiceNode) executeJuiceExeOnKey(juice_exe string, inputFilename string, outputChan chan string) {
+func (mjNode *MapleJuiceNode) executeJuiceExeOnKey(juice_exe string, inputFilepath string, outputChan chan string) {
 	cmd := exec.Command(juice_exe)
 
 	stdin_pipe, in_pipe_err := cmd.StdinPipe()
@@ -366,7 +374,7 @@ func (mjNode *MapleJuiceNode) executeJuiceExeOnKey(juice_exe string, inputFilena
 	}
 
 	// read from input file, and write line by line to stdin pipe
-	inputFile, open_input_err := os.OpenFile(inputFilename, os.O_RDONLY, 0744)
+	inputFile, open_input_err := os.OpenFile(inputFilepath, os.O_RDONLY, 0744)
 	if open_input_err != nil {
 		log.Fatalln("Failed to open input file")
 	}
