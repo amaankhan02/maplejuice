@@ -91,6 +91,9 @@ func (this *MapleJuiceNode) HandleTCPServerConnection(conn net.Conn) {
 		this.logBoth(fmt.Sprintf("Error in ReceiveMJNetworkMessage: %s\n", recv_err))
 		return
 	}
+	// You don't know how some of these executions may take. So we close the conn object in the switch case
+	// immediately once we don't need it anymore. Or one of the functions it calls may close it
+
 	if this.isLeader { // LEADER NODE
 		switch mjNetworkMessage.MsgType {
 		case MAPLE_JOB_REQUEST:
@@ -131,13 +134,9 @@ func (this *MapleJuiceNode) HandleTCPServerConnection(conn net.Conn) {
 			// TODO: can the leader act as a client to submit a job request?
 		}
 	} else { // NOT LEADER NODE
-
-		// You don't know how long maple/juice task execution may take. So we close the conn object in the switch case
-		// immediately once we don't need it anymore.
-
 		switch mjNetworkMessage.MsgType {
 		case MAPLE_TASK_REQUEST: // must execute some task and send back to leader
-			_ = conn.Close() // close leader connection becaus executeMapleTask() will later dial the leader
+			_ = conn.Close() 
 			alreadyClosedLeaderConn = true
 
 			this.executeMapleTask(
@@ -148,9 +147,9 @@ func (this *MapleJuiceNode) HandleTCPServerConnection(conn net.Conn) {
 				mjNetworkMessage.CurrTaskIdx,
 			)
 		case JUICE_TASK_REQUEST: // must execute some task and send back to leader
-			_ = conn.Close() // close leader connection becaus executeMapleTask() will later dial the leader
+			_ = conn.Close() 
 			alreadyClosedLeaderConn = true
-			// juiceExe MapleJuiceExeFile, sdfsIntermediateFilenamePrefix string, assignedKeys []string
+
 			this.executeJuiceTask(
 				mjNetworkMessage.ExeFile,
 				mjNetworkMessage.SdfsIntermediateFilenamePrefix,
@@ -291,8 +290,8 @@ Once all channels have been read from, we can send the output file back to the l
 func (mjNode *MapleJuiceNode) executeJuiceTask(juiceExe MapleJuiceExeFile, sdfsIntermediateFilenamePrefix string, assignedKeys []string) {
 
 	// TODO: add mutex lock
-	this.localWorkerTaskID++
-	localWorkerTaskId := this.localWorkerTaskID
+	mjNode.localWorkerTaskID++
+	localWorkerTaskId := mjNode.localWorkerTaskID
 	// TODO: mutex unlock
 
 	taskDirPath, juiceTaskOutputFile := mjNode.createTempDirsAndFilesForJuiceTask(localWorkerTaskId)
