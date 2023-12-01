@@ -100,7 +100,13 @@ func SendMapleTaskResponse(conn net.Conn, taskIndex int, taskOutputFilepath stri
 	}
 }
 
-func SendJuiceTaskRequest(conn net.Conn, juiceExe MapleJuiceExeFile, sdfsIntermediateFilenamePrefix string, assignedKeys []string) {
+/*
+
+Parameters:
+	juice_task_index (int): essentially the 0-indexed task number that this juice task is. It is only sent to the worker so that the 
+							worker can send it back and so the leader knows which task was the one that was completed
+*/
+func SendJuiceTaskRequest(conn net.Conn, juiceExe MapleJuiceExeFile, sdfsIntermediateFilenamePrefix string, assignedKeys []string, juice_task_index int) {
 	msg := MapleJuiceNetworkMessage{
 		MsgType:                        JUICE_TASK_REQUEST,
 		ExeFile:                        juiceExe,

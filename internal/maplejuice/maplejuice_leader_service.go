@@ -23,7 +23,14 @@ type JobTaskStatus string
 type MapleJuiceJobType int
 
 // output file format for the singular maple task output (the file they send over containing the k,v pairs)
-const MAPLE_TASK_OUTPUT_FILENAME_FMT = "task_output_%d.csv"
+const MAPLE_TASK_OUTPUT_FILENAME_FMT = "male_task_output_%d.csv"           // format: task index
+
+const JUICE_JOB_TEMP_DIR_FMT = "juice_job_%d" 			// format: job id
+const JUICE_WORKER_OUTPUT_FILENAME_FMT = "juice_worker_output_%d.csv"      // format: worker node id (like the VM number or IP)
+const LOCAL_JUICE_JOB_OUTPUT_FIENAME_FMT = "local_juice_job_output.csv" // format: job id -- this the file that we will send to sdfs as the destination file
+// ^ that file is stored inside the JUICE_JOB_TEMP_DIR_FMT directory
+
+
 const SDFS_INTERMEDIATE_FILE_EXTENSION = ".csv"
 
 const (
@@ -55,8 +62,8 @@ This struct is handled on the leader side. The client cannot decide, for instanc
 the job id should be unique to the system, not the client. The client has its own ClientMapleJuiceJob struct
 */
 type LeaderMapleJuiceJob struct {
-	// leaderJobId   int
-	jobType MapleJuiceJobType
+	leaderJobId int
+	jobType     MapleJuiceJobType
 
 	// id of the job as seen by the client. This is used when sending a response back to
 	// the client to tell it which job is finished (cuz client may send multiple jobs)
@@ -70,10 +77,13 @@ type LeaderMapleJuiceJob struct {
 	exeFile                        MapleJuiceExeFile
 	sdfsIntermediateFilenamePrefix string
 	numTasksCompleted              int
+	numJuiceWorkerNodesCompleted   int                // used ony by juice job (since all juice tasks in a worker are put together in one request)
 	sdfsSrcDirectory               string             // only for maple job
 	sdfsDestFilename               string             // only for juice job
 	delete_input                   bool               // only for juice job
 	juicePartitionScheme           JuicePartitionType // only for juice job
+	juiceJobOutputFilepath		   string			 // only for juice job
+	juiceJobTmpDirPath 			   string			 // only for juice job
 
 	// TODO: implement on map side to update this set of keys
 	keys datastructures.HashSet[string] // map job updates this, juice job will look at this later to know what keys are there
@@ -93,6 +103,7 @@ We assume that there is only ever 1 job currently being executed. The others wil
 and only executed once the current job finishes.
 */
 type MapleJuiceLeaderService struct {
+	leaderNodeId		 NodeID
 	DispatcherWaitTime   time.Duration
 	AvailableWorkerNodes []NodeID // leader cannot be a worker node
 	IsRunning            bool
@@ -106,7 +117,8 @@ type MapleJuiceLeaderService struct {
 	finishedMapleJobs map[string]*LeaderMapleJuiceJob // key=sdfs_intermediate_filename_prefix, value=job
 	// TODO: update on map side for when the map job finishes, it should move the job to this map
 
-	//jobsSubmitted        int // used as the ID for a job. incremented...
+	jobsSubmitted int // used as the ID for a job. incremented...
+	// TODO: ^ increment that in the right places...
 }
 
 func NewMapleJuiceLeaderService() *MapleJuiceLeaderService {
@@ -122,8 +134,10 @@ func (leader *MapleJuiceLeaderService) Start() {
 // Submit a maple job to the wait queue. Dispatcher thread will execute it when its ready
 func (leader *MapleJuiceLeaderService) SubmitMapleJob(maple_exe MapleJuiceExeFile, num_maples int,
 	sdfs_intermediate_filename_prefix string, sdfs_src_dir string, clientJobId int) {
+	// TODO: add mutex lock
 
 	job := LeaderMapleJuiceJob{
+		leaderJobId:                    leader.jobsSubmitted,
 		jobType:                        MAPLE_JOB,
 		exeFile:                        maple_exe,
 		numTasks:                       num_maples,
@@ -136,6 +150,7 @@ func (leader *MapleJuiceLeaderService) SubmitMapleJob(maple_exe MapleJuiceExeFil
 	}
 
 	leader.waitQueue = append(leader.waitQueue, &job)
+	leader.jobsSubmitted++
 }
 
 func (leader *MapleJuiceLeaderService) SubmitJuiceJob(juice_exe MapleJuiceExeFile, num_juices int,
@@ -144,6 +159,7 @@ func (leader *MapleJuiceLeaderService) SubmitJuiceJob(juice_exe MapleJuiceExeFil
 
 	// TODO: add mutex lock
 	job := LeaderMapleJuiceJob{
+		leaderJobId:                    leader.jobsSubmitted,
 		jobType:                        JUICE_JOB,
 		workerToTaskIndices:            make(map[NodeID][]int),
 		numTasks:                       num_juices,
@@ -157,6 +173,7 @@ func (leader *MapleJuiceLeaderService) SubmitJuiceJob(juice_exe MapleJuiceExeFil
 		clientJobId:                    clientJobId,
 	}
 	leader.waitQueue = append(leader.waitQueue, &job)
+	leader.jobsSubmitted++
 }
 
 /*
@@ -197,8 +214,11 @@ func (leader *MapleJuiceLeaderService) ReceiveMapleTaskOutput(workerConn net.Con
 
 func (leader *MapleJuiceLeaderService) ReceiveJuiceTaskOutput(workerConn net.Conn, taskAssignedKeys []string, filesize int64, sdfsService *SDFSNode) {
 	// TODO: add mutex locks - for current job and other things maybe
+	workerVMNumber, _ := utils.GetVMNumber(workerConn.RemoteAddr().String())
 
-	
+	save_filepath := filepath.Join(leader.leaderTempDir, fmt.Sprintf(JUICE_WORKER_OUTPUT_FILENAME_FMT, workerVMNumber))
+	err := tcp_net.ReadFile(save_filepath, workerConn, filesize)
+
 }
 
 func (leader *MapleJuiceLeaderService) finishCurrentJob(sdfsService *SDFSNode) {
@@ -320,8 +340,24 @@ func (this *MapleJuiceLeaderService) startJob(newJob *LeaderMapleJuiceJob) {
 		this.getAllKeysForJuiceJob(newJob)
 		this.partitionKeysToWorkerNodes(newJob)
 		this.sendJuiceTasksToWorkerNodes(newJob)
+		this.juiceJobCreateTempDirsAndFiles(newJob)
 	}
 
+}
+
+func (this *MapleJuiceLeaderService) juiceJobCreateTempDirsAndFiles(job *LeaderMapleJuiceJob) {
+	// create a directory for this job specifically based on its job id
+	
+	jobTempDir := filepath.Join(this.leaderTempDir, fmt.Sprintf(JUICE_JOB_TEMP_DIR_FMT, job.leaderJobId))
+	if jobDirErr := os.Mkdir(jobTempDir, 0755); jobDirErr != nil {
+		log.Fatalln("Failed to create directory for juice job. Error: ", jobDirErr)
+	}
+
+	// create a file for the final output of the juice job that we store locally before sending to sdfs
+	finalJuiceJobOutputFilepath := filepath.Join(jobTempDir, fmt.Sprintf(LOCAL_JUICE_JOB_OUTPUT_FIENAME_FMT))
+
+	job.juiceJobOutputFilepath = finalJuiceJobOutputFilepath
+	job.juiceJobTmpDirPath = jobTempDir
 }
 
 func (this *MapleJuiceLeaderService) sendJuiceTasksToWorkerNodes(job *LeaderMapleJuiceJob) {
