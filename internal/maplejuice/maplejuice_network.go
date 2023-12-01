@@ -56,6 +56,14 @@ func SendMapleJobResponse(conn net.Conn, clientJobId int) {
 	SendMapleJuiceNetworkMessage(conn, &msg)
 }
 
+func SendJuiceJobResponse(conn net.Conn, clientJobId int) {
+	msg := MapleJuiceNetworkMessage{
+		MsgType:     JUICE_JOB_RESPONSE,
+		ClientJobId: clientJobId,
+	}
+	SendMapleJuiceNetworkMessage(conn, &msg)
+}
+
 func SendMapleTaskRequest(conn net.Conn, numTasks int, exeFile MapleJuiceExeFile, sdfsIntermediateFilenamePrefix string,
 	sdfsSrcDirectory string, taskIndex int) {
 	msg := MapleJuiceNetworkMessage{
