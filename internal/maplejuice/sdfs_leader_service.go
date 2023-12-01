@@ -108,15 +108,15 @@ type SDFSLeaderService struct {
 func NewSDFSLeaderService(dispatcherWaitTime time.Duration, maxNumConcurrentReads int,
 	maxNumConcurrentWrites int, maxNumConsecutiveOps int, loggingFile *os.File) *SDFSLeaderService {
 	nn := &SDFSLeaderService{
-		ActiveNodes:            make([]NodeID, 0),
-		FileToNodes:            make(map[string]map[int][]NodeID), // TODO: is this correctly initialized?
-		FileOperations:         make(map[string]*FileOperationsMetadata),
-		IsRunning:              false,
-		MaxNumConcurrentReads:  maxNumConcurrentReads,
-		MaxNumConcurrentWrites: maxNumConcurrentWrites,
-		MaxNumConsecutiveOps:   maxNumConsecutiveOps,
-		DispatcherWaitTime:     dispatcherWaitTime,
-		logFile:                loggingFile,
+		ActiveNodes:                       make([]NodeID, 0),
+		FileToNodes:                       make(map[string]map[int][]NodeID), // TODO: is this correctly initialized?
+		FileOperations:                    make(map[string]*FileOperationsMetadata),
+		IsRunning:                         false,
+		MaxNumConcurrentReads:             maxNumConcurrentReads,
+		MaxNumConcurrentWrites:            maxNumConcurrentWrites,
+		MaxNumConsecutiveOpsWithOtherWait: maxNumConsecutiveOps,
+		DispatcherWaitTime:                dispatcherWaitTime,
+		logFile:                           loggingFile,
 	}
 
 	return nn
@@ -161,6 +161,8 @@ func (this *SDFSLeaderService) dispatcher() {
 				fileOpMD.FailedReplicasBuffer = make([]NodeID, 0) // empty the buffer
 
 				this.notifyExistingReplicasToReReplicate(fileOpMD.SdfsFilename, fileOpMD.CurrentlyProcessingFailedReplicasList)
+				// TODO: future improvement: for all the files we are re-replicating, we should mark that file in the write state so that we don't have a client trying to write/read from that file until its finished
+				// ^ but currently the demo doesn't test this so we don't need to implement this
 			}
 
 			if fileOpMD.NeedsReReplication == false && numCurrentWrites < this.MaxNumConcurrentWrites &&
@@ -171,12 +173,12 @@ func (this *SDFSLeaderService) dispatcher() {
 				fileOpMD.CurrentWriteOps = append(fileOpMD.CurrentWriteOps, newTask)
 
 				// check if there is a read waiting, if there is, then we need to increment the number of consecutive writes with read waiting var
+				fileOpMD.NumConsecutiveReadsWithWaitingWrites = 0 // reset this var since we are writing now
 				if areReadsWaiting {
 					fileOpMD.NumConsecutiveWritesWithWaitingReads += 1
 				} else {
 					fileOpMD.NumConsecutiveWritesWithWaitingReads = 0
 				}
-				fileOpMD.NumConsecutiveReadsWithWaitingWrites = 0 // reset this var since we are writing now
 
 				this.notifyClientToExecuteTask(newTask)
 			} else if numCurrentReads < this.MaxNumConcurrentReads && numCurrentWrites == 0 && areReadsWaiting &&
@@ -187,19 +189,19 @@ func (this *SDFSLeaderService) dispatcher() {
 				fileOpMD.CurrentReadOps = append(fileOpMD.CurrentReadOps, newTask)
 
 				// check if there is a write waiting, if there is, then we need to increment the number of consecutive reads with write waiting var
+				fileOpMD.NumConsecutiveWritesWithWaitingReads = 0 // reset this var since we are reading now
 				if areWritesWaiting {
 					fileOpMD.NumConsecutiveReadsWithWaitingWrites += 1
 				} else {
 					fileOpMD.NumConsecutiveReadsWithWaitingWrites = 0
 				}
-				fileOpMD.NumConsecutiveWritesWithWaitingReads = 0 // reset this var since we are reading now
 
 				this.notifyClientToExecuteTask(newTask)
 			}
 		}
 		this.MutexLock.Unlock()
 
-		time.Sleep(this.DispatcherWaitTime) // TODO: make this a config variable in config.go
+		time.Sleep(this.DispatcherWaitTime)
 	}
 }
 
@@ -474,8 +476,8 @@ func (this *SDFSLeaderService) addNewSDFSFile(sdfs_filename string) {
 		ReadBuffer:                            make([]*FileOperationTask, 0),
 		CurrentWriteOps:                       make([]*FileOperationTask, 0),
 		CurrentReadOps:                        make([]*FileOperationTask, 0),
-		NumConsecutiveWrites:                  0,
-		NumConsecutiveReads:                   0,
+		NumConsecutiveWritesWithWaitingReads:  0,
+		NumConsecutiveReadsWithWaitingWrites:  0,
 	}
 }
 
