@@ -497,6 +497,7 @@ func (this *MapleJuiceNode) executeMapleTask(
 
 /*
 Creates temporary directory and files for a maple task inside the directory given for this MapleJuiceNode
+This opens the output file for the maple task, and returns the file object for it. Caller must close the file descriptor for that file when done.
 
 /task_dirname								(CREATED HERE)
 
@@ -513,7 +514,7 @@ func (mjn *MapleJuiceNode) createTempDirsAndFilesForMapleTask(taskIndex int, sdf
 	if dataset_dir_creation_err := os.MkdirAll(dataset_dirpath, 0744); dataset_dir_creation_err != nil {
 		log.Fatalln("Failed to create temporary dataset directory for maple task. Error: ", dataset_dir_creation_err)
 	}
-	maple_task_output_file, output_file_open_err := os.OpenFile(output_kv_filepath, os.O_CREATE|os.O_APPEND, 0744)
+	maple_task_output_file, output_file_open_err := os.OpenFile(output_kv_filepath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0744)
 	if output_file_open_err != nil {
 		log.Fatalln("Failed to create temporary output file for maple task. Error: ", output_file_open_err)
 	}
@@ -543,7 +544,7 @@ func (mjn *MapleJuiceNode) createTempDirsAndFilesForJuiceTask(localWorkerId int)
 		log.Fatalln("Failed to create temporary task directory for juice task. Error: ", task_dir_creation_err)
 	}
 
-	juice_output_file, output_file_open_err := os.OpenFile(juice_output_filepath, os.O_CREATE|os.O_APPEND, 0744)
+	juice_output_file, output_file_open_err := os.OpenFile(juice_output_filepath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0744)
 	if output_file_open_err != nil {
 		log.Fatalln("Failed to create temporary output file for juice task. Error: ", output_file_open_err)
 	}

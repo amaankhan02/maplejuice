@@ -208,7 +208,7 @@ func (leader *MapleJuiceLeaderService) ReceiveMapleTaskOutput(workerConn net.Con
 
 	// if all tasks finished, process the output files and save into SDFS
 	if leader.currentJob.numTasksCompleted == leader.currentJob.numTasks {
-		leader.finishCurrentJob(sdfsService)
+		leader.finishCurrentMapleJob(sdfsService)
 	}
 }
 
@@ -216,26 +216,83 @@ func (leader *MapleJuiceLeaderService) ReceiveJuiceTaskOutput(workerConn net.Con
 	// TODO: add mutex locks - for current job and other things maybe
 	workerVMNumber, _ := utils.GetVMNumber(workerConn.RemoteAddr().String())
 
-	save_filepath := filepath.Join(leader.leaderTempDir, fmt.Sprintf(JUICE_WORKER_OUTPUT_FILENAME_FMT, workerVMNumber))
+	save_filepath := filepath.Join(leader.currentJob.juiceJobTmpDirPath, fmt.Sprintf(JUICE_WORKER_OUTPUT_FILENAME_FMT, workerVMNumber))
 	err := tcp_net.ReadFile(save_filepath, workerConn, filesize)
+	if err != nil {
+		log.Fatalln("Failed to read juice task output file from worker node. Error: ", err)
+	}
 
+	// open the save file path to copy the contents over to the JUICE_JOB_OUTPUT_FILEPATH file in append mode
+	juiceJobOutputFile, file_err := os.OpenFile(leader.currentJob.juiceJobOutputFilepath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
+	if file_err != nil {
+		log.Fatalln("Failed to open juice job output file. Error: ", file_err)
+	}
+	defer juiceJobOutputFile.Close()
+
+	// open the file we just saved from the worker node
+	juiceWorkerOutputFile, file2_err := os.OpenFile(save_filepath, os.O_RDONLY, 0444)
+	if file2_err != nil {
+		log.Fatalln("Failed to open juice worker output file. Error: ", file2_err)
+	}
+	defer juiceWorkerOutputFile.Close()
+
+	// copy the contents over from the worker output file to the juice job output file in append mode (so we don't overwrite existing data)
+	_, copy_err := io.Copy(juiceJobOutputFile, juiceWorkerOutputFile)
+	if copy_err != nil {
+		log.Fatalln("Failed to copy juice worker output file to juice job output file. Error: ", copy_err)
+	}
+	
+	// mark the task as completed now that we got the file
+	leader.currentJob.numJuiceWorkerNodesCompleted += 1
+	if leader.currentJob.numJuiceWorkerNodesCompleted == len(leader.currentJob.workerToKeys) {
+		// all juice tasks have finished! we can now merge the files and send it to sdfs
+		leader.finishCurrentJuiceJob(sdfsService)
+	}
 }
 
-func (leader *MapleJuiceLeaderService) finishCurrentJob(sdfsService *SDFSNode) {
-	// write intermediate files to SDFS
-	for sdfsIntermFilepath := range leader.currentJob.sdfsIntermediateFilenames {
-		sdfsService.PerformBlockedPut(filepath.Join(leader.leaderTempDir, sdfsIntermFilepath), sdfsIntermFilepath)
+func (leader *MapleJuiceLeaderService) finishCurrentJuiceJob(sdfsService *SDFSNode) {
+	// TODO: do i even need to do a "blocked" put tho? I don't need to wait on the file technically so i could just put it
+	sdfsService.PerformPut(leader.currentJob.juiceJobOutputFilepath, leader.currentJob.sdfsDestFilename)
+
+	// delete the intermediate files if the user specified to do so
+	if leader.currentJob.delete_input {
+		for sdfsIntermediateFilename := range leader.currentJob.sdfsIntermediateFilenames {
+			sdfsService.PerformDelete(sdfsIntermediateFilename)
+		}
 	}
 
 	// establish connection with the client and send a response indicating the job is finished
 	clientConn, conn_err := net.Dial("tcp", leader.currentJob.clientId.IpAddress+":"+leader.currentJob.clientId.MapleJuiceServerPort)
 	if conn_err != nil {
-		fmt.Println("Inside finishCurrentJob(). ")
+		fmt.Println("Inside finishCurrentJuiceJob(). ")
+		fmt.Println("Failed to connect to client node! Unable to notify client that job is finished. Error: ", conn_err)
+	} else {
+		SendJuiceJobResponse(clientConn, leader.currentJob.clientJobId) // notify client that job is finished by sending a JOP RESPONSE
+	}
+	clientConn.Close()
+
+	leader.currentJob = nil
+}
+
+func (leader *MapleJuiceLeaderService) finishCurrentMapleJob(sdfsService *SDFSNode) {
+	// write intermediate files to SDFS
+	for sdfsIntermFilepath := range leader.currentJob.sdfsIntermediateFilenames {
+		// TODO: can use the PerformBlockedPuts() function instead so just create a list of the files and then call that function
+		sdfsService.PerformBlockedPut(filepath.Join(leader.leaderTempDir, sdfsIntermFilepath), sdfsIntermFilepath)	// TODO: might need to swap the order of the parameters
+	}
+
+	// establish connection with the client and send a response indicating the job is finished
+	clientConn, conn_err := net.Dial("tcp", leader.currentJob.clientId.IpAddress+":"+leader.currentJob.clientId.MapleJuiceServerPort)
+	if conn_err != nil {
+		fmt.Println("Inside finishCurrentMapleJob(). ")
 		fmt.Println("Failed to connect to client node! Unable to notify client that job is finished. Error: ", conn_err)
 	} else {
 		SendMapleJobResponse(clientConn, leader.currentJob.clientJobId) // notify client that job is finished by sending a JOP RESPONSE
 	}
-	defer clientConn.Close()
+	clientConn.Close()
+
+	// add the job to the finished maple jobs map so that juice jobs can access it later
+	leader.finishedMapleJobs[leader.currentJob.sdfsIntermediateFilenamePrefix] = leader.currentJob
 	leader.currentJob = nil
 }
 
