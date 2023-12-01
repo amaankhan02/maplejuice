@@ -110,12 +110,13 @@ func SendJuiceTaskRequest(conn net.Conn, juiceExe MapleJuiceExeFile, sdfsInterme
 	SendMapleJuiceNetworkMessage(conn, &msg)
 }
 
-func SendJuiceTaskResponse(conn net.Conn, taskOutputFilepath string) {
+func SendJuiceTaskResponse(conn net.Conn, taskOutputFilepath string, assignedKeys []string) {
 	filesize := utils.GetFileSize(taskOutputFilepath)
 
 	msg := MapleJuiceNetworkMessage{
 		MsgType:            JUICE_TASK_RESPONSE,
 		TaskOutputFileSize: filesize,
+		Keys:				assignedKeys,
 	}	// TODO: figure out if there's any other info we need to send back
 	SendMapleJuiceNetworkMessage(conn, &msg)
 

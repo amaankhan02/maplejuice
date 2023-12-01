@@ -195,6 +195,12 @@ func (leader *MapleJuiceLeaderService) ReceiveMapleTaskOutput(workerConn net.Con
 	}
 }
 
+func (leader *MapleJuiceLeaderService) ReceiveJuiceTaskOutput(workerConn net.Conn, taskAssignedKeys []string, filesize int64, sdfsService *SDFSNode) {
+	// TODO: add mutex locks - for current job and other things maybe
+
+	
+}
+
 func (leader *MapleJuiceLeaderService) finishCurrentJob(sdfsService *SDFSNode) {
 	// write intermediate files to SDFS
 	for sdfsIntermFilepath := range leader.currentJob.sdfsIntermediateFilenames {

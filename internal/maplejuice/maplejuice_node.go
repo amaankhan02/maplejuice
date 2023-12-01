@@ -130,8 +130,8 @@ func (this *MapleJuiceNode) HandleTCPServerConnection(conn net.Conn) {
 			)
 			alreadyClosedLeaderConn = true
 		case JUICE_TASK_RESPONSE:
-			panic("not implemented")
-			// TODO: can the leader act as a client to submit a job request?
+			panic("not implemented yet")
+
 		}
 	} else { // NOT LEADER NODE
 		switch mjNetworkMessage.MsgType {
@@ -336,7 +336,7 @@ func (mjNode *MapleJuiceNode) executeJuiceTask(juiceExe MapleJuiceExeFile, sdfsI
 	if conn_err != nil {
 		log.Fatalln("Failed to dial to leader server. Error: ", conn_err)
 	}
-	SendJuiceTaskResponse(leaderConn, juiceTaskOutputFile.Name()) // ? any other information we gotta send back?
+	SendJuiceTaskResponse(leaderConn, juiceTaskOutputFile.Name(), assignedKeys) // ? any other information we gotta send back?
 	_ = leaderConn.Close()
 }
 
