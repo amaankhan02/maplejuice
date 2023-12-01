@@ -50,9 +50,14 @@ type MapleJuiceExeFile struct {
 	ExeAdditionalInfo string
 }
 
-const MAPLE_TASK_DIR_NAME_FMT = "maple-%d-%d-%s" // formats: this.localWorkerTaskID, taskIndex, sdfsIntermediateFilenamePrefix
+const MAPLE_TASK_DIR_NAME_FMT = "mapletask-%d-%d-%s" // formats: this.localWorkerTaskID, taskIndex, sdfsIntermediateFilenamePrefix
 const MAPLE_TASK_DATASET_DIR_NAME = "dataset"
 const MAPLE_TASK_OUTPUT_FILENAME = "maple_task_output.csv"
+
+const JUICE_TASK_DIR_NAME_FMT = "juicetask-%d"                // formats: this.localWorkerTaskID -- we dont rlly need any other info for the dir name the id is guaranteed to be unique
+const JUICE_LOCAL_INPUT_SDFS_INTERM_FILENAME_FMT = "local-%s" // formats: sdfsIntermediateFilenamePrefix
+const JUICE_TASK_OUTPUT_FILENAME = "juice_task_output.csv"
+
 const LOCAL_SDFS_DATASET_FILENAME_FMT = "local-%s" // when you GET the sdfs_filename, this is the localfilename you want to save it as
 const JOB_DONE_MSG_FMT = "%s Job with ClientJobID %d has completed!\n"
 
@@ -287,6 +292,15 @@ func (mjNode *MapleJuiceNode) executeJuiceTask(juiceExe MapleJuiceExeFile, sdfsI
 
 	// TODO: add mutex lock
 	this.localWorkerTaskID++
+	localWorkerTaskId := this.localWorkerTaskID
+
+	/*
+		Files and dirs I need
+
+		/task_dirpath								(juicetask-<localWorkerTaskId>)
+			input files pulled from sdfs
+			output file to store the output k,v pairs of the juice task
+	*/
 
 	juiceExeOutputsChan := make(chan string, len(assignedKeys)) // buffered channel so that we don't block on the go routines
 	sdfsInputFilenames := mjNode.createSdfsFilenamesFromIntermediateAndKeys(sdfsIntermediateFilenamePrefix, assignedKeys)
@@ -358,9 +372,10 @@ func (this *MapleJuiceNode) executeMapleTask(
 ) {
 	// TODO: add mutex lock
 	this.localWorkerTaskID++
+	localWorkerTaskId := this.localWorkerTaskID
 
 	maple_task_dirpath, dataset_dirpath, maple_task_output_file :=
-		this.createTempDirsAndFilesForMapleTask(taskIndex, sdfsIntermediateFilenamePrefix)
+		this.createTempDirsAndFilesForMapleTask(taskIndex, sdfsIntermediateFilenamePrefix, localWorkerTaskId)
 
 	// get the dataset filenames & create corresponding local filenames to save it to
 	sdfs_dataset_filenames := this.sdfsNode.PerformPrefixMatch(sdfsSrcDirectory + ".")
@@ -421,11 +436,12 @@ Creates temporary directory and files for a maple task inside the directory give
 		|- dataset files pulled from sdfs 	(NOT CREATED HERE)
 	|- maple_task_output_file				(CREATED HERE)
 */
-func (mjn *MapleJuiceNode) createTempDirsAndFilesForMapleTask(taskIndex int, sdfsIntermediateFilenamePrefix string) (string, string, *os.File) {
-	task_dirpath := filepath.Join(mjn.nodeTmpDir, fmt.Sprintf(MAPLE_TASK_DIR_NAME_FMT, mjn.localWorkerTaskID, taskIndex, sdfsIntermediateFilenamePrefix))
+func (mjn *MapleJuiceNode) createTempDirsAndFilesForMapleTask(taskIndex int, sdfsIntermediateFilenamePrefix string, localWorkerTaskId int) (string, string, *os.File) {
+	task_dirpath := filepath.Join(mjn.nodeTmpDir, fmt.Sprintf(MAPLE_TASK_DIR_NAME_FMT, localWorkerTaskId, taskIndex, sdfsIntermediateFilenamePrefix))
 	dataset_dirpath := filepath.Join(task_dirpath, MAPLE_TASK_DATASET_DIR_NAME)
 	output_kv_filepath := filepath.Join(task_dirpath, MAPLE_TASK_OUTPUT_FILENAME)
 
+	// create task_dirpath and dataset_dirpath in one call by using MkdirAll()
 	if dataset_dir_creation_err := os.MkdirAll(dataset_dirpath, 0744); dataset_dir_creation_err != nil {
 		log.Fatalln("Failed to create temporary dataset directory for maple task. Error: ", dataset_dir_creation_err)
 	}
@@ -435,6 +451,22 @@ func (mjn *MapleJuiceNode) createTempDirsAndFilesForMapleTask(taskIndex int, sdf
 	}
 
 	return task_dirpath, dataset_dirpath, maple_task_output_file
+}
+
+func (mjn *MapleJuiceNode) createTempDirsAndFilesForJuiceTask(taskKey string) (string, *os.File) {
+	task_dirpath := filepath.Join(mjn.nodeTmpDir, fmt.Sprintf(JUICE_TASK_DIR_NAME_FMT, mjn.localWorkerTaskID))
+	juice_output_filepath := filepath.Join(task_dirpath, JUICE_TASK_OUTPUT_FILENAME)
+
+	if task_dir_creation_err := os.MkdirAll(task_dirpath, 0744); task_dir_creation_err != nil {
+		log.Fatalln("Failed to create temporary task directory for juice task. Error: ", task_dir_creation_err)
+	}
+
+	juice_output_file, output_file_open_err := os.OpenFile(juice_output_filepath, os.O_CREATE|os.O_APPEND, 0744)
+	if output_file_open_err != nil {
+		log.Fatalln("Failed to create temporary output file for juice task. Error: ", output_file_open_err)
+	}
+
+	return task_dirpath, juice_output_file
 }
 
 /*
