@@ -315,7 +315,7 @@ func (mjNode *MapleJuiceNode) executeJuiceTask(juiceExe MapleJuiceExeFile, sdfsI
 	// start a goroutine to execute each juice exe
 	for i, _ := range assignedKeys {
 		wg.Add(1)
-		go mjNode.executeJuiceExeOnKey(juiceExe, localInputFilenames[i], juiceExeOutputsChan)
+		go mjNode.executeJuiceExeOnKey(juiceExe.ExeFilePath, localInputFilenames[i], juiceExeOutputsChan)
 		// each task will generate just one key-value pair, which will be returned on the channel
 	}
 
@@ -339,6 +339,69 @@ func (mjNode *MapleJuiceNode) executeJuiceTask(juiceExe MapleJuiceExeFile, sdfsI
 	}
 	SendJuiceTaskResponse(leaderConn, juiceTaskOutputFile.Name()) // ? any other information we gotta send back?
 	_ = leaderConn.Close()
+}
+
+/*
+Parameters:
+
+	juice_exe (string): name of the juice exe file, exactly as you would type it in the terminal
+
+TODO: must test this function
+*/
+func (mjNode *MapleJuiceNode) executeJuiceExeOnKey(juice_exe string, inputFilename string, outputChan chan string) {
+	cmd := exec.Command(juice_exe)
+
+	stdin_pipe, in_pipe_err := cmd.StdinPipe()
+	if in_pipe_err != nil {
+		panic(in_pipe_err)
+	}
+	stdout_pipe, out_pipe_err := cmd.StdoutPipe()
+	if out_pipe_err != nil {
+		panic(out_pipe_err)
+	}
+
+	// start command but don't block
+	if start_err := cmd.Start(); start_err != nil {
+		panic(start_err)
+	}
+
+	// read from input file, and write line by line to stdin pipe
+	inputFile, open_input_err := os.OpenFile(inputFilename, os.O_RDONLY, 0744)
+	if open_input_err != nil {
+		log.Fatalln("Failed to open input file")
+	}
+
+	inputFileScanner := bufio.NewScanner(inputFile)
+	stdinInPipeWriter := bufio.NewWriter(stdin_pipe)
+	for inputFileScanner.Scan() {
+		line := inputFileScanner.Text() + "\n" // Scan() does not contain the new line character
+		_, write_err := stdinInPipeWriter.WriteString(line)
+		if write_err != nil {
+			panic(write_err)
+		}
+	}
+	_ = stdinInPipeWriter.Flush() // make sure everything was written to it
+	if in_pipe_close_err := stdin_pipe.Close(); in_pipe_close_err != nil {
+		panic(in_pipe_close_err)
+	}
+
+	// read stdout
+	stdout_bytes, read_stdout_err := io.ReadAll(stdout_pipe) // TODO: will this block forever? test this out
+	if read_stdout_err != nil {
+		panic(read_stdout_err)
+	}
+
+	// wait for program to finish
+	if wait_err := cmd.Wait(); wait_err != nil {
+		panic(wait_err)
+	}
+
+	// write stdout to channel
+	stdout_string := string(stdout_bytes) // TODO: test if this has the \n char in it or not
+	if stdout_string[len(stdout_string)-1] != '\n' {
+		stdout_string += "\n"
+	}
+	outputChan <- string(stdout_bytes)
 }
 
 func (mjNode *MapleJuiceNode) createSdfsFilenamesFromIntermediateAndKeys(sdfsIntermediateFilenamePrefix string, assignedKeys []string) []string {
@@ -456,10 +519,12 @@ Create a temporary directory for the juice task and a temporary file for the jui
 What it looks like:
 
 /task_dirpath								(CREATED HERE)
+
 	|- juice_task_output_file				(CREATED HERE)
 	|- local sdfs intermediate files for input into juice		(NOT CREATED HERE)
 
 Returns
+
 	task_dirpath (string): path to the temporary directory created for this juice task
 	juice_output_file (*os.File): file object for the temporary output file for this juice task
 */
@@ -568,15 +633,17 @@ func (this *MapleJuiceNode) executeMapleExe(
 		panic(read_stdout_err)
 	}
 
+	// wait for program to finish
+	if wait_err := cmd.Wait(); wait_err != nil {
+		panic(wait_err)
+	}
+
 	// write stdout to output file
+	// TODO: do i need a file lock since multiple tasks may be writing to the same file?
+	// TODO: ^ do we even have multiple goroutines writing to the same file? I don't think so?
 	output_writer := bufio.NewWriter(outputFile)
 	_, output_write_err := output_writer.Write(stdout_bytes)
 	if output_write_err != nil {
 		panic(output_write_err)
-	}
-
-	// wait for program to finish
-	if wait_err := cmd.Wait(); wait_err != nil {
-		panic(wait_err)
 	}
 }
