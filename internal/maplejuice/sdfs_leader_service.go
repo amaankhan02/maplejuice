@@ -131,12 +131,12 @@ func (this *SDFSLeaderService) Start() {
 This dispatcher runs on a separate goroutine. It periodically checks all its tasks on every file in the
 system and sees if it can schedule a new task.
 
-// loop through all SDFS files
+loop through all SDFS files
 
-	// for each maplejuice file, check if we can schedule a new file operation
-	// whenever a file operation is done, that thread will send the data to the client and it will remove the
-	// currently running var or whatever down 1 or make to nil or something, so that dispatcher will know that it
-	// is free to execute a new command
+	for each maplejuice file, check if we can schedule a new file operation
+	whenever a file operation is done, that thread will send the data to the client and it will remove the
+	currently running var or whatever down 1 or make to nil or something, so that dispatcher will know that it
+	is free to execute a new command
 */
 func (this *SDFSLeaderService) dispatcher() {
 	for this.IsRunning {

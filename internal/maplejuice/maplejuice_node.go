@@ -22,7 +22,6 @@ Used ONLY by the client for its own bookkeeping
 type ClientMapleJuiceJob struct {
 	ClientJobId int
 	JobType     MapleJuiceJobType
-	// * you can store more infomation in this struct later if you want
 }
 
 type MapleJuiceNode struct {
@@ -393,7 +392,7 @@ func (mjNode *MapleJuiceNode) executeJuiceExeOnKey(juice_exe string, inputFilepa
 	}
 
 	// read stdout
-	stdout_bytes, read_stdout_err := io.ReadAll(stdout_pipe) // TODO: will this block forever? test this out
+	stdout_bytes, read_stdout_err := io.ReadAll(stdout_pipe)
 	if read_stdout_err != nil {
 		panic(read_stdout_err)
 	}

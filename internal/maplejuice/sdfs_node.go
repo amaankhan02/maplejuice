@@ -133,6 +133,118 @@ func (this *SDFSNode) HandleTCPServerConnection(conn net.Conn) {
 	msgType = rawMessageType
 	dontCloseLeaderConn := false
 
+	switch msgType {
+	case GET_INFO_REQUEST:
+		if !this.isLeader {
+			log.Fatalln("Non-leader received GET_INFO_REQUEST - Not allowed!!")
+		}
+		getInfoReq := ReceiveGetInfoRequest(reader)
+		fp := &FileOperationTask{
+			FileOpType:          GET_OP,
+			SdfsFilename:        getInfoReq.SdfsFilename,
+			ClientLocalFilename: getInfoReq.LocalFilename,
+			ClientNode:          getInfoReq.ClientID,
+			NewFileSize:         0, // set to 0 cuz GET operation doesn't use this value
+			RequestedTime:       getInfoReq.Timestamp,
+		}
+		this.leaderService.AddTask(fp)
+
+	case PUT_INFO_REQUEST:
+		if !this.isLeader {
+			log.Fatalln("Non-leader received PUT_INFO_REQUEST - Not allowed!!")
+		}
+		putInfoReq := ReceivePutInfoRequest(reader)
+		fp := &FileOperationTask{
+			FileOpType:          PUT_OP,
+			SdfsFilename:        putInfoReq.SdfsFilename,
+			ClientLocalFilename: putInfoReq.ClientLocalFilename,
+			ClientNode:          putInfoReq.ClientID,
+			NewFileSize:         putInfoReq.Filesize,
+			RequestedTime:       putInfoReq.Timestamp,
+		}
+		this.leaderService.AddTask(fp)
+
+	case DELETE_INFO_REQUEST:
+		if !this.isLeader {
+			log.Fatalln("Non-leader received DELETE_INFO_REQUEST - Not allowed!!")
+		}
+
+		delInfoReq := ReceiveDeleteInfoRequest(reader)
+		fp := &FileOperationTask{
+			FileOpType:    DELETE_OP,
+			SdfsFilename:  delInfoReq.SdfsFilename,
+			ClientNode:    delInfoReq.ClientID,
+			RequestedTime: delInfoReq.Timestamp,
+		}
+		this.leaderService.AddTask(fp)
+
+	case LS_REQUEST:
+		if !this.isLeader {
+			log.Fatalln("Non-leader received LS_REQUEST - Not allowed!!")
+		}
+
+		lsReq := ReceiveLsRequest(reader, false)
+		replicas := this.leaderService.LsOperation(lsReq.SdfsFilename)
+		SendLsResponse(conn, lsReq.SdfsFilename, replicas)
+
+	case PREFIX_MATCH_REQUEST:
+		if !this.isLeader {
+			log.Fatalln("Non-leader received PREFIX_MATCH_REQUEST - Not allowed!!")
+		}
+		req := ReceivePrefixMatchRequest(reader, false)
+		filenames := this.leaderService.PrefixMatchOperation(req.SdfsFilenamePrefix)
+		SendPrefixMatchResponse(conn, filenames)
+
+	case ACK_RESPONSE: // leader receiving an ACK means a file operation was completed
+		if !this.isLeader {
+			log.Fatalln("Non-leader received ACK_RESPONSE - Not allowed!\n Client will get ACK in an existing TCP connection not here")
+		}
+		ack_struct := ReceiveOnlyAckResponseData(reader)
+		didFindTask, msg, addInfo, startTime := this.leaderService.MarkTaskCompleted(ack_struct.SenderNodeId, ack_struct.AdditionalInfo)
+		SendAckResponse(conn, this.id, didFindTask, msg, addInfo, startTime)
+
+	case GET_DATA_REQUEST:
+		getDataRequest := ReceiveGetDataRequest(reader)
+		shards := this.fileSystemService.GetShards(getDataRequest.Filename)
+		SendGetDataResponse(conn, shards)
+
+	case PUT_DATA_REQUEST:
+		putDataRequest := ReceivePutDataRequest(reader)
+		this.fileSystemService.WriteShard(putDataRequest.Sharded_data)
+		SendAckResponse(conn, this.id, true, "", "", 0)
+
+	case DELETE_DATA_REQUEST:
+		deleteDataRequest := ReceiveDeleteDataRequest(reader)
+		this.fileSystemService.DeleteAllShards(deleteDataRequest.Filename) // delete all Shards locally w/ the sdfs_filename
+		SendAckResponse(conn, this.id, true, "", "", 0)
+
+	case REREPLICATE_REQUEST:
+		rr_req := ReceiveReReplicateRequest(reader, false)
+		this.performReReplicate(conn, rr_req)
+		dontCloseLeaderConn = true
+	// TODO: add the others not already here.
+	default:
+		log.Fatalln("Received invalid message type for leader (type: %02x)", msgType)
+	}
+
+	if !dontCloseLeaderConn {
+		close_err := conn.Close()
+		if close_err != nil {
+			log.Fatalln("Failed to close connection in Server Connection Handler: ", close_err)
+		}
+	}
+}
+
+func (this *SDFSNode) _OLDHandleTCPServerConnection(conn net.Conn) {
+	var msgType byte
+
+	// Read Message Type
+	reader := bufio.NewReader(conn)
+	rawMessageType, _ := tcp_net.ReadMessageType(reader)
+
+	msgType = rawMessageType
+	dontCloseLeaderConn := false
+
 	if this.isLeader {
 		switch msgType {
 		case GET_INFO_REQUEST:
