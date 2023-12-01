@@ -222,7 +222,23 @@ func (this *SDFSNode) HandleTCPServerConnection(conn net.Conn) {
 		rr_req := ReceiveReReplicateRequest(reader, false)
 		this.performReReplicate(conn, rr_req)
 		dontCloseLeaderConn = true
-	// TODO: add the others not already here.
+
+	case GET_INFO_RESPONSE:
+		this.clientHandleReceiveGetInfoResponse(conn, reader)
+		dontCloseLeaderConn = true
+
+	case PUT_INFO_RESPONSE:
+		this.clientHandleReceivePutInfoResponse(conn, reader)
+		dontCloseLeaderConn = true
+
+	case DELETE_INFO_RESPONSE:
+		this.clientHandleReceiveDeleteInfoResponse(conn, reader)
+		dontCloseLeaderConn = true
+
+	case MULTIREAD_REQUEST:
+		mr_req := ReceiveMultiReadRequest(reader, false)
+		this.PerformGet(mr_req.SdfsFilename, mr_req.LocalFilename)
+		
 	default:
 		log.Fatalln("Received invalid message type for leader (type: %02x)", msgType)
 	}
