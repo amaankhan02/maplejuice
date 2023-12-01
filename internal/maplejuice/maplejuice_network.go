@@ -110,6 +110,21 @@ func SendJuiceTaskRequest(conn net.Conn, juiceExe MapleJuiceExeFile, sdfsInterme
 	SendMapleJuiceNetworkMessage(conn, &msg)
 }
 
+func SendJuiceTaskResponse(conn net.Conn, taskOutputFilepath string) {
+	filesize := utils.GetFileSize(taskOutputFilepath)
+
+	msg := MapleJuiceNetworkMessage{
+		MsgType:            JUICE_TASK_RESPONSE,
+		TaskOutputFileSize: filesize,
+	}	// TODO: figure out if there's any other info we need to send back
+	SendMapleJuiceNetworkMessage(conn, &msg)
+
+	send_file_err := tcp_net.SendFile(taskOutputFilepath, conn, filesize)
+	if send_file_err != nil {
+		log.Fatalln("Failed to send file in SendJuiceTaskResponse(). error: ", send_file_err)
+	}
+}
+
 func SendMapleJuiceNetworkMessage(conn net.Conn, msg *MapleJuiceNetworkMessage) {
 	serialized_data, err := utils.SerializeData(*msg)
 	if err != nil {

@@ -208,7 +208,7 @@ func (node *MapleJuiceNode) SubmitMapleJob(maple_exe MapleJuiceExeFile, num_mapl
 	}
 	leaderConn, err := net.Dial("tcp", node.leaderID.IpAddress+":"+node.leaderID.SDFSServerPort)
 	if err != nil {
-		fmt.Println("Failed to Dial to leader server. Error: ", err)
+		fmt.Println("Failed to Dial to leader server. Unable to submit job request. Error: ", err)
 		return
 	}
 	defer leaderConn.Close()
@@ -338,6 +338,7 @@ func (mjNode *MapleJuiceNode) executeJuiceTask(juiceExe MapleJuiceExeFile, sdfsI
 		log.Fatalln("Failed to dial to leader server. Error: ", conn_err)
 	}
 	SendJuiceTaskResponse(leaderConn, juiceTaskOutputFile.Name()) // ? any other information we gotta send back?
+	_ = leaderConn.Close()
 }
 
 func (mjNode *MapleJuiceNode) createSdfsFilenamesFromIntermediateAndKeys(sdfsIntermediateFilenamePrefix string, assignedKeys []string) []string {
@@ -414,6 +415,8 @@ func (this *MapleJuiceNode) executeMapleTask(
 	if conn_err != nil {
 		log.Fatalln("Failed to dial to leader server. Error: ", conn_err)
 	}
+	defer leaderConn.Close()
+
 	SendMapleTaskResponse(leaderConn, taskIndex, maple_task_output_file.Name())
 
 	// close and delete the temporary files & dirs
