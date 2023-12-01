@@ -293,29 +293,30 @@ func (mjNode *MapleJuiceNode) executeJuiceTask(juiceExe MapleJuiceExeFile, sdfsI
 	// TODO: add mutex lock
 	this.localWorkerTaskID++
 	localWorkerTaskId := this.localWorkerTaskID
+	// TODO: mutex unlock
 
-	/*
-		Files and dirs I need
+	taskDirPath, juiceTaskOutputFile := mjNode.createTempDirsAndFilesForJuiceTask(localWorkerTaskId)
 
-		/task_dirpath								(juicetask-<localWorkerTaskId>)
-			input files pulled from sdfs
-			output file to store the output k,v pairs of the juice task
-	*/
-
-	juiceExeOutputsChan := make(chan string, len(assignedKeys)) // buffered channel so that we don't block on the go routines
+	// get the names of the files to fetch from sdfs
 	sdfsInputFilenames := mjNode.createSdfsFilenamesFromIntermediateAndKeys(sdfsIntermediateFilenamePrefix, assignedKeys)
+
+	// create the names of the corresponding local filenames
 	localInputFilenames := make([]string, 0)
 	for _, sdfsInputFilename := range sdfsInputFilenames {
-
+		localInputFilenames = append(localInputFilenames, filepath.Join(taskDirPath, fmt.Sprintf(JUICE_LOCAL_INPUT_SDFS_INTERM_FILENAME_FMT, sdfsInputFilename)))
 	}
+
+	// fetch the files from sdfs to local tmp dir
 	mjNode.sdfsNode.PerformBlockedGets(sdfsInputFilenames, localInputFilenames)
 
 	var wg sync.WaitGroup
+	juiceExeOutputsChan := make(chan string, len(assignedKeys)) // buffered channel so that we don't block on the go routines
 
 	// start a goroutine to execute each juice exe
 	for i, _ := range assignedKeys {
 		wg.Add(1)
 		go mjNode.executeJuiceExeOnKey(juiceExe, localInputFilenames[i], juiceExeOutputsChan)
+		// each task will generate just one key-value pair, which will be returned on the channel
 	}
 
 	// close the channel once all goroutines have finished - do it in separate goroutine so that we don't block
@@ -325,24 +326,18 @@ func (mjNode *MapleJuiceNode) executeJuiceTask(juiceExe MapleJuiceExeFile, sdfsI
 		close(juiceExeOutputsChan)
 	}()
 
-	// todo: store the output file in the tmp dir - tmp dir should be based on the juice task's id in the current node
-	outputFilename := mjNode.createJuiceTaskOutputFile()
-	outputFile, open_output_file_err := os.OpenFile(outputFilename, os.O_CREATE|os.O_APPEND, 0744)
-	if open_output_file_err != nil {
-		log.Fatalln("Failed to create temporary output file for juice task. Error: ", open_output_file_err)
+	for result := range juiceExeOutputsChan {
+		juiceTaskOutputFile.WriteString(result) // TODO: ensure that the result has the \n char at the end
 	}
 
-	for result := range juiceExeOutputsChan {
-		// write the result to the output file
-		outputFile.WriteString(result)
-	}
+	_ = juiceTaskOutputFile.Close() // close file since we are done writing to it.
 
 	// send the task response back with the file data to the leader
 	leaderConn, conn_err := net.Dial("tcp", mjNode.leaderID.IpAddress+":"+mjNode.leaderID.MapleJuiceServerPort)
 	if conn_err != nil {
 		log.Fatalln("Failed to dial to leader server. Error: ", conn_err)
 	}
-	SendJuiceTaskResponse(leaderConn, outputFilename) // ? any other information we gotta send back?
+	SendJuiceTaskResponse(leaderConn, juiceTaskOutputFile.Name()) // ? any other information we gotta send back?
 }
 
 func (mjNode *MapleJuiceNode) createSdfsFilenamesFromIntermediateAndKeys(sdfsIntermediateFilenamePrefix string, assignedKeys []string) []string {
@@ -453,8 +448,20 @@ func (mjn *MapleJuiceNode) createTempDirsAndFilesForMapleTask(taskIndex int, sdf
 	return task_dirpath, dataset_dirpath, maple_task_output_file
 }
 
-func (mjn *MapleJuiceNode) createTempDirsAndFilesForJuiceTask(taskKey string) (string, *os.File) {
-	task_dirpath := filepath.Join(mjn.nodeTmpDir, fmt.Sprintf(JUICE_TASK_DIR_NAME_FMT, mjn.localWorkerTaskID))
+/*
+Create a temporary directory for the juice task and a temporary file for the juice task output
+What it looks like:
+
+/task_dirpath								(CREATED HERE)
+	|- juice_task_output_file				(CREATED HERE)
+	|- local sdfs intermediate files for input into juice		(NOT CREATED HERE)
+
+Returns
+	task_dirpath (string): path to the temporary directory created for this juice task
+	juice_output_file (*os.File): file object for the temporary output file for this juice task
+*/
+func (mjn *MapleJuiceNode) createTempDirsAndFilesForJuiceTask(localWorkerId int) (string, *os.File) {
+	task_dirpath := filepath.Join(mjn.nodeTmpDir, fmt.Sprintf(JUICE_TASK_DIR_NAME_FMT, localWorkerId))
 	juice_output_filepath := filepath.Join(task_dirpath, JUICE_TASK_OUTPUT_FILENAME)
 
 	if task_dir_creation_err := os.MkdirAll(task_dirpath, 0744); task_dir_creation_err != nil {
