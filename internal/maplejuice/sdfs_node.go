@@ -43,6 +43,7 @@ type SDFSNode struct {
 	// store a map of key = sdfs_filename+local_filename concatenated - just a unique way to ID a get operation
 	// value is the wait group that we need to do a wg.Done() to ONLY IF IT EXISTS. if it DOES NOT EXIST, then no need to do it!
 	blockedClientGets map[string]*sync.WaitGroup
+	blockedClientPuts map[string]*sync.WaitGroup
 
 	ackMutex   sync.Mutex
 	clientAcks []LocalAck // store all Acks received to this client
@@ -60,6 +61,7 @@ func NewSDFSNode(thisId NodeID, introducerLeaderId NodeID, isIntroducerLeader bo
 		leaderService:     nil, // leaderService is nil if this node is not the leader
 		clientAcks:        make([]LocalAck, 0),
 		blockedClientGets: make(map[string]*sync.WaitGroup),
+		blockedClientPuts: make(map[string]*sync.WaitGroup),
 	}
 	sdfsNode.tcpServer = tcp_net.NewTCPServer(thisId.SDFSServerPort, sdfsNode)
 
@@ -238,9 +240,9 @@ func (this *SDFSNode) HandleTCPServerConnection(conn net.Conn) {
 	case MULTIREAD_REQUEST:
 		mr_req := ReceiveMultiReadRequest(reader, false)
 		this.PerformGet(mr_req.SdfsFilename, mr_req.LocalFilename)
-		
+
 	default:
-		log.Fatalln("Received invalid message type for leader (type: %02x)", msgType)
+		log.Fatalf("Received invalid message type for leader (type: %02x)\n", msgType)
 	}
 
 	if !dontCloseLeaderConn {
@@ -579,6 +581,12 @@ func (this *SDFSNode) clientHandleReceivePutInfoResponse(leaderConn1 net.Conn, l
 	this.printAck(&localAck)
 	this.addAcknowledgement(&localAck)
 
+	// check if this was a blocking get operation - if so, then call wg.Done() to indicate it's done
+	wg, key_exists := this.blockedClientPuts[putInfoResponse.ClientLocalFilename+putInfoResponse.SdfsFilename]
+	if key_exists {
+		wg.Done()
+	}
+
 	errL := leaderConn2.Close()
 	if errL != nil {
 		log.Fatalln("Failed to close connection to leader: ", errL)
@@ -697,12 +705,36 @@ func (this *SDFSNode) PerformBlockedGets(sdfs_filenames []string, local_filename
 		this.PerformGet(sdfs_filenames[i], local_filenames[i])
 	}
 
-	// block here
-	wg.Wait()
+	wg.Wait() // block here
 
 	// just delete all the key value pairs created from this performblockedget()
 	for i := 0; i < len(sdfs_filenames); i++ {
 		delete(this.blockedClientGets, sdfs_filenames[i]+local_filenames[i])
+	}
+
+	return nil
+}
+
+func (sdfsNode *SDFSNode) PerformBlockedPuts(local_filenames []string, sdfs_filenames []string) error {
+	if len(sdfs_filenames) != len(local_filenames) {
+		return errors.New("sdfs_filenames has different length than local_filenames. Invalid input!")
+	}
+
+	var wg sync.WaitGroup
+
+	for i := 0; i < len(sdfs_filenames); i++ {
+		wg.Add(1)
+
+		// TODO: ideally the key should be the ID of the PUT so that its gauranteed to be unique. change this later in future
+		sdfsNode.blockedClientPuts[local_filenames[i]+sdfs_filenames[i]] = &wg
+		sdfsNode.PerformPut(local_filenames[i], sdfs_filenames[i])
+	}
+
+	wg.Wait() // block here
+
+	// just delete all the key value pairs created from this performblockedput() since its done
+	for i := 0; i < len(sdfs_filenames); i++ {
+		delete(sdfsNode.blockedClientPuts, local_filenames[i]+sdfs_filenames[i])
 	}
 
 	return nil
