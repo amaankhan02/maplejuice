@@ -12,3 +12,5 @@ scripts/generate_files.py
 scripts/input_data_20.txt
 scripts/input_data_25.txt
 scripts/input_data_60.txt
+/test/test_files/tcp_net_tests/send_file_large_test.txt
+/test/test_files/tcp_net_tests/

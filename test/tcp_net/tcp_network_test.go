@@ -61,27 +61,37 @@ func readFileHelper(t *testing.T, saveFilepath string, fileBeingSent string) {
 func TestSendReadFile(t *testing.T) {
 	// start a goroutine to read the file first since its the server
 	var wg sync.WaitGroup
-	saveFilepath := "..\\test_files\\tcp_net_tests\\read_file_test.txt"
-	fileBeingSent := "..\\test_files\\tcp_net_tests\\send_file_test.txt"
+	saveReadFilepath := "..\\test_files\\tcp_net_tests\\read_file_test.txt"
+	sendFilepath := "..\\test_files\\tcp_net_tests\\send_file_test.txt"
 
 	go func() {
 		wg.Add(1)
-		readFileHelper(t, saveFilepath, fileBeingSent)
+		readFileHelper(t, saveReadFilepath, sendFilepath)
 		wg.Done()
 	}()
 	time.Sleep(500 * time.Millisecond) // wait for the server to start listening
 
 	// now send the file
-	sendFilePath := "..\\test_files\\tcp_net_tests\\send_file_test.txt"
-	sendFileHelper(t, sendFilePath)
+	sendFileHelper(t, sendFilepath)
 
 	wg.Wait() // just wait for the goroutine to finish
 }
 
-func TestSendFileLarge(t *testing.T) {
+func TestSendReadFileLarge(t *testing.T) {
+	// start a goroutine to read the file first since its the server
+	var wg sync.WaitGroup
+	saveReadFilepath := "..\\test_files\\tcp_net_tests\\read_file_large_test.txt"
+	sendFilepath := "..\\test_files\\tcp_net_tests\\send_file_large_test.txt"
 
-}
+	go func() {
+		wg.Add(1)
+		readFileHelper(t, saveReadFilepath, sendFilepath)
+		wg.Done()
+	}()
+	time.Sleep(500 * time.Millisecond) // wait for the server to start listening
 
-func TestReadFileLarge(t *testing.T) {
+	// now send the file
+	sendFileHelper(t, sendFilepath)
 
+	wg.Wait() // just wait for the goroutine to finish
 }
