@@ -14,6 +14,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"sync"
+	"time"
 )
 
 /*
@@ -49,6 +50,8 @@ type MapleJuiceExeFile struct {
 	ExeAdditionalInfo string
 }
 
+const LEADER_TMP_DIR = "leader"
+
 const MAPLE_TASK_DIR_NAME_FMT = "mapletask-%d-%d-%s" // formats: this.localWorkerTaskID, taskIndex, sdfsIntermediateFilenamePrefix
 const MAPLE_TASK_DATASET_DIR_NAME = "dataset"
 const MAPLE_TASK_OUTPUT_FILENAME = "maple_task_output.csv"
@@ -61,7 +64,7 @@ const LOCAL_SDFS_DATASET_FILENAME_FMT = "local-%s" // when you GET the sdfs_file
 const JOB_DONE_MSG_FMT = "%s Job with ClientJobID %d has completed!\n"
 
 func NewMapleJuiceNode(thisId NodeID, leaderId NodeID, loggingFile *os.File, sdfsNode *SDFSNode,
-	mapleJuiceTmpDir string) *MapleJuiceNode {
+	mapleJuiceTmpDir string, leaderServiceDispatcherWaitTime time.Duration) *MapleJuiceNode {
 	mj := &MapleJuiceNode{
 		id:                       thisId,
 		leaderID:                 leaderId,
@@ -77,8 +80,8 @@ func NewMapleJuiceNode(thisId NodeID, leaderId NodeID, loggingFile *os.File, sdf
 	mj.tcpServer = tcp_net.NewTCPServer(thisId.MapleJuiceServerPort, mj)
 	if mj.isLeader {
 		fmt.Println("Initialized MapleJuiceLeaderService")
-		// TODO: pass task_output_dir to the the leader service
-		mj.leaderService = NewMapleJuiceLeaderService()
+		leaderTmpDir := filepath.Join(mapleJuiceTmpDir, LEADER_TMP_DIR)
+		mj.leaderService = NewMapleJuiceLeaderService(leaderId, leaderServiceDispatcherWaitTime, loggingFile, leaderTmpDir)
 	} else {
 		fmt.Println("Initialized MapleJuiceLeaderService to be NULL")
 		mj.leaderService = nil
