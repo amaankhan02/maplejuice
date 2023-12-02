@@ -271,4 +271,7 @@ func (manager *MapleJuiceManager) HandleNodeJoin(info NodeJoinInfo) {
 	if manager.sdfsNode.isLeader {
 		manager.sdfsNode.leaderService.AddNewActiveNode(info.JoinedNodeId)
 	}
+	if manager.mapleJuiceNode.isLeader {
+		manager.mapleJuiceNode.leaderService.AddNewAvailableWorkerNode(info.JoinedNodeId)
+	}
 }

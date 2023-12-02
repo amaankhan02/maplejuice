@@ -46,6 +46,8 @@ const (
 // the task index is a way for the worker to know which part of the input they have to deal with to be able to split
 
 /*
+LeaderMapleJuiceJob
+
 We assume that there is only 1 job running at a time, therefore we don't need to keep track of the job id.
 Future improvement can be to allow multiple jobs running at same time based on some policy.
 
@@ -87,7 +89,7 @@ type LeaderMapleJuiceJob struct {
 }
 
 /*
-Maple Juice Leader Service
+MapleJuiceLeaderService
 
 Initialized only at the leader node. Handles scheduling of various
 MapleJuice jobs
@@ -140,6 +142,13 @@ func (leader *MapleJuiceLeaderService) Start() {
 	leader.IsRunning = true
 	go leader.dispatcher()
 	panic("implement me")
+}
+
+func (leader *MapleJuiceLeaderService) AddNewAvailableWorkerNode(newNode NodeID) {
+	// TODO: add mutex lock
+	if newNode != leader.leaderNodeId {
+		leader.AvailableWorkerNodes = append(leader.AvailableWorkerNodes, newNode)
+	}
 }
 
 // Submit a maple job to the wait queue. Dispatcher thread will execute it when its ready
