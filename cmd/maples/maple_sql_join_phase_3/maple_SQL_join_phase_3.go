@@ -5,7 +5,7 @@ import (
 	"log"
 	"os"
 	"strings"
-	"cs425_mp4/internal/utils"
+	mj "cs425_mp4/internal/maplejuice_exe"
 )
 
 func MapleSQLJoin3(scanner *bufio.Scanner, column string, num_lines int) map[string]string {
@@ -71,7 +71,7 @@ func getDatasets(scanner *bufio.Scanner, num_lines int) ([]string, []string) {
 }
 
 func main() {
-	column, num_lines := utils.getArgsSQLJoin()
+	column, num_lines := mj.GetArgsSQLJoin()
 	row_to_field := MapleSQLJoin3(bufio.NewScanner(os.Stdin), column, num_lines)
-	PrintKeyValPairsSQLFilter(row_to_field)
+	mj.PrintKeyValPairsSQLFilter(row_to_field)
 }

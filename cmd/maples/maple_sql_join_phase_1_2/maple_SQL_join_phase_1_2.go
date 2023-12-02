@@ -2,9 +2,8 @@ package maples_exe_sql_join_phase_1_2
 
 import (
 	"bufio"
-	"fmt"
+	mj "cs425_mp4/internal/maplejuice_exe"
 	"os"
-	"strconv"
 	"strings"
 )
 
@@ -15,14 +14,9 @@ import (
 // Add this to
 // if it does you want to add
 
-type MapleSQLJoin1Value struct {
-	Field   string
-	Dataset string
-}
-
 // processes each of the datasets 1
-func MapleSQLJoin1(scanner *bufio.Scanner, column string, num_lines int) map[string]MapleSQLJoin1Value {
-	row_to_field := make(map[string]MapleSQLJoin1Value)
+func MapleSQLJoin1(scanner *bufio.Scanner, column string, num_lines int) map[string]mj.MapleSQLJoin1Value {
+	row_to_field := make(map[string]mj.MapleSQLJoin1Value)
 	schema := ""
 	column_index := 0
 
@@ -36,7 +30,7 @@ func MapleSQLJoin1(scanner *bufio.Scanner, column string, num_lines int) map[str
 			schema = scanner.Text()
 
 			// get index of column you are looking for
-			column_index = GetColumnIndex(schema, column)
+			column_index = mj.GetColumnIndex(schema, column)
 			continue
 		}
 
@@ -45,24 +39,17 @@ func MapleSQLJoin1(scanner *bufio.Scanner, column string, num_lines int) map[str
 
 		field := words[column_index]
 
-		row_to_field[line] = MapleSQLJoin1Value{
-			field,
-			"D1",
+		row_to_field[line] = mj.MapleSQLJoin1Value{
+			Field:   field,
+			Dataset: "D1",
 		}
 	}
 
 	return row_to_field
 }
 
-
-func PrintKeyValPairsSQLJoin(kv_pairs map[string]MapleSQLJoin1Value) {
-	for key, val := range kv_pairs {
-		fmt.Printf("%s,%v\n", key, val)
-	}
-}
-
 func main() {
-	column, num_lines := getArgsSQLJoin()
+	column, num_lines := mj.GetArgsSQLJoin()
 	row_to_field := MapleSQLJoin1(bufio.NewScanner(os.Stdin), column, num_lines)
-	PrintKeyValPairsSQLJoin(row_to_field)
+	mj.PrintKeyValPairsSQLJoin(row_to_field)
 }
