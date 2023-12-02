@@ -113,7 +113,7 @@ type MapleJuiceLeaderService struct {
 	// TODO: update on map side for when the map job finishes, it should move the job to this map
 
 	jobsSubmitted int // used as the ID for a job. incremented...
-	// TODO: ^ increment that in the right places...
+	mutex         sync.Mutex
 }
 
 func NewMapleJuiceLeaderService(
@@ -145,17 +145,18 @@ func (leader *MapleJuiceLeaderService) Start() {
 }
 
 func (leader *MapleJuiceLeaderService) AddNewAvailableWorkerNode(newNode NodeID) {
-	// TODO: add mutex lock
+	leader.mutex.Lock()
 	if newNode != leader.leaderNodeId {
 		leader.AvailableWorkerNodes = append(leader.AvailableWorkerNodes, newNode)
 	}
+	leader.mutex.Unlock()
 }
 
 // Submit a maple job to the wait queue. Dispatcher thread will execute it when its ready
 func (leader *MapleJuiceLeaderService) SubmitMapleJob(maple_exe MapleJuiceExeFile, num_maples int,
 	sdfs_intermediate_filename_prefix string, sdfs_src_dir string, clientJobId int) {
-	// TODO: add mutex lock
 
+	leader.mutex.Lock()
 	job := LeaderMapleJuiceJob{
 		leaderJobId:                    leader.jobsSubmitted,
 		jobType:                        MAPLE_JOB,
@@ -171,13 +172,14 @@ func (leader *MapleJuiceLeaderService) SubmitMapleJob(maple_exe MapleJuiceExeFil
 
 	leader.waitQueue = append(leader.waitQueue, &job)
 	leader.jobsSubmitted++
+	leader.mutex.Unlock()
 }
 
 func (leader *MapleJuiceLeaderService) SubmitJuiceJob(juice_exe MapleJuiceExeFile, num_juices int,
 	sdfs_intermediate_filename_prefix string, sdfs_dest_filename string, delete_input bool,
 	juicePartitionScheme JuicePartitionType, clientJobId int) {
 
-	// TODO: add mutex lock
+	leader.mutex.Lock()
 	job := LeaderMapleJuiceJob{
 		leaderJobId:                    leader.jobsSubmitted,
 		jobType:                        JUICE_JOB,
@@ -194,6 +196,7 @@ func (leader *MapleJuiceLeaderService) SubmitJuiceJob(juice_exe MapleJuiceExeFil
 	}
 	leader.waitQueue = append(leader.waitQueue, &job)
 	leader.jobsSubmitted++
+	leader.mutex.Unlock()
 }
 
 /*
@@ -241,6 +244,7 @@ func (leader *MapleJuiceLeaderService) ReceiveJuiceTaskOutput(workerConn net.Con
 	if err != nil {
 		log.Fatalln("Failed to read juice task output file from worker node. Error: ", err)
 	}
+	_ = workerConn.Close()
 
 	// open the save file path to copy the contents over to the JUICE_JOB_OUTPUT_FILEPATH file in append mode
 	juiceJobOutputFile, file_err := os.OpenFile(leader.currentJob.juiceJobOutputFilepath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
