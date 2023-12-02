@@ -2,7 +2,9 @@ package maplejuice
 
 import (
 	"cs425_mp4/internal/utils"
+	"fmt"
 	"os"
+	"strings"
 )
 
 /*
@@ -118,6 +120,11 @@ func NewMapleJuiceManager(
 
 func (manager *MapleJuiceManager) Start() {
 	// TODO: clear out the maple juice tmp dir contents before creating it (if it exists), and then create it
+	// create SDFS root directory
+	_ = os.RemoveAll(manager.sdfsNode.sdfsDir + "/") // remove and clear the directory if it already exists
+	_ = os.Mkdir(manager.sdfsNode.sdfsDir, 0755)
+	// TODO: create maple juice tmp dir
+
 	manager.failureJoinService.JoinGroup()
 	manager.sdfsNode.Start()
 	manager.mjNode.Start()
@@ -126,7 +133,118 @@ func (manager *MapleJuiceManager) Start() {
 }
 
 func (manager *MapleJuiceManager) startUserInputLoop() {
-	panic("implement me")
+	for {
+		fmt.Println()
+		input, err := utils.ReadUserInput()
+		if err != nil {
+			_, _ = fmt.Fprintln(os.Stderr, "Failed to read user input")
+		}
+
+		cmdArgsInput := strings.Fields(input) // split user input up based on spaces
+		if shouldExit := manager.executeUserInput(cmdArgsInput); shouldExit {
+			break
+		}
+	}
+}
+
+func (manager *MapleJuiceManager) executeUserInput(userInput []string) bool {
+	if len(userInput) == 0 {
+		return false
+	}
+
+	switch strings.ToLower(userInput[0]) {
+	case "enable":
+		if len(userInput) != 2 {
+			fmt.Println("Invalid number of arguments for enable command")
+			return false
+		}
+		if strings.ToLower(userInput[1]) == "suspicion" {
+			ok := manager.failureJoinService.TryUpdateGossipMode(GossipMode{
+				Mode:          GOSSIP_SUSPICION,
+				VersionNumber: manager.failureJoinService.CurrentGossipMode.VersionNumber + 1},
+			)
+			if !ok {
+				fmt.Println("Suspicion mode is already enabled! Nothing to change...")
+			}
+		} else {
+			fmt.Println("Invalid command")
+			return false
+		}
+	case "disable":
+		if len(userInput) != 2 {
+			fmt.Println("Invalid number of arguments for disable command")
+			return false
+		}
+		if strings.ToLower(userInput[1]) == "suspicion" {
+			ok := manager.failureJoinService.TryUpdateGossipMode(GossipMode{
+				Mode:          GOSSIP_NORMAL,
+				VersionNumber: manager.failureJoinService.CurrentGossipMode.VersionNumber + 1},
+			)
+			if !ok {
+				fmt.Println("Suspicion mode is already disabled! Nothing to change...")
+			}
+		} else {
+			fmt.Println("Invalid command")
+			return false
+		}
+	case "mode":
+		fmt.Printf("Current maplejuice mode: %s\n\n", manager.failureJoinService.CurrentGossipMode.Mode.String())
+	case "list_mem":
+		LogMembershipList(os.Stdout, manager.failureJoinService.MembershipList)
+	case "list_self":
+		fmt.Println(manager.failureJoinService.Id.ToStringForGossipLogger())
+	case "leave":
+		manager.failureJoinService.LeaveGroup()
+		// TODO: should i call respective leave functions for sdfs and maple juice? - future improvement
+		return true
+	case "get":
+		if len(userInput) != 3 {
+			fmt.Println("Invalid usage. Expected usage: get [sdfs_filename] [local_filename]")
+			return false
+		}
+		sdfsFilename := userInput[1]
+		localFilename := userInput[2]
+		manager.sdfsNode.PerformGet(sdfsFilename, localFilename)
+	case "put":
+		if len(userInput) != 3 {
+			fmt.Println("Invalid usage. Expected usage: put [local_filename] [sdfs_filename]")
+			return false
+		}
+		localFilename := userInput[1]
+		sdfsFilename := userInput[2]
+		manager.sdfsNode.PerformPut(localFilename, sdfsFilename)
+	case "ls":
+		if len(userInput) != 2 {
+			fmt.Println("Invalid usage. Expected usage: ls [sdfs_filename]")
+			return false
+		}
+		manager.sdfsNode.PerformLs(userInput[1])
+	case "store":
+		if len(userInput) != 1 {
+			fmt.Println("Invalid usage. Expected usage: store")
+			return false
+		}
+		manager.sdfsNode.PerformStore()
+	case "multiread":
+		if len(userInput) < 4 {
+			fmt.Println("Invalid usage. Expected usage: multiread [sdfs_filename] [local_filename] [VMi], ..., [VMj]")
+			return false
+		}
+		manager.sdfsNode.PerformMultiRead(userInput[1], userInput[2], userInput[3:])
+	case "acknowledgement":
+		if len(userInput) > 1 {
+			fmt.Println("Invalid usage. Expected usage: acknowledgement")
+			return false
+		}
+		manager.sdfsNode.PerformAcknowledgementsPrint()
+	case "delete":
+		if len(userInput) != 2 {
+			fmt.Println("Invalid usage. Expected usage: delete [sdfs_filename]")
+			return false
+		}
+		manager.sdfsNode.PerformDelete(userInput[1])
+	}
+	return false
 }
 
 func (manager *MapleJuiceManager) HandleNodeFailure(info FailureDetectionInfo) {
