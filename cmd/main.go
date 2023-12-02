@@ -70,5 +70,4 @@ func RegisterStructsForSerialization() {
 	gob.Register(&maplejuice.DeleteDataRequest{})
 	gob.Register(&maplejuice.DeleteDataRequest{})
 	gob.Register(&maplejuice.MapleJuiceNetworkMessage{})
-	gob.Register(&maplejuice.)
 }
