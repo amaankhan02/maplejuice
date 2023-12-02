@@ -1,0 +1,11 @@
+Detection_ Interconne
+Video Fiber/Radio
+Loop Fiber
+Loop/Video Fiber
+Loop Fiber/Radio
+None Fiber
+Loop Fiber
+Loop/Video Fiber
+"" None
+Loop Fiber
+Loop Radio

@@ -3,7 +3,8 @@ package test
 import (
 	"bufio"
 	juice_exe "cs425_mp4/cmd/juices"
-	maples_exe "cs425_mp4/cmd/maples"
+	maples_exe_sql_filter "cs425_mp4/cmd/maples/maple_SQL_filter"
+	mj "cs425_mp4/internal/maplejuice_exe"
 	"fmt"
 	"os"
 	"testing"
@@ -23,8 +24,8 @@ func TestMapleSQLFilter(t *testing.T) {
 	regex := "^K" // starting with letter K
 	column := "lastname"
 
-	result := maples_exe.MapleSQLFilter(filescanner, regex, column, num_lines)
-	maples_exe.PrintKeyValPairsSQLFilter(result)
+	result := maples_exe_sql_filter.MapleSQLFilter(filescanner, regex, column, num_lines)
+	mj.PrintKeyValPairsSQLFilter(result)
 }
 
 func TestJuiceSQLFilter(t *testing.T) {
