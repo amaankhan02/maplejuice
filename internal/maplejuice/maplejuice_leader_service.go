@@ -114,12 +114,30 @@ type MapleJuiceLeaderService struct {
 	// TODO: ^ increment that in the right places...
 }
 
-func NewMapleJuiceLeaderService() *MapleJuiceLeaderService {
-	panic("implement me")
+func NewMapleJuiceLeaderService(
+	leaderId NodeID,
+	dispatcherWaitTime time.Duration,
+	logFile *os.File,
+	leaderTempDir string,
+) *MapleJuiceLeaderService {
+	leader := &MapleJuiceLeaderService{
+		leaderNodeId:         leaderId,
+		DispatcherWaitTime:   dispatcherWaitTime,
+		AvailableWorkerNodes: make([]NodeID, 0),
+		IsRunning:            false,
+		logFile:              logFile,
+		waitQueue:            make([]*LeaderMapleJuiceJob, 0),
+		currentJob:           nil,
+		leaderTempDir:        leaderTempDir,
+		finishedMapleJobs:    make(map[string]*LeaderMapleJuiceJob),
+		jobsSubmitted:        0,
+	}
+	return leader
 }
 
 func (leader *MapleJuiceLeaderService) Start() {
 	// todo implement
+	leader.IsRunning = true
 	go leader.dispatcher()
 	panic("implement me")
 }
