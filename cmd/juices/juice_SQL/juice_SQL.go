@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"fmt"
 	"os"
-	"strings"
 )
 
 // This Juice just outputs the key value it gets, does not do anything, this is used for both FILTER & JOIN
@@ -17,10 +16,7 @@ func JuiceSQL(scanner *bufio.Scanner) []string {
 	var matched_lines []string
 	for i := 0; scanner.Scan(); i++ {
 		line := scanner.Text()
-
-		key_val := strings.Split(line, ",")
-
-		matched_lines = append(matched_lines, key_val[0])
+		matched_lines = append(matched_lines, line) // TODO: see if I should get rid of extra comma at at the end
 	}
 
 	return matched_lines
@@ -32,7 +28,7 @@ func PrintSliceString(stringslice []string) {
 	}
 }
 
-func MainJuiceSQL() {
+func main() {
 	matched_lines := JuiceSQL(bufio.NewScanner(os.Stdin))
 	PrintSliceString(matched_lines)
 }

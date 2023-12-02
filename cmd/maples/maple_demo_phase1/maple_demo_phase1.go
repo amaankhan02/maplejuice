@@ -10,35 +10,23 @@ import (
 )
 
 // TODO: need to see how to parse the empty cells in CSV file, right now replacing with ""
-func MapleDemoPhase1(scanner *bufio.Scanner, num_lines int, X string) map[string]int {
+func MapleDemoPhase1(scanner *bufio.Scanner, num_lines int, X string, schema string) map[string]int {
 	// create map for each word -> word_count
 	detection_val_to_count := make(map[string]int)
 
-	schema := ""
-	column_index_interconne := 0
-	column_index_detection := 0
 	columnInterconne := "Interconne" // looking for this column
 	columnDetection := "Detection_"
 
+	// define schema
+	column_index_interconne := mj.GetColumnIndex(schema, columnInterconne)
+	column_index_detection := mj.GetColumnIndex(schema, columnDetection)
+
 	// loop through all lines from stdin
 	for i := 0; i < num_lines && scanner.Scan(); i++ {
-
-		// Define schema from first line & get column index
-		if i == 0 {
-			schema = scanner.Text()
-
-			column_index_interconne = mj.GetColumnIndex(schema, columnInterconne)
-			column_index_detection = mj.GetColumnIndex(schema, columnDetection)
-
-			continue
-		}
-
 		// get each line
 		line := scanner.Text()
 
-		// get list of words from the line
-		// TODO: is this how you would do this from a csv file?
-		words := strings.Fields(line)
+		words := strings.Split(line, ",")
 
 		// val in interconne & detection column
 		interconne_val := words[column_index_interconne]
@@ -58,14 +46,19 @@ func MapleDemoPhase1(scanner *bufio.Scanner, num_lines int, X string) map[string
 	return detection_val_to_count
 }
 
-// get X value
-func getArgs() (int, string) {
+// TODO: adjust arg values
+func getArgs() (int, string, string) {
 	// get the command line arg which tells you the number of lines
 	num_lines_string := os.Args[1]
 	num_lines, _ := strconv.Atoi(num_lines_string) // Convert the argument to an integer
 
+	// get X value which is val in "Interconne" to search for
 	X := os.Args[2]
-	return num_lines, X
+
+	// get the schema
+	schema := os.Args[3]
+
+	return num_lines, X, schema
 }
 
 func PrintKeyValuePairs(kv_pairs map[string]int) {
@@ -77,7 +70,7 @@ func PrintKeyValuePairs(kv_pairs map[string]int) {
 
 // actual executable
 func main() {
-	num_lines, X := getArgs()
-	detection_val_to_count := MapleDemoPhase1(bufio.NewScanner(os.Stdin), num_lines, X)
+	num_lines, X, schema := getArgs()
+	detection_val_to_count := MapleDemoPhase1(bufio.NewScanner(os.Stdin), num_lines, X, schema)
 	PrintKeyValuePairs(detection_val_to_count)
 }
