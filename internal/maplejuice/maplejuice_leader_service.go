@@ -34,9 +34,9 @@ const LOCAL_JUICE_JOB_OUTPUT_FIENAME_FMT = "local_juice_job_output.csv" // forma
 const SDFS_INTERMEDIATE_FILE_EXTENSION = ".csv"
 
 const (
-	NOT_STARTED JobTaskStatus = "NOT STARTED"
-	RUNNING     JobTaskStatus = "RUNNING"
-	FINISHED    JobTaskStatus = "FINISHED"
+	//NOT_STARTED JobTaskStatus = "NOT STARTED"
+	//RUNNING     JobTaskStatus = "RUNNING"
+	//FINISHED    JobTaskStatus = "FINISHED"
 
 	MAPLE_JOB MapleJuiceJobType = 0
 	JUICE_JOB MapleJuiceJobType = 1
@@ -113,7 +113,7 @@ type MapleJuiceLeaderService struct {
 	// TODO: update on map side for when the map job finishes, it should move the job to this map
 
 	jobsSubmitted int // used as the ID for a job. incremented...
-	// TODO: ^ increment that in the right places...
+	mutex         sync.Mutex
 }
 
 func NewMapleJuiceLeaderService(
@@ -134,36 +134,48 @@ func NewMapleJuiceLeaderService(
 		finishedMapleJobs:    make(map[string]*LeaderMapleJuiceJob),
 		jobsSubmitted:        0,
 	}
+
 	return leader
 }
 
 func (leader *MapleJuiceLeaderService) Start() {
-	// todo implement
+	// TODO: check if i should be making the directory here, or in NewMapleJuiceLeaderService()
+	err := os.MkdirAll(leader.leaderTempDir, 0755)
+	if err != nil {
+		log.Fatalf("Failed to create leaderTempDir (%s). Error: %s\n", leader.leaderTempDir, err)
+	}
 	leader.IsRunning = true
 	go leader.dispatcher()
-	panic("implement me")
 }
 
+/*
+AddNewAvailableWorkerNode
+
+Used to add a new NodeID as a worker node.
+
+NOTE: this function locks the mutex for the leader service.
+*/
 func (leader *MapleJuiceLeaderService) AddNewAvailableWorkerNode(newNode NodeID) {
-	// TODO: add mutex lock
+	leader.mutex.Lock()
 	if newNode != leader.leaderNodeId {
 		leader.AvailableWorkerNodes = append(leader.AvailableWorkerNodes, newNode)
 	}
+	leader.mutex.Unlock()
 }
 
-// Submit a maple job to the wait queue. Dispatcher thread will execute it when its ready
-func (leader *MapleJuiceLeaderService) SubmitMapleJob(maple_exe MapleJuiceExeFile, num_maples int,
-	sdfs_intermediate_filename_prefix string, sdfs_src_dir string, clientJobId int) {
-	// TODO: add mutex lock
+// SubmitMapleJob Submit a maple job to the wait queue. Dispatcher thread will execute it when its ready
+func (leader *MapleJuiceLeaderService) SubmitMapleJob(mapleExe MapleJuiceExeFile, numMaples int,
+	sdfsIntermediateFilenamePrefix string, sdfsSrcDir string, clientJobId int) {
 
+	leader.mutex.Lock()
 	job := LeaderMapleJuiceJob{
 		leaderJobId:                    leader.jobsSubmitted,
 		jobType:                        MAPLE_JOB,
-		exeFile:                        maple_exe,
-		numTasks:                       num_maples,
+		exeFile:                        mapleExe,
+		numTasks:                       numMaples,
 		workerToTaskIndices:            make(map[NodeID][]int),
-		sdfsIntermediateFilenamePrefix: sdfs_intermediate_filename_prefix,
-		sdfsSrcDirectory:               sdfs_src_dir,
+		sdfsIntermediateFilenamePrefix: sdfsIntermediateFilenamePrefix,
+		sdfsSrcDirectory:               sdfsSrcDir,
 		numTasksCompleted:              0,
 		sdfsIntermediateFilenames:      make(datastructures.HashSet[string]),
 		clientJobId:                    clientJobId,
@@ -171,13 +183,14 @@ func (leader *MapleJuiceLeaderService) SubmitMapleJob(maple_exe MapleJuiceExeFil
 
 	leader.waitQueue = append(leader.waitQueue, &job)
 	leader.jobsSubmitted++
+	leader.mutex.Unlock()
 }
 
 func (leader *MapleJuiceLeaderService) SubmitJuiceJob(juice_exe MapleJuiceExeFile, num_juices int,
 	sdfs_intermediate_filename_prefix string, sdfs_dest_filename string, delete_input bool,
 	juicePartitionScheme JuicePartitionType, clientJobId int) {
 
-	// TODO: add mutex lock
+	leader.mutex.Lock()
 	job := LeaderMapleJuiceJob{
 		leaderJobId:                    leader.jobsSubmitted,
 		jobType:                        JUICE_JOB,
@@ -194,9 +207,12 @@ func (leader *MapleJuiceLeaderService) SubmitJuiceJob(juice_exe MapleJuiceExeFil
 	}
 	leader.waitQueue = append(leader.waitQueue, &job)
 	leader.jobsSubmitted++
+	leader.mutex.Unlock()
 }
 
 /*
+ReceiveMapleTaskOutput
+
 Reads the file containing the key value pairs of the task's output from the tcp connection socket 'conn'
 Then of the currently running job, it marks the task with the matching taskIndex as finished.
 If all tasks have finished, it then proceeds to finish the job by processing the recorded
@@ -207,42 +223,59 @@ task output files and then creating a new set of files to be saved in the SDFS f
 func (leader *MapleJuiceLeaderService) ReceiveMapleTaskOutput(workerConn net.Conn, taskIndex int, filesize int64,
 	sdfsService *SDFSNode) {
 
-	// todo: ADD MUTEX LOCKS FOR CURRENT_JOB
 	// read the task output file from the network
 	// TODO: delete these maple task output files after we are done with the job (after we send to sdfs)
 	// but for testing purposes, don't delete it
+	leader.mutex.Lock()
 	save_filepath := filepath.Join(leader.leaderTempDir, fmt.Sprintf(MAPLE_TASK_OUTPUT_FILENAME_FMT, taskIndex))
+	leader.mutex.Unlock()
+
 	err := tcp_net.ReadFile(save_filepath, workerConn, filesize)
 	if err != nil {
-		os.Exit(1) // TODO: for now exit, figure out the best course of action later
+		log.Fatalln("Failed to read file: Error: ", err) // TODO: for now exit, figure out the best course of action later
 	}
 	_ = workerConn.Close() // close the connection with this worker since we got all the data we needed from it
 
 	// mark the task as completed now that we got the file
-	leader.markTaskAsCompleted(taskIndex)
-	leader.currentJob.numTasksCompleted += 1
-	// TODO: do we wanna run this on a separate go routine instead?
+	leader.mutex.Lock()
+	leader.markMapleTaskAsCompleted(taskIndex)
+
 	if leader.currentJob.jobType == MAPLE_JOB {
 		leader.processMapleTaskOutputFile(save_filepath)
+		// right now this is underneath a mutex lock because i dont want multiple goroutines appending to the same
+		// file (ACTUALLY THAT MIGHT BE FINE) but i also dont know if its okay for multiple goroutines to try to create
+		// a new file? cuz one of them must create a new file, the other must just open it, but what happens if both
+		// files are opened in O_CREATE and O_APPEND at the same time?
+		// !! TODO: future improvement: implement buffered writes - this will allow you to have more parallelism cuz i
+		// can write to just some in-memory map of filename to data. and whenever the map reaches a certain size,
+		// i can just dump it to the files. this will be faster than writing to the files every time
+		// and then only during the file write operation and the file create operation i have to lock, otherwise
+		// it can be ran in parallel
 	}
 
 	// if all tasks finished, process the output files and save into SDFS
 	if leader.currentJob.numTasksCompleted == leader.currentJob.numTasks {
 		leader.finishCurrentMapleJob(sdfsService)
 	}
+	leader.mutex.Unlock()
 }
 
 func (leader *MapleJuiceLeaderService) ReceiveJuiceTaskOutput(workerConn net.Conn, taskAssignedKeys []string, filesize int64, sdfsService *SDFSNode) {
 	// TODO: add mutex locks - for current job and other things maybe
 	workerVMNumber, _ := utils.GetVMNumber(workerConn.RemoteAddr().String())
 
+	leader.mutex.Lock()
 	save_filepath := filepath.Join(leader.currentJob.juiceJobTmpDirPath, fmt.Sprintf(JUICE_WORKER_OUTPUT_FILENAME_FMT, workerVMNumber))
+	leader.mutex.Unlock()
+
 	err := tcp_net.ReadFile(save_filepath, workerConn, filesize)
 	if err != nil {
 		log.Fatalln("Failed to read juice task output file from worker node. Error: ", err)
 	}
+	_ = workerConn.Close()
 
 	// open the save file path to copy the contents over to the JUICE_JOB_OUTPUT_FILEPATH file in append mode
+	leader.mutex.Lock()
 	juiceJobOutputFile, file_err := os.OpenFile(leader.currentJob.juiceJobOutputFilepath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
 	if file_err != nil {
 		log.Fatalln("Failed to open juice job output file. Error: ", file_err)
@@ -268,6 +301,7 @@ func (leader *MapleJuiceLeaderService) ReceiveJuiceTaskOutput(workerConn net.Con
 		// all juice tasks have finished! we can now merge the files and send it to sdfs
 		leader.finishCurrentJuiceJob(sdfsService)
 	}
+	leader.mutex.Unlock()
 }
 
 func (leader *MapleJuiceLeaderService) finishCurrentJuiceJob(sdfsService *SDFSNode) {
@@ -304,7 +338,10 @@ func (leader *MapleJuiceLeaderService) finishCurrentMapleJob(sdfsService *SDFSNo
 		sdfsFileNames = append(sdfsFileNames, sdfsIntermFilepath)
 	}
 
-	sdfsService.PerformBlockedPuts(localFileNames, sdfsFileNames)
+	err := sdfsService.PerformBlockedPuts(localFileNames, sdfsFileNames)
+	if err != nil {
+		log.Fatalln("Failed to put intermediate files to SDFS. Error: ", err)
+	}
 
 	// establish connection with the client and send a response indicating the job is finished
 	clientConn, conn_err := net.Dial("tcp", leader.currentJob.clientId.IpAddress+":"+leader.currentJob.clientId.MapleJuiceServerPort)
@@ -350,7 +387,7 @@ func (leader *MapleJuiceLeaderService) processMapleTaskOutputFile(task_output_fi
 
 		// TODO: instead of writing to the file every iteration, you can make leader a buffered write to make it faster! future improvement!
 		// ^ you can first append it to a map, and once the map reaches a certain size you can then write the map to its respective files
-		leader.currentJob.sdfsIntermediateFileMutex.Lock()
+		//leader.currentJob.sdfsIntermediateFileMutex.Lock()
 		intermediateFile, file2_err := os.OpenFile(fullSdfsIntermediateFilePath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
 		if file2_err != nil {
 			log.Fatalln("Failed to open sdfsIntermediateFileName. Error: ", file2_err)
@@ -361,7 +398,7 @@ func (leader *MapleJuiceLeaderService) processMapleTaskOutputFile(task_output_fi
 			log.Fatalln("Failed to write key value pair to intermediate file. Error: ", interm_write_err)
 		}
 		_ = intermediateFile.Close()
-		leader.currentJob.sdfsIntermediateFileMutex.Unlock()
+		//leader.currentJob.sdfsIntermediateFileMutex.Unlock()
 	}
 	_ = csvFile.Close()
 
@@ -382,12 +419,13 @@ map of worker nodes to task indices
 
 * this assumes that we have only 1 job running at a time... but we should just simply use a job id instead (future improvement)
 */
-func (leader *MapleJuiceLeaderService) markTaskAsCompleted(taskIndex int) {
+func (leader *MapleJuiceLeaderService) markMapleTaskAsCompleted(taskIndex int) {
 	for workerNodeId, taskIndicesList := range leader.currentJob.workerToTaskIndices {
 		for i, currTaskIdx := range taskIndicesList {
 			if currTaskIdx == taskIndex { // found! -- remove leader from the list
 				leader.currentJob.workerToTaskIndices[workerNodeId] =
 					utils.RemoveIthElementFromSlice(leader.currentJob.workerToTaskIndices[workerNodeId], i)
+				leader.currentJob.numTasksCompleted += 1
 				return
 			}
 		}
@@ -397,6 +435,7 @@ func (leader *MapleJuiceLeaderService) markTaskAsCompleted(taskIndex int) {
 // TODO: future improvement: allow multiple jobs of the same type to run at the same time (see if any sources of conflicts can happen tho)
 func (leader *MapleJuiceLeaderService) dispatcher() {
 	for leader.IsRunning {
+		leader.mutex.Lock()
 		if leader.currentJob == nil && len(leader.waitQueue) > 0 {
 			// schedule a new one
 			leader.currentJob = leader.waitQueue[0]
@@ -404,6 +443,8 @@ func (leader *MapleJuiceLeaderService) dispatcher() {
 
 			leader.startJob(leader.currentJob)
 		}
+		leader.mutex.Unlock()
+
 		time.Sleep(leader.DispatcherWaitTime)
 	}
 }
@@ -413,7 +454,6 @@ Starts the execution of the job passed in by distributing the tasks among the wo
 and sending them task requests to have them begin their work
 */
 func (leader *MapleJuiceLeaderService) startJob(newJob *LeaderMapleJuiceJob) {
-	// TODO: add mutex locks
 	leader.shuffleAvailableWorkerNodes() // randomize selection of worker nodes each time
 	if newJob.jobType == MAPLE_JOB {
 		leader.mapleAssignTaskIndicesToWorkerNodes(newJob)

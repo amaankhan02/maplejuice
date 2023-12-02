@@ -35,19 +35,19 @@ type MapleJuiceNode struct {
 	sdfsNode      *SDFSNode
 	mjRootDir     string // temporary directory used by this node to store temporary files for maple/juice tasks & leader service
 
-	localWorkerTaskID int // just used internally by the worker to keep track of task number to create unique directories
-
 	// map of clientJobId to ClientMapleJuiceJob representing current jobs that have been submitted from this client and waiting to be finished
 	currentClientJobs        map[int]*ClientMapleJuiceJob
-	totalClientJobsSubmitted int // used for generating unique job ids
+	totalClientJobsSubmitted int        // used for generating unique job ids
+	localWorkerTaskID        int        // just used internally by the worker to keep track of task number to create unique directories
+	mutex                    sync.Mutex // mutex used for the above 3 variables
 }
 
 type MapleJuiceExeFile struct {
 	ExeFilePath string
 
 	// Maple exe additional args (other than the number of lines that's passed in)
-	ExeColumnSchema   string
-	ExeAdditionalInfo string
+	ExeColumnSchema   string // the first line of the sql csv file which contains the column names separated by commas
+	ExeAdditionalInfo string // can be the where clause for SQL filter or JOIN
 }
 
 const LEADER_TMP_DIR = "leader"
@@ -126,7 +126,6 @@ func (this *MapleJuiceNode) HandleTCPServerConnection(conn net.Conn) {
 		case JUICE_JOB_REQUEST:
 			_ = conn.Close()
 			alreadyClosedLeaderConn = true
-
 			this.leaderService.SubmitJuiceJob(
 				mjNetworkMessage.ExeFile,
 				mjNetworkMessage.NumTasks,
@@ -146,15 +145,22 @@ func (this *MapleJuiceNode) HandleTCPServerConnection(conn net.Conn) {
 			)
 			alreadyClosedLeaderConn = true
 		case JUICE_TASK_RESPONSE:
-			panic("not implemented yet")
-
+			// this function will read from the connection to get the file and then close the connection
+			this.leaderService.ReceiveJuiceTaskOutput(
+				conn,
+				mjNetworkMessage.Keys,
+				mjNetworkMessage.TaskOutputFileSize,
+				this.sdfsNode,
+			)
+			alreadyClosedLeaderConn = true
+		default:
+			fmt.Println("****ERROR: RECEIVED INCORRECT MESSAGE TYPE AS LEADER**** Type: ", mjNetworkMessage.MsgType)
 		}
 	} else { // NOT LEADER NODE
 		switch mjNetworkMessage.MsgType {
 		case MAPLE_TASK_REQUEST: // must execute some task and send back to leader
 			_ = conn.Close()
 			alreadyClosedLeaderConn = true
-
 			this.executeMapleTask(
 				mjNetworkMessage.NumTasks,
 				mjNetworkMessage.ExeFile,
@@ -165,17 +171,17 @@ func (this *MapleJuiceNode) HandleTCPServerConnection(conn net.Conn) {
 		case JUICE_TASK_REQUEST: // must execute some task and send back to leader
 			_ = conn.Close()
 			alreadyClosedLeaderConn = true
-
 			this.executeJuiceTask(
 				mjNetworkMessage.ExeFile,
 				mjNetworkMessage.SdfsIntermediateFilenamePrefix,
 				mjNetworkMessage.Keys,
 			)
-
 		case MAPLE_JOB_RESPONSE: // acknowledging the job is done
 			this.handleJobResponse(mjNetworkMessage.ClientJobId)
 		case JUICE_JOB_RESPONSE: // acknowledging the job is done
 			this.handleJobResponse(mjNetworkMessage.ClientJobId)
+		default:
+			fmt.Println("****ERROR: RECEIVED INCORRECT MESSAGE TYPE AS NON-LEADER**** Type: ", mjNetworkMessage.MsgType)
 		}
 	}
 
@@ -192,7 +198,7 @@ an acknowledgement
 func (this *MapleJuiceNode) SubmitMapleJob(maple_exe MapleJuiceExeFile, num_maples int, sdfs_intermediate_filename_prefix string,
 	sdfs_src_directory string) {
 
-	// TODO: mutex lock
+	this.mutex.Lock()
 	clientJob := &ClientMapleJuiceJob{
 		ClientJobId: this.totalClientJobsSubmitted,
 		JobType:     MAPLE_JOB,
@@ -200,7 +206,7 @@ func (this *MapleJuiceNode) SubmitMapleJob(maple_exe MapleJuiceExeFile, num_mapl
 
 	this.totalClientJobsSubmitted++
 	this.currentClientJobs[clientJob.ClientJobId] = clientJob // store it for later... until we recieve the ACK
-	// TODO: mutex unlock
+	this.mutex.Unlock()
 
 	this.logBoth(fmt.Sprintf("Submitting Maple Job with ClientJobID %d to leader\n", clientJob.ClientJobId))
 
@@ -226,7 +232,7 @@ func (this *MapleJuiceNode) SubmitMapleJob(maple_exe MapleJuiceExeFile, num_mapl
 func (this *MapleJuiceNode) SubmitJuiceJob(juice_exe MapleJuiceExeFile, num_juices int, sdfs_intermediate_filename_prefix string,
 	sdfs_dest_filename string, shouldDeleteInput bool, partitionScheme JuicePartitionType) {
 
-	// TODO: mutex lock
+	this.mutex.Lock()
 	clientJob := &ClientMapleJuiceJob{
 		ClientJobId: this.totalClientJobsSubmitted,
 		JobType:     JUICE_JOB,
@@ -234,7 +240,7 @@ func (this *MapleJuiceNode) SubmitJuiceJob(juice_exe MapleJuiceExeFile, num_juic
 
 	this.totalClientJobsSubmitted++
 	this.currentClientJobs[clientJob.ClientJobId] = clientJob // store it for later... until we recieve the ACK
-	// TODO: mutex unlock
+	this.mutex.Unlock()
 
 	this.logBoth(fmt.Sprintf("Submitting Juice Job with ClientJobID %d to leader\n", clientJob.ClientJobId))
 
@@ -266,7 +272,7 @@ func (this *MapleJuiceNode) SubmitJuiceJob(juice_exe MapleJuiceExeFile, num_juic
 Handle when the client receives a job response from the leader notifying that it has finished
 */
 func (this *MapleJuiceNode) handleJobResponse(clientJobId int) {
-	// TODO: mutex lock
+	this.mutex.Lock()
 	jobTypeString := "Maple"
 	if this.currentClientJobs[clientJobId].JobType == JUICE_JOB {
 		jobTypeString = "Juice"
@@ -275,7 +281,7 @@ func (this *MapleJuiceNode) handleJobResponse(clientJobId int) {
 	fmt.Printf(JOB_DONE_MSG_FMT, jobTypeString, clientJobId)
 
 	delete(this.currentClientJobs, clientJobId) // remove the clientJobId from the map since its finished
-	// TODO: mutex unlock -- for clientJobs[]
+	this.mutex.Unlock()
 }
 
 func (this *MapleJuiceNode) logBoth(msg string) {
@@ -297,10 +303,10 @@ Once all channels have been read from, we can send the output file back to the l
 */
 func (this *MapleJuiceNode) executeJuiceTask(juiceExe MapleJuiceExeFile, sdfsIntermediateFilenamePrefix string, assignedKeys []string) {
 
-	// TODO: add mutex lock
+	this.mutex.Lock()
 	this.localWorkerTaskID++
 	localWorkerTaskId := this.localWorkerTaskID
-	// TODO: mutex unlock
+	this.mutex.Unlock()
 
 	taskDirPath, juiceTaskOutputFile := this.createTempDirsAndFilesForJuiceTask(localWorkerTaskId)
 
@@ -314,7 +320,10 @@ func (this *MapleJuiceNode) executeJuiceTask(juiceExe MapleJuiceExeFile, sdfsInt
 	}
 
 	// fetch the files from sdfs to local tmp dir
-	this.sdfsNode.PerformBlockedGets(sdfsInputFilenames, localInputFilenames)
+	err := this.sdfsNode.PerformBlockedGets(sdfsInputFilenames, localInputFilenames)
+	if err != nil {
+		log.Fatalln("Error! Could not do PerformBlockedGets(): ", err)
+	}
 
 	var wg sync.WaitGroup
 	juiceExeOutputsChan := make(chan string, len(assignedKeys)) // buffered channel so that we don't block on the go routines
@@ -444,31 +453,32 @@ func (this *MapleJuiceNode) executeMapleTask(
 	sdfsSrcDirectory string,
 	taskIndex int,
 ) {
-	// TODO: add mutex lock
+	this.mutex.Lock()
 	this.localWorkerTaskID++
 	localWorkerTaskId := this.localWorkerTaskID
+	this.mutex.Unlock()
 
-	maple_task_dirpath, dataset_dirpath, maple_task_output_file :=
+	mapleTaskDirpath, datasetDirpath, mapleTaskOutputFile :=
 		this.createTempDirsAndFilesForMapleTask(taskIndex, sdfsIntermediateFilenamePrefix, localWorkerTaskId)
 
 	// get the dataset filenames & create corresponding local filenames to save it to
-	sdfs_dataset_filenames := this.sdfsNode.PerformPrefixMatch(sdfsSrcDirectory + ".")
-	local_dataset_filenames := make([]string, 0)
-	for _, curr_sdfs_dataset_filename := range sdfs_dataset_filenames {
-		new_local_filename := filepath.Join(dataset_dirpath, fmt.Sprintf(LOCAL_SDFS_DATASET_FILENAME_FMT, curr_sdfs_dataset_filename))
-		local_dataset_filenames = append(local_dataset_filenames, new_local_filename)
+	sdfsDatasetFilenames := this.sdfsNode.PerformPrefixMatch(sdfsSrcDirectory + ".")
+	localDatasetFilenames := make([]string, 0)
+	for _, currSdfsDatasetFilename := range sdfsDatasetFilenames {
+		newLocalFilename := filepath.Join(datasetDirpath, fmt.Sprintf(LOCAL_SDFS_DATASET_FILENAME_FMT, currSdfsDatasetFilename))
+		localDatasetFilenames = append(localDatasetFilenames, newLocalFilename)
 	}
 
 	// retrieve the dataset files from distributed file system
-	if get_err := this.sdfsNode.PerformBlockedGets(sdfs_dataset_filenames, local_dataset_filenames); get_err != nil {
-		log.Fatalln("Error! Could not do PerformBlockedGets(): ", get_err)
+	if getErr := this.sdfsNode.PerformBlockedGets(sdfsDatasetFilenames, localDatasetFilenames); getErr != nil {
+		log.Fatalln("Error! Could not do PerformBlockedGets(): ", getErr)
 	}
 
 	// for each dataset file, find the portion this task runs on, execute maple exe on it for how many
 	// ever times it needs to finish the entire portion, and output the outputs for maple exe to output_kv_file
-	for _, local_dataset_filename := range local_dataset_filenames {
-		inputFile, open_input_err := os.OpenFile(local_dataset_filename, os.O_RDONLY, 0744)
-		if open_input_err != nil {
+	for _, localDatasetFilename := range localDatasetFilenames {
+		inputFile, openInputErr := os.OpenFile(localDatasetFilename, os.O_RDONLY, 0744)
+		if openInputErr != nil {
 			log.Fatalln("Failed to open local_dataset_file")
 		}
 
@@ -480,26 +490,26 @@ func (this *MapleJuiceNode) executeMapleTask(
 		// increment currLine by the amount of lines that it read
 		for currLine := startLine; currLine < endLine; currLine += numLinesForExe {
 			numLinesForExe = min(endLine-currLine, int64(config.LINES_PER_MAPLE_EXE))
-			exe_args := []string{strconv.FormatInt(numLinesForExe, 10), mapleExe.ExeColumnSchema, mapleExe.ExeAdditionalInfo}
-			this.executeMapleExe(mapleExe.ExeFilePath, exe_args, inputFile, maple_task_output_file, numLinesForExe)
+			exeArgs := []string{strconv.FormatInt(numLinesForExe, 10), mapleExe.ExeColumnSchema, mapleExe.ExeAdditionalInfo}
+			this.executeMapleExe(mapleExe.ExeFilePath, exeArgs, inputFile, mapleTaskOutputFile, numLinesForExe)
 		}
 
 		_ = inputFile.Close()
 	}
-	_ = maple_task_output_file.Close() // close file since we are done writing to it.
+	_ = mapleTaskOutputFile.Close() // close file since we are done writing to it.
 
 	// send the task response back with the file data
-	leaderConn, conn_err := net.Dial("tcp", this.leaderID.IpAddress+":"+this.leaderID.MapleJuiceServerPort)
-	if conn_err != nil {
-		log.Fatalln("Failed to dial to leader server. Error: ", conn_err)
+	leaderConn, connErr := net.Dial("tcp", this.leaderID.IpAddress+":"+this.leaderID.MapleJuiceServerPort)
+	if connErr != nil {
+		log.Fatalln("Failed to dial to leader server. Error: ", connErr)
 	}
 	defer leaderConn.Close()
 
-	SendMapleTaskResponse(leaderConn, taskIndex, maple_task_output_file.Name())
+	SendMapleTaskResponse(leaderConn, taskIndex, mapleTaskOutputFile.Name())
 
 	// close and delete the temporary files & dirs
-	if delete_tmp_dir_err := utils.DeleteDirAndAllContents(maple_task_dirpath); delete_tmp_dir_err != nil {
-		log.Fatalln("Failed to delete maple_task_dirpath and all its contents. Error: ", delete_tmp_dir_err)
+	if deleteTmpDirErr := utils.DeleteDirAndAllContents(mapleTaskDirpath); deleteTmpDirErr != nil {
+		log.Fatalln("Failed to delete maple_task_dirpath and all its contents. Error: ", deleteTmpDirErr)
 	}
 }
 
@@ -650,7 +660,6 @@ func (this *MapleJuiceNode) executeMapleExe(
 	}
 
 	// read stdout
-	// TODO: will io.ReadAll() work? Because maple_exe doesn't output an EOF... will this block forever? test this out
 	stdout_bytes, read_stdout_err := io.ReadAll(stdout_pipe)
 	if read_stdout_err != nil {
 		panic(read_stdout_err)

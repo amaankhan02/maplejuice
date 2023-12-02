@@ -99,11 +99,12 @@ func NewMapleJuiceManager(
 }
 
 func (manager *MapleJuiceManager) Start() {
-	// TODO: clear out the maple juice tmp dir contents before creating it (if it exists), and then create it
-	// create SDFS root directory
+	// create maple juice root dir (delete it first if it already existed)
+	_ = os.RemoveAll(manager.mapleJuiceNode.mjRootDir + "/")
+	_ = os.Mkdir(manager.mapleJuiceNode.mjRootDir, 0755)
+	// create SDFS root directory (delete it first if it already existed)
 	_ = os.RemoveAll(manager.sdfsNode.sdfsDir + "/") // remove and clear the directory if it already exists
 	_ = os.Mkdir(manager.sdfsNode.sdfsDir, 0755)
-	// TODO: create maple juice tmp dir
 
 	manager.failureJoinService.JoinGroup()
 	manager.sdfsNode.Start()
@@ -207,7 +208,7 @@ func (manager *MapleJuiceManager) executeUserInput(userInput []string) bool {
 		fmt.Println(manager.failureJoinService.Id.ToStringForGossipLogger())
 	case "leave":
 		manager.failureJoinService.LeaveGroup()
-		// TODO: should i call respective leave functions for sdfs and maple juice? - future improvement
+		// NOTE: call respective leave functions for sdfs and maple juice - future improvement
 		return true
 	case "get":
 		if len(userInput) != 3 {

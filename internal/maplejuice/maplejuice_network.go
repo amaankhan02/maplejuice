@@ -33,9 +33,9 @@ const (
 )
 
 type MapleJuiceNetworkMessage struct {
-	MsgType              MapleJuiceNetworkMessageType
-	JuicePartitionScheme JuicePartitionType
-	NumTasks             int // number of maples or juice tasks (depending on the type)
+	MsgType                        MapleJuiceNetworkMessageType
+	JuicePartitionScheme           JuicePartitionType
+	NumTasks                       int // number of maples or juice tasks (depending on the type)
 	ExeFile                        MapleJuiceExeFile
 	SdfsIntermediateFilenamePrefix string // prefix of the intermediate filenames (output of Maple, input of Juice)
 	SdfsSrcDirectory               string // location of input files for Maple
@@ -44,8 +44,8 @@ type MapleJuiceNetworkMessage struct {
 	CurrTaskIdx                    int
 	ClientId                       NodeID
 	TaskOutputFileSize             int64
-	ClientJobId                    int // id that the client created for the job it submitted
-	Keys 						   []string	// used for juice tasks (to know what keys to operate on)
+	ClientJobId                    int      // id that the client created for the job it submitted
+	Keys                           []string // used for juice tasks (to know what keys to operate on)
 }
 
 func SendMapleJobResponse(conn net.Conn, clientJobId int) {
@@ -109,9 +109,9 @@ func SendMapleTaskResponse(conn net.Conn, taskIndex int, taskOutputFilepath stri
 }
 
 /*
-
 Parameters:
-	juice_task_index (int): essentially the 0-indexed task number that this juice task is. It is only sent to the worker so that the 
+
+	juice_task_index (int): essentially the 0-indexed task number that this juice task is. It is only sent to the worker so that the
 							worker can send it back and so the leader knows which task was the one that was completed
 */
 func SendJuiceTaskRequest(conn net.Conn, juiceExe MapleJuiceExeFile, sdfsIntermediateFilenamePrefix string, assignedKeys []string) {
@@ -119,7 +119,7 @@ func SendJuiceTaskRequest(conn net.Conn, juiceExe MapleJuiceExeFile, sdfsInterme
 		MsgType:                        JUICE_TASK_REQUEST,
 		ExeFile:                        juiceExe,
 		SdfsIntermediateFilenamePrefix: sdfsIntermediateFilenamePrefix,
-		Keys:							assignedKeys,
+		Keys:                           assignedKeys,
 	}
 	SendMapleJuiceNetworkMessage(conn, &msg)
 }
@@ -130,8 +130,8 @@ func SendJuiceTaskResponse(conn net.Conn, taskOutputFilepath string, assignedKey
 	msg := MapleJuiceNetworkMessage{
 		MsgType:            JUICE_TASK_RESPONSE,
 		TaskOutputFileSize: filesize,
-		Keys:				assignedKeys,
-	}	// TODO: figure out if there's any other info we need to send back
+		Keys:               assignedKeys,
+	}
 	SendMapleJuiceNetworkMessage(conn, &msg)
 
 	send_file_err := tcp_net.SendFile(taskOutputFilepath, conn, filesize)

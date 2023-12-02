@@ -45,6 +45,7 @@ const (
 
 // MP4 Configuration Variables
 const (
-	MAPLE_JUICE_PORT_FORMAT     = "83%02d" // 8301, 8302, ... 8310 - based on the hostname number
-	LINES_PER_MAPLE_EXE     int = 20
+	MAPLE_JUICE_PORT_FORMAT        = "83%02d" // 8301, 8302, ... 8310 - based on the hostname number
+	LINES_PER_MAPLE_EXE     int    = 20
+	MAPLE_JUICE_ROOT_DIR    string = "maple_juice_root"
 )
