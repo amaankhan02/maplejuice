@@ -2,8 +2,8 @@ package test
 
 import (
 	"bufio"
-	juice_exe "cs425_mp4/cmd/juices"
-	"cs425_mp4/cmd/maples"
+	juice_word_count "cs425_mp4/cmd/juices/juice_word_count/"
+	maple_word_count "cs425_mp4/cmd/maples/maple_word_count/"
 	"fmt"
 	"os"
 	"testing"
@@ -20,8 +20,8 @@ func TestMapleExeWordCount(t *testing.T) {
 
 	// Create a scanner to read the file line by line
 	filescanner := bufio.NewScanner(file)
-	result := maples_exe.MapleWordCount(filescanner, num_lines)
-	maples_exe.PrintKeyValuePairs(result)
+	result := maple_word_count.MapleWordCount(filescanner, num_lines)
+	maple_word_count .PrintKeyValuePairs(result)
 }
 
 func TestJuiceExeWordCount(t *testing.T) {
@@ -34,7 +34,7 @@ func TestJuiceExeWordCount(t *testing.T) {
 
 	// Create a scanner to read the file line by line
 	filescanner := bufio.NewScanner(file)
-	word_to_word_count := juice_exe.JuiceWordCount(filescanner)
+	word_to_word_count := juice_word_count.JuiceWordCount(filescanner)
 
-	maples_exe.PrintKeyValuePairs(word_to_word_count)
+	maple_word_count.PrintKeyValuePairs(word_to_word_count)
 }

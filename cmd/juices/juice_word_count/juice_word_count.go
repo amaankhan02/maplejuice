@@ -1,8 +1,7 @@
-package juice_exe
+package juice_exe_word_count
 
 import (
 	"bufio"
-	maples_exe "cs425_mp4/cmd/maples"
 	"fmt"
 	"log"
 	"os"
@@ -46,7 +45,14 @@ func JuiceWordCount(scanner *bufio.Scanner) map[string]int {
 	return word_to_word_count
 }
 
+func PrintKeyValuePairs(kv_pairs map[string]int) {
+	// print out all key, val pairs
+	for key, val := range kv_pairs {
+		fmt.Printf("%s,%d\n", key, val)
+	}
+}
+
 func main() {
 	word_to_word_count := JuiceWordCount(bufio.NewScanner(os.Stdin))
-	maples_exe.PrintKeyValuePairs(word_to_word_count)
+	PrintKeyValuePairs(word_to_word_count)
 }
