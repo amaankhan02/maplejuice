@@ -53,6 +53,6 @@ func PrintKeyValuePairs(kv_pairs map[string]int) {
 }
 
 func main() {
-	word_to_word_count := JuiceWordCount(bufio.NewScanner(os.Stdin))
-	PrintKeyValuePairs(word_to_word_count)
+	wordToWordCount := JuiceWordCount(bufio.NewScanner(os.Stdin))
+	PrintKeyValuePairs(wordToWordCount)
 }

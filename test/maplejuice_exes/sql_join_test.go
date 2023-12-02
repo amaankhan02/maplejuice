@@ -3,7 +3,9 @@ package test
 import (
 	"bufio"
 	juice_exe "cs425_mp4/cmd/juices"
-	maples_exe "cs425_mp4/cmd/maples"
+	maples_exe_sql_join_phase_1 "cs425_mp4/cmd/maples/maple_sql_join_phase_1"
+	maples_exe_sql_join_phase_2 "cs425_mp4/cmd/maples/maple_sql_join_phase_2"
+	mj "cs425_mp4/internal/maplejuice_exe"
 	"fmt"
 	"os"
 	"testing"
@@ -22,8 +24,8 @@ func TestMapleSQLJoin(t *testing.T) {
 	filescanner := bufio.NewScanner(file)
 	column := "lastname"
 
-	result := maples_exe.MapleSQLJoin1(filescanner, column, num_lines)
-	maples_exe.PrintKeyValPairsSQLJoin(result)
+	result := maples_exe_sql_join_phase_1.MapleSQLJoin1(filescanner, column, num_lines)
+	mj.PrintKeyValPairsSQLJoin(result)
 }
 
 func TestMapleSQLJoin3(t *testing.T) {
@@ -39,9 +41,9 @@ func TestMapleSQLJoin3(t *testing.T) {
 	filescanner := bufio.NewScanner(file)
 	column := "lastname"
 
-	result := maples_exe.MapleSQLJoin3(filescanner, column, num_lines)
+	result := maples_exe_sql_join_phase_2.MapleSQLJoin3(filescanner, column, num_lines)
 
-	maples_exe.PrintKeyValPairsSQLFilter(result)
+	mj.PrintKeyValPairsSQLFilter(result)
 }
 
 func TestJuiceSQLJoin3(t *testing.T) {
