@@ -1,4 +1,4 @@
-package maples_exe
+package maples_exe_sql_join_phase_1_2
 
 import (
 	"bufio"
@@ -54,21 +54,6 @@ func MapleSQLJoin1(scanner *bufio.Scanner, column string, num_lines int) map[str
 	return row_to_field
 }
 
-func getArgsSQLJoin() (string, int) {
-	// get the command line arg which tells you the number of lines
-	// SELECT ALL FROM dataset WHERE COL = <regex> num_lines ?
-	// need to know:
-	// number of lines
-	// column
-	// regex
-
-	// TODO: update with index after asking amaan
-	column := os.Args[0]
-
-	num_lines_string := os.Args[1]                 // QUESTION =: should I add a 1 to this to account for the schema being the first line every time
-	num_lines, _ := strconv.Atoi(num_lines_string) // Convert the argument to an integer
-	return column, num_lines
-}
 
 func PrintKeyValPairsSQLJoin(kv_pairs map[string]MapleSQLJoin1Value) {
 	for key, val := range kv_pairs {
@@ -76,7 +61,7 @@ func PrintKeyValPairsSQLJoin(kv_pairs map[string]MapleSQLJoin1Value) {
 	}
 }
 
-func MainMapleSQLJoin() {
+func main() {
 	column, num_lines := getArgsSQLJoin()
 	row_to_field := MapleSQLJoin1(bufio.NewScanner(os.Stdin), column, num_lines)
 	PrintKeyValPairsSQLJoin(row_to_field)

@@ -591,6 +591,12 @@ Executes the maple exe.
 
 Reads inputFile line by line, and feeds it into stdin pipe for maple_exe shell command.
 It also reads the stdout line by line and writes it to outputFile, line by line
+
+Parameters:
+	maple_exe (string): filepath of the maple exe file, exactly as you would type it in the terminal
+	args ([]string): additional args to pass to the maple_exe. The arguments should be [num_lines, column_schema, additional_info]
+					 at least for now. but that can change if we change the design.
+	inputFile (*os.File): file object for the input file that the maple_exe will read from		
 */
 func (this *MapleJuiceNode) executeMapleExe(
 	maple_exe string,

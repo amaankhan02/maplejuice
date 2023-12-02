@@ -1,4 +1,4 @@
-package maples_exe
+package maples_exe_word_count
 
 import (
 	"bufio"
@@ -53,7 +53,7 @@ func PrintKeyValuePairs(kv_pairs map[string]int) {
 }
 
 // actual executable
-func MainMapleWordCount() {
+func main() {
 	num_lines := getArgs()
 	word_to_word_count := MapleWordCount(bufio.NewScanner(os.Stdin), num_lines)
 	PrintKeyValuePairs(word_to_word_count)

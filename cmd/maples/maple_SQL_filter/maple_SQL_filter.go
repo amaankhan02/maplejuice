@@ -1,4 +1,4 @@
-package maples_exe
+package maples_exe_sql_filter
 
 import (
 	"bufio"
@@ -59,18 +59,6 @@ func MapleSQLFilter(scanner *bufio.Scanner, regex_string string, column string, 
 	return id_to_row
 }
 
-func GetColumnIndex(schema_line string, column string) int {
-	columns := strings.Split(schema_line, " ")
-
-	index := 0
-	for i, col_in_line := range columns {
-		if col_in_line == column {
-			index = i
-		}
-	}
-	return index
-}
-
 func getArgsSQLFilter() (string, string, int) {
 	// get the command line arg which tells you the number of lines
 	// SELECT ALL FROM dataset WHERE COL = <regex> num_lines ?
@@ -94,7 +82,7 @@ func PrintKeyValPairsSQLFilter(kv_pairs map[string]string) {
 	}
 }
 
-func MainMapleSQLFilter() {
+func main() {
 	regex, column, num_lines := getArgsSQLFilter()
 	id_to_row := MapleSQLFilter(bufio.NewScanner(os.Stdin), regex, column, num_lines)
 	PrintKeyValPairsSQLFilter(id_to_row)
