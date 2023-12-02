@@ -60,14 +60,20 @@ const JUICE_TASK_OUTPUT_FILENAME = "juice_task_output.csv"
 const LOCAL_SDFS_DATASET_FILENAME_FMT = "local-%s" // when you GET the sdfs_filename, this is the localfilename you want to save it as
 const JOB_DONE_MSG_FMT = "%s Job with ClientJobID %d has completed!\n"
 
-func NewMapleJuiceNode(thisId NodeID, leaderId NodeID, loggingFile *os.File, sdfsNode *SDFSNode) *MapleJuiceNode {
+func NewMapleJuiceNode(thisId NodeID, leaderId NodeID, loggingFile *os.File, sdfsNode *SDFSNode,
+	mapleJuiceTmpDir string) *MapleJuiceNode {
 	mj := &MapleJuiceNode{
-		id:       thisId,
-		leaderID: leaderId,
-		isLeader: leaderId == thisId,
-		logFile:  loggingFile,
-		sdfsNode: sdfsNode,
+		id:                       thisId,
+		leaderID:                 leaderId,
+		isLeader:                 leaderId == thisId,
+		logFile:                  loggingFile,
+		sdfsNode:                 sdfsNode,
+		nodeTmpDir:               mapleJuiceTmpDir,
+		localWorkerTaskID:        0,
+		currentClientJobs:        make(map[int]*ClientMapleJuiceJob),
+		totalClientJobsSubmitted: 0,
 	}
+
 	mj.tcpServer = tcp_net.NewTCPServer(thisId.MapleJuiceServerPort, mj)
 	if mj.isLeader {
 		fmt.Println("Initialized MapleJuiceLeaderService")
