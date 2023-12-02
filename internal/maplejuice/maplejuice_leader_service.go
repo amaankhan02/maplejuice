@@ -222,17 +222,27 @@ func (leader *MapleJuiceLeaderService) ReceiveMapleTaskOutput(workerConn net.Con
 	_ = workerConn.Close() // close the connection with this worker since we got all the data we needed from it
 
 	// mark the task as completed now that we got the file
-	leader.markTaskAsCompleted(taskIndex)
-	leader.currentJob.numTasksCompleted += 1
-	// TODO: do we wanna run this on a separate go routine instead?
+	leader.mutex.Lock()
+	leader.markMapleTaskAsCompleted(taskIndex)
+
 	if leader.currentJob.jobType == MAPLE_JOB {
 		leader.processMapleTaskOutputFile(save_filepath)
+		// right now this is underneath a mutex lock because i dont want multiple goroutines appending to the same
+		// file (ACTUALLY THAT MIGHT BE FINE) but i also dont know if its okay for multiple goroutines to try to create
+		// a new file? cuz one of them must create a new file, the other must just open it, but what happens if both
+		// files are opened in O_CREATE and O_APPEND at the same time?
+		// !! TODO: future improvement: implement buffered writes - this will allow you to have more parallelism cuz i
+		// can write to just some in-memory map of filename to data. and whenever the map reaches a certain size,
+		// i can just dump it to the files. this will be faster than writing to the files every time
+		// and then only during the file write operation and the file create operation i have to lock, otherwise
+		// it can be ran in parallel
 	}
 
 	// if all tasks finished, process the output files and save into SDFS
 	if leader.currentJob.numTasksCompleted == leader.currentJob.numTasks {
 		leader.finishCurrentMapleJob(sdfsService)
 	}
+	leader.mutex.Unlock()
 }
 
 func (leader *MapleJuiceLeaderService) ReceiveJuiceTaskOutput(workerConn net.Conn, taskAssignedKeys []string, filesize int64, sdfsService *SDFSNode) {
@@ -354,7 +364,7 @@ func (leader *MapleJuiceLeaderService) processMapleTaskOutputFile(task_output_fi
 
 		// TODO: instead of writing to the file every iteration, you can make leader a buffered write to make it faster! future improvement!
 		// ^ you can first append it to a map, and once the map reaches a certain size you can then write the map to its respective files
-		leader.currentJob.sdfsIntermediateFileMutex.Lock()
+		//leader.currentJob.sdfsIntermediateFileMutex.Lock()
 		intermediateFile, file2_err := os.OpenFile(fullSdfsIntermediateFilePath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
 		if file2_err != nil {
 			log.Fatalln("Failed to open sdfsIntermediateFileName. Error: ", file2_err)
@@ -365,7 +375,7 @@ func (leader *MapleJuiceLeaderService) processMapleTaskOutputFile(task_output_fi
 			log.Fatalln("Failed to write key value pair to intermediate file. Error: ", interm_write_err)
 		}
 		_ = intermediateFile.Close()
-		leader.currentJob.sdfsIntermediateFileMutex.Unlock()
+		//leader.currentJob.sdfsIntermediateFileMutex.Unlock()
 	}
 	_ = csvFile.Close()
 
@@ -386,12 +396,13 @@ map of worker nodes to task indices
 
 * this assumes that we have only 1 job running at a time... but we should just simply use a job id instead (future improvement)
 */
-func (leader *MapleJuiceLeaderService) markTaskAsCompleted(taskIndex int) {
+func (leader *MapleJuiceLeaderService) markMapleTaskAsCompleted(taskIndex int) {
 	for workerNodeId, taskIndicesList := range leader.currentJob.workerToTaskIndices {
 		for i, currTaskIdx := range taskIndicesList {
 			if currTaskIdx == taskIndex { // found! -- remove leader from the list
 				leader.currentJob.workerToTaskIndices[workerNodeId] =
 					utils.RemoveIthElementFromSlice(leader.currentJob.workerToTaskIndices[workerNodeId], i)
+				leader.currentJob.numTasksCompleted += 1
 				return
 			}
 		}
