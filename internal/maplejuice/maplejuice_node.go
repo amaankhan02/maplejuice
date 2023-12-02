@@ -33,7 +33,7 @@ type MapleJuiceNode struct {
 	tcpServer     *tcp_net.TCPServer
 	logFile       *os.File
 	sdfsNode      *SDFSNode
-	nodeTmpDir    string // temporary directory used by this node to store temporary files for maple/juice tasks & leader service
+	mjRootDir     string // temporary directory used by this node to store temporary files for maple/juice tasks & leader service
 
 	localWorkerTaskID int // just used internally by the worker to keep track of task number to create unique directories
 
@@ -71,7 +71,7 @@ func NewMapleJuiceNode(thisId NodeID, leaderId NodeID, loggingFile *os.File, sdf
 		isLeader:                 leaderId == thisId,
 		logFile:                  loggingFile,
 		sdfsNode:                 sdfsNode,
-		nodeTmpDir:               mapleJuiceTmpDir,
+		mjRootDir:                mapleJuiceTmpDir,
 		localWorkerTaskID:        0,
 		currentClientJobs:        make(map[int]*ClientMapleJuiceJob),
 		totalClientJobsSubmitted: 0,
@@ -514,7 +514,7 @@ This opens the output file for the maple task, and returns the file object for i
 	|- maple_task_output_file				(CREATED HERE)
 */
 func (this *MapleJuiceNode) createTempDirsAndFilesForMapleTask(taskIndex int, sdfsIntermediateFilenamePrefix string, localWorkerTaskId int) (string, string, *os.File) {
-	task_dirpath := filepath.Join(this.nodeTmpDir, fmt.Sprintf(MAPLE_TASK_DIR_NAME_FMT, localWorkerTaskId, taskIndex, sdfsIntermediateFilenamePrefix))
+	task_dirpath := filepath.Join(this.mjRootDir, fmt.Sprintf(MAPLE_TASK_DIR_NAME_FMT, localWorkerTaskId, taskIndex, sdfsIntermediateFilenamePrefix))
 	dataset_dirpath := filepath.Join(task_dirpath, MAPLE_TASK_DATASET_DIR_NAME)
 	output_kv_filepath := filepath.Join(task_dirpath, MAPLE_TASK_OUTPUT_FILENAME)
 
@@ -545,7 +545,7 @@ Returns
 	juice_output_file (*os.File): file object for the temporary output file for this juice task
 */
 func (this *MapleJuiceNode) createTempDirsAndFilesForJuiceTask(localWorkerId int) (string, *os.File) {
-	task_dirpath := filepath.Join(this.nodeTmpDir, fmt.Sprintf(JUICE_TASK_DIR_NAME_FMT, localWorkerId))
+	task_dirpath := filepath.Join(this.mjRootDir, fmt.Sprintf(JUICE_TASK_DIR_NAME_FMT, localWorkerId))
 	juice_output_filepath := filepath.Join(task_dirpath, JUICE_TASK_OUTPUT_FILENAME)
 
 	if task_dir_creation_err := os.MkdirAll(task_dirpath, 0744); task_dir_creation_err != nil {

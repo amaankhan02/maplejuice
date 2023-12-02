@@ -5,7 +5,10 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"time"
 )
+
+const MAPLE_JUICE_LEADER_DISPATCHER_WAIT_TIME = 500 * time.Millisecond
 
 /*
 	INodeManager interface
@@ -34,10 +37,79 @@ input and executes the respective MapleJuiceNode functions.
 */
 type MapleJuiceManager struct {
 	id                 NodeID
+	mapleJuiceNode     *MapleJuiceNode
 	sdfsNode           *SDFSNode
 	failureJoinService *NodeFailureJoinService
-	mjNode             *MapleJuiceNode
 	logFile            *os.File
+}
+
+/*
+	NewMapleJuiceManager
+
+NOTE: the introducer and leader node are always the same node in this implementation
+*/
+func NewMapleJuiceManager(
+	introducerLeaderVmNum int,
+	logFile *os.File,
+	sdfsRootDir string,
+	mapleJuiceNodeRootDir string,
+	gossipFanout int,
+	gossipModeValue GossipModeValue,
+	tGossip int64,
+) *MapleJuiceManager {
+	const GOSSIP_IS_TEST_MODE = false // always false for now, set it true later or remove this if we wanna test it out
+	const GOSSIP_TEST_MSG_DROP_RATE = 0
+	manager := &MapleJuiceManager{}
+	localNodeId, introducerLeaderId, isIntroducerLeader := manager.createLocalAndLeaderNodeID(introducerLeaderVmNum)
+
+	failureJoinService := NewNodeFailureJoinService(
+		manager.id,
+		gossipFanout,
+		isIntroducerLeader,
+		*introducerLeaderId,
+		logFile,
+		gossipModeValue,
+		GOSSIP_IS_TEST_MODE,
+		GOSSIP_TEST_MSG_DROP_RATE,
+		tGossip,
+		manager,
+	)
+	sdfsNode := NewSDFSNode(
+		manager.id,
+		*introducerLeaderId,
+		isIntroducerLeader,
+		logFile,
+		sdfsRootDir,
+	)
+	mjNode := NewMapleJuiceNode(
+		manager.id,
+		*introducerLeaderId,
+		logFile,
+		sdfsNode,
+		mapleJuiceNodeRootDir,
+		MAPLE_JUICE_LEADER_DISPATCHER_WAIT_TIME,
+	)
+
+	manager.id = *localNodeId
+	manager.failureJoinService = failureJoinService
+	manager.sdfsNode = sdfsNode
+	manager.mapleJuiceNode = mjNode
+
+	return manager
+}
+
+func (manager *MapleJuiceManager) Start() {
+	// TODO: clear out the maple juice tmp dir contents before creating it (if it exists), and then create it
+	// create SDFS root directory
+	_ = os.RemoveAll(manager.sdfsNode.sdfsDir + "/") // remove and clear the directory if it already exists
+	_ = os.Mkdir(manager.sdfsNode.sdfsDir, 0755)
+	// TODO: create maple juice tmp dir
+
+	manager.failureJoinService.JoinGroup()
+	manager.sdfsNode.Start()
+	manager.mapleJuiceNode.Start()
+
+	manager.startUserInputLoop()
 }
 
 func (manager *MapleJuiceManager) createLocalAndLeaderNodeID(introducerLeaderVmNum int) (*NodeID, *NodeID, bool) {
@@ -70,66 +142,6 @@ func (manager *MapleJuiceManager) createLocalAndLeaderNodeID(introducerLeaderVmN
 	)
 
 	return localNodeId, introducerLeaderId, isIntroducerLeader
-}
-
-/*
-	NewMapleJuiceManager
-
-NOTE: the introducer and leader node are always the same node in this implementation
-*/
-func NewMapleJuiceManager(
-	introducerLeaderVmNum int,
-	logFile *os.File,
-	sdfsRootDir string,
-	gossipFanout int,
-	gossipModeValue GossipModeValue,
-	tGossip int64,
-) *MapleJuiceManager {
-	//
-	const GOSSIP_IS_TEST_MODE = false // always false for now, set it true later or remove this if we wanna test it out
-	const GOSSIP_TEST_MSG_DROP_RATE = 0
-	manager := &MapleJuiceManager{}
-	localNodeId, introducerLeaderId, isIntroducerLeader := manager.createLocalAndLeaderNodeID(introducerLeaderVmNum)
-
-	sdfsNode := NewSDFSNode(
-		manager.id,
-		*introducerLeaderId,
-		isIntroducerLeader,
-		logFile,
-		sdfsRootDir,
-	)
-	failureJoinService := NewNodeFailureJoinService(
-		manager.id,
-		gossipFanout,
-		isIntroducerLeader,
-		*introducerLeaderId,
-		logFile,
-		gossipModeValue,
-		GOSSIP_IS_TEST_MODE,
-		GOSSIP_TEST_MSG_DROP_RATE,
-		tGossip,
-		manager,
-	)
-
-	manager.id = *localNodeId
-	manager.sdfsNode = sdfsNode
-	manager.failureJoinService = failureJoinService
-
-	return manager
-}
-
-func (manager *MapleJuiceManager) Start() {
-	// TODO: clear out the maple juice tmp dir contents before creating it (if it exists), and then create it
-	// create SDFS root directory
-	_ = os.RemoveAll(manager.sdfsNode.sdfsDir + "/") // remove and clear the directory if it already exists
-	_ = os.Mkdir(manager.sdfsNode.sdfsDir, 0755)
-	// TODO: create maple juice tmp dir
-
-	manager.failureJoinService.JoinGroup()
-	manager.sdfsNode.Start()
-	manager.mjNode.Start()
-
-	manager.startUserInputLoop()
 }
 
 func (manager *MapleJuiceManager) startUserInputLoop() {
