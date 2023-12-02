@@ -1,11 +1,11 @@
-package maples_exe_sql_join_phase_3
+package maples_exe_sql_join_phase_2
 
 import (
 	"bufio"
+	mj "cs425_mp4/internal/maplejuice_exe"
 	"log"
 	"os"
 	"strings"
-	mj "cs425_mp4/internal/maplejuice_exe"
 )
 
 func MapleSQLJoin3(scanner *bufio.Scanner, column string, num_lines int) map[string]string {
@@ -28,7 +28,7 @@ func MapleSQLJoin3(scanner *bufio.Scanner, column string, num_lines int) map[str
 			val2 := key_val2[1]
 			words_from_val2 := strings.Fields(val2)
 			field2 := words_from_val2[0]
-			
+
 			if field1 == field2 {
 				new_key := key1 + " " + key2
 				joined_list[new_key] = ""
