@@ -1,4 +1,4 @@
-package main
+package mp3_main
 
 
 import (
@@ -142,16 +142,16 @@ func ExecuteUserInput(userInput []string) bool {
 
 	if userInput[0] == "enable" && userInput[1] == "suspicion" {
 		ok := gossipNode.TryUpdateGossipMode(maplejuice.GossipMode{
-			maplejuice.GOSSIP_SUSPICION,
-			gossipNode.CurrentGossipMode.VersionNumber + 1},
+			Mode: maplejuice.GOSSIP_SUSPICION,
+			VersionNumber: gossipNode.CurrentGossipMode.VersionNumber + 1},
 		)
 		if !ok {
 			fmt.Println("Suspicion mode is already enabled! Nothing to change...")
 		}
 	} else if userInput[0] == "disable" && userInput[1] == "suspicion" {
 		ok := gossipNode.TryUpdateGossipMode(maplejuice.GossipMode{
-			maplejuice.GOSSIP_NORMAL,
-			gossipNode.CurrentGossipMode.VersionNumber + 1},
+			Mode: maplejuice.GOSSIP_NORMAL,
+			VersionNumber: gossipNode.CurrentGossipMode.VersionNumber + 1},
 		)
 		if !ok {
 			fmt.Println("Suspicion mode is already disabled! Nothing to change...")

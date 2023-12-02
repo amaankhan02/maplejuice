@@ -3,6 +3,7 @@ package utils
 import (
 	"bufio"
 	"bytes"
+	"io"
 	"log"
 	"path/filepath"
 
@@ -130,4 +131,43 @@ func DeleteDirAndAllContents(dirPath string) error {
 	// Finally, remove the root directory itself
 	err = os.Remove(dirPath)
 	return err
+}
+
+// AreFilesIdentical Used in my Unit Tests/*
+func AreFilesIdentical(filePath1, filePath2 string) (bool, error) {
+	const chunkSize = 1024 // You can adjust the chunk size as needed
+
+	file1, err := os.Open(filePath1)
+	if err != nil {
+		return false, err
+	}
+	defer file1.Close()
+
+	file2, err := os.Open(filePath2)
+	if err != nil {
+		return false, err
+	}
+	defer file2.Close()
+
+	chunk1 := make([]byte, chunkSize)
+	chunk2 := make([]byte, chunkSize)
+
+	for {
+		bytesRead1, err1 := file1.Read(chunk1)
+		bytesRead2, err2 := file2.Read(chunk2)
+
+		if bytesRead1 != bytesRead2 || !bytes.Equal(chunk1[:bytesRead1], chunk2[:bytesRead2]) {
+			return false, nil
+		}
+
+		if err1 != nil || err2 != nil {
+			if err1 == io.EOF && err2 == io.EOF {
+				return true, nil // Both files have reached EOF and are identical
+			}
+			if err1 != nil {
+				return false, err1
+			}
+			return false, err2
+		}
+	}
 }

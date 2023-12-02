@@ -135,7 +135,7 @@ func (this *MapleJuiceNode) HandleTCPServerConnection(conn net.Conn) {
 	} else { // NOT LEADER NODE
 		switch mjNetworkMessage.MsgType {
 		case MAPLE_TASK_REQUEST: // must execute some task and send back to leader
-			_ = conn.Close() 
+			_ = conn.Close()
 			alreadyClosedLeaderConn = true
 
 			this.executeMapleTask(
@@ -146,7 +146,7 @@ func (this *MapleJuiceNode) HandleTCPServerConnection(conn net.Conn) {
 				mjNetworkMessage.CurrTaskIdx,
 			)
 		case JUICE_TASK_REQUEST: // must execute some task and send back to leader
-			_ = conn.Close() 
+			_ = conn.Close()
 			alreadyClosedLeaderConn = true
 
 			this.executeJuiceTask(
@@ -341,7 +341,7 @@ func (mjNode *MapleJuiceNode) executeJuiceTask(juiceExe MapleJuiceExeFile, sdfsI
 
 /*
 Execute juice_exe on the inputFilepath, and write the output to the outputChan
-Juice Exe will execute on the entire input file. 
+Juice Exe will execute on the entire input file.
 
 This function pipes the input file to the stdin of the juice_exe, and reads the stdout of the juice_exe
 and returns that output through the outputChan
@@ -593,10 +593,11 @@ Reads inputFile line by line, and feeds it into stdin pipe for maple_exe shell c
 It also reads the stdout line by line and writes it to outputFile, line by line
 
 Parameters:
+
 	maple_exe (string): filepath of the maple exe file, exactly as you would type it in the terminal
 	args ([]string): additional args to pass to the maple_exe. The arguments should be [num_lines, column_schema, additional_info]
 					 at least for now. but that can change if we change the design.
-	inputFile (*os.File): file object for the input file that the maple_exe will read from		
+	inputFile (*os.File): file object for the input file that the maple_exe will read from
 */
 func (this *MapleJuiceNode) executeMapleExe(
 	maple_exe string,
