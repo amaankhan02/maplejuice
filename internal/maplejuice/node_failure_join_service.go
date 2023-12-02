@@ -57,7 +57,7 @@ and creates a socket endpoint for the server and initializes it
 If IsIntroducer = true, then IntroducerId is not set to anything
 If IsIntroducer = false, then IntroducerId is set to the passed in parameter
 */
-func NewFailureJoinService(nodeId NodeID, b int, isIntroducer bool, introducerId NodeID, logFile *os.File, gossipModeValue GossipModeValue,
+func NewNodeFailureJoinService(nodeId NodeID, b int, isIntroducer bool, introducerId NodeID, logFile *os.File, gossipModeValue GossipModeValue,
 	isTestMode bool, msgDropRate int, tGossip int64, callbackHandler INodeManager) *NodeFailureJoinService {
 
 	// init the membership list

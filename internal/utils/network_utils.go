@@ -62,3 +62,7 @@ func GetGossipPort(vmNumber int) string {
 func GetSDFSPort(vmNumber int) string {
 	return fmt.Sprintf(config.SDFS_TCP_PORT_FORMAT, vmNumber)
 }
+
+func GetMapleJuicePort(vmNumber int) string {
+	return fmt.Sprintf(config.MAPLE_JUICE_PORT_FORMAT, vmNumber)
+}
