@@ -5,8 +5,6 @@ import (
 	"os"
 )
 
-const GOSSIP_IS_TEST_MODE = false // always false for now, set it true later or remove this if we wanna test it out
-
 /*
 	INodeManager interface
 
@@ -40,9 +38,7 @@ type MapleJuiceManager struct {
 	logFile            *os.File
 }
 
-func NewMapleJuiceManager(introducerLeaderVmNum int, logFile *os.File, sdfsRootDir string, gossipFanout int,
-	gossipModeValue GossipModeValue, tGossip int64) *MapleJuiceManager {
-	// NOTE: the introducer and leader node are always the same node in this implementation
+func (manager *MapleJuiceManager) createLocalAndLeaderNodeID(introducerLeaderVmNum int) (*NodeID, *NodeID, bool) {
 	var introducerLeaderId *NodeID
 	var isIntroducerLeader bool
 	vmNum, hostname := utils.GetLocalVMInfo()
@@ -62,10 +58,7 @@ func NewMapleJuiceManager(introducerLeaderVmNum int, logFile *os.File, sdfsRootD
 			introducerHostname,
 		)
 	}
-
-	manager := &MapleJuiceManager{}
-
-	manager.id = *NewNodeID(
+	localNodeId := NewNodeID(
 		utils.GetIP(hostname),
 		utils.GetGossipPort(vmNum),
 		utils.GetSDFSPort(vmNum),
@@ -73,6 +66,29 @@ func NewMapleJuiceManager(introducerLeaderVmNum int, logFile *os.File, sdfsRootD
 		isIntroducerLeader,
 		hostname,
 	)
+
+	return localNodeId, introducerLeaderId, isIntroducerLeader
+}
+
+/*
+	NewMapleJuiceManager
+
+NOTE: the introducer and leader node are always the same node in this implementation
+*/
+func NewMapleJuiceManager(
+	introducerLeaderVmNum int,
+	logFile *os.File,
+	sdfsRootDir string,
+	gossipFanout int,
+	gossipModeValue GossipModeValue,
+	tGossip int64,
+) *MapleJuiceManager {
+	//
+	const GOSSIP_IS_TEST_MODE = false // always false for now, set it true later or remove this if we wanna test it out
+	const GOSSIP_TEST_MSG_DROP_RATE = 0
+	manager := &MapleJuiceManager{}
+	localNodeId, introducerLeaderId, isIntroducerLeader := manager.createLocalAndLeaderNodeID(introducerLeaderVmNum)
+
 	sdfsNode := NewSDFSNode(
 		manager.id,
 		*introducerLeaderId,
@@ -88,10 +104,12 @@ func NewMapleJuiceManager(introducerLeaderVmNum int, logFile *os.File, sdfsRootD
 		logFile,
 		gossipModeValue,
 		GOSSIP_IS_TEST_MODE,
-		0,
+		GOSSIP_TEST_MSG_DROP_RATE,
 		tGossip,
 		manager,
 	)
+
+	manager.id = *localNodeId
 	manager.sdfsNode = sdfsNode
 	manager.failureJoinService = failureJoinService
 
