@@ -1,7 +1,9 @@
-package juice_exe
+package juice_demo_phase2
 
 import (
 	"bufio"
+	"cs425_mp4/cmd/maples/maple_demo_phase2"
+	"os"
 	"strconv"
 	"strings"
 )
@@ -22,7 +24,7 @@ func JuicePhase2(scanner *bufio.Scanner) map[string]float32 {
 	return detection_to_percentage
 }
 
-//func MainJuiceSQL() {
-//	detection_to_percentage := JuicePhase2(bufio.NewScanner(os.Stdin))
-//	maple_demo_phase2.PrintKeyValuePairs(detection_to_percentage)
-//}
+func main() {
+	detection_to_percentage := JuicePhase2(bufio.NewScanner(os.Stdin))
+	maple_demo_phase2.PrintKeyValuePairs(detection_to_percentage)
+}

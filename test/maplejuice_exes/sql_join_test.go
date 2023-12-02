@@ -2,7 +2,7 @@ package test
 
 import (
 	"bufio"
-	juice_exe "cs425_mp4/cmd/juices"
+	juice_exe_sql "cs425_mp4/cmd/juices/juice_SQL"
 	maples_exe_sql_join_phase_1 "cs425_mp4/cmd/maples/maple_sql_join_phase_1"
 	maples_exe_sql_join_phase_2 "cs425_mp4/cmd/maples/maple_sql_join_phase_2"
 	mj "cs425_mp4/internal/maplejuice_exe"
@@ -56,7 +56,7 @@ func TestJuiceSQLJoin3(t *testing.T) {
 
 	// Create a scanner to read the file line by line
 	filescanner := bufio.NewScanner(file)
-	matched_lines := juice_exe.JuiceSQL(filescanner)
+	matched_lines := juice_exe_sql.JuiceSQL(filescanner)
 
-	juice_exe.PrintSliceString(matched_lines)
+	juice_exe_sql.PrintSliceString(matched_lines)
 }

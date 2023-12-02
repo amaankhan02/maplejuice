@@ -1,8 +1,10 @@
-package juice_exe
+package juice_demo_phase1
 
 import (
 	"bufio"
+	maples_exe_word_count "cs425_mp4/cmd/maples/maple_word_count"
 	"log"
+	"os"
 	"strconv"
 	"strings"
 )
@@ -38,7 +40,7 @@ func JuiceDemoTest1(scanner *bufio.Scanner) map[string]int {
 	return detection_val_to_count
 }
 
-//func main() {
-//	detection_val_to_count := JuiceDemoTest1(bufio.NewScanner(os.Stdin))
-//	maples_exe_word_count.PrintKeyValuePairs(detection_val_to_count)
-//}
+func main() {
+	detection_val_to_count := JuiceDemoTest1(bufio.NewScanner(os.Stdin))
+	maples_exe_word_count.PrintKeyValuePairs(detection_val_to_count)
+}

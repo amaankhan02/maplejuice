@@ -23,7 +23,6 @@ func MapleDemoPhase2(scanner *bufio.Scanner, num_lines int) map[string]float32 {
 }
 
 func parse(scanner *bufio.Scanner, num_lines int) (float32, map[string]float32) {
-
 	total := 0
 	detection_to_count := make(map[string]float32)
 	for i := 0; i < num_lines && scanner.Scan(); i++ {

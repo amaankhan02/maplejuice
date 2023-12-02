@@ -16,7 +16,7 @@ type MapleSQLJoin1Value struct {
 Used for maple/juice SQL exes
 */
 func GetColumnIndex(schema_line string, column string) int {
-	columns := strings.Split(schema_line, " ")
+	columns := strings.Split(schema_line, ",")
 
 	index := 0
 	for i, col_in_line := range columns {
@@ -55,7 +55,8 @@ func PrintKeyValPairsSQLJoin(kv_pairs map[string]MapleSQLJoin1Value) {
 	}
 }
 
-func GetArgsSQLFilter() (string, string, int) {
+// TODO: update index values of args
+func GetArgsSQLFilter() (string, int, string) {
 	// get the command line arg which tells you the number of lines
 	// SELECT ALL FROM dataset WHERE COL = <regex> num_lines ?
 	// need to know:
@@ -63,11 +64,17 @@ func GetArgsSQLFilter() (string, string, int) {
 	// column
 	// regex
 
-	// TODO: update with index after asking amaan
-	regex := os.Args[0]
-	column := os.Args[1]
+	// first arg -> num lines,
+	// second arg -> column schema
+	// third arg -> regex
 
-	num_lines_string := os.Args[2]                 // QUESTION =: should I add a 1 to this to account for the schema being the first line every time
+	num_lines_string := os.Args[0]
 	num_lines, _ := strconv.Atoi(num_lines_string) // Convert the argument to an integer
-	return regex, column, num_lines
+
+	schema := os.Args[1]
+
+	regex := os.Args[3]
+	//column := os.Args[1]
+
+	return regex, num_lines, schema
 }
