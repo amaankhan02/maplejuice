@@ -81,6 +81,14 @@ func NewMapleJuiceNode(thisId NodeID, leaderId NodeID, loggingFile *os.File, sdf
 	return mj
 }
 
+func (mjNode *MapleJuiceNode) Start() {
+	mjNode.tcpServer.StartServer()
+	if mjNode.isLeader {
+		mjNode.leaderService.Start()
+	}
+	mjNode.logBoth("Maple Juice Node has started!")
+}
+
 func (this *MapleJuiceNode) HandleTCPServerConnection(conn net.Conn) {
 	reader := bufio.NewReader(conn)
 	mjNetworkMessage, recv_err := ReceiveMJNetworkMessage(reader)
@@ -167,33 +175,25 @@ func (this *MapleJuiceNode) HandleTCPServerConnection(conn net.Conn) {
 	}
 }
 
-func (this *MapleJuiceNode) Start() {
-	this.tcpServer.StartServer()
-	if this.isLeader {
-		this.leaderService.Start()
-	}
-	this.logBoth("Maple Juice Node has started!")
-}
-
 /*
 Executes a Maple phase given the input parameters. Submits a Maple Job to the leader
 and the leader takes care of scheduling the job. Leader later responds back with
 an acknowledgement
 */
-func (node *MapleJuiceNode) SubmitMapleJob(maple_exe MapleJuiceExeFile, num_maples int, sdfs_intermediate_filename_prefix string,
+func (this *MapleJuiceNode) SubmitMapleJob(maple_exe MapleJuiceExeFile, num_maples int, sdfs_intermediate_filename_prefix string,
 	sdfs_src_directory string) {
 
 	// TODO: mutex lock
 	clientJob := &ClientMapleJuiceJob{
-		ClientJobId: node.totalClientJobsSubmitted,
+		ClientJobId: this.totalClientJobsSubmitted,
 		JobType:     MAPLE_JOB,
 	}
 
-	node.totalClientJobsSubmitted++
-	node.currentClientJobs[clientJob.ClientJobId] = clientJob // store it for later... until we recieve the ACK
+	this.totalClientJobsSubmitted++
+	this.currentClientJobs[clientJob.ClientJobId] = clientJob // store it for later... until we recieve the ACK
 	// TODO: mutex unlock
 
-	node.logBoth(fmt.Sprintf("Submitting Maple Job with ClientJobID %d to leader\n", clientJob.ClientJobId))
+	this.logBoth(fmt.Sprintf("Submitting Maple Job with ClientJobID %d to leader\n", clientJob.ClientJobId))
 
 	mjJob := &MapleJuiceNetworkMessage{
 		MsgType:                        MAPLE_JOB_REQUEST,
@@ -201,10 +201,10 @@ func (node *MapleJuiceNode) SubmitMapleJob(maple_exe MapleJuiceExeFile, num_mapl
 		ExeFile:                        maple_exe,
 		SdfsIntermediateFilenamePrefix: sdfs_intermediate_filename_prefix,
 		SdfsSrcDirectory:               sdfs_src_directory,
-		ClientId:                       node.id,
+		ClientId:                       this.id,
 		ClientJobId:                    clientJob.ClientJobId,
 	}
-	leaderConn, err := net.Dial("tcp", node.leaderID.IpAddress+":"+node.leaderID.SDFSServerPort)
+	leaderConn, err := net.Dial("tcp", this.leaderID.IpAddress+":"+this.leaderID.SDFSServerPort)
 	if err != nil {
 		fmt.Println("Failed to Dial to leader server. Unable to submit job request. Error: ", err)
 		return
@@ -256,16 +256,16 @@ func (this *MapleJuiceNode) SubmitJuiceJob(juice_exe MapleJuiceExeFile, num_juic
 /*
 Handle when the client receives a job response from the leader notifying that it has finished
 */
-func (mjNode *MapleJuiceNode) handleJobResponse(clientJobId int) {
+func (this *MapleJuiceNode) handleJobResponse(clientJobId int) {
 	// TODO: mutex lock
 	jobTypeString := "Maple"
-	if mjNode.currentClientJobs[clientJobId].JobType == JUICE_JOB {
+	if this.currentClientJobs[clientJobId].JobType == JUICE_JOB {
 		jobTypeString = "Juice"
 	}
 
 	fmt.Printf(JOB_DONE_MSG_FMT, jobTypeString, clientJobId)
 
-	delete(mjNode.currentClientJobs, clientJobId) // remove the clientJobId from the map since its finished
+	delete(this.currentClientJobs, clientJobId) // remove the clientJobId from the map since its finished
 	// TODO: mutex unlock -- for clientJobs[]
 }
 
@@ -286,17 +286,17 @@ On the outside, we can run a select{} to wait for all the channels to return, an
 to the output file.
 Once all channels have been read from, we can send the output file back to the leader.
 */
-func (mjNode *MapleJuiceNode) executeJuiceTask(juiceExe MapleJuiceExeFile, sdfsIntermediateFilenamePrefix string, assignedKeys []string) {
+func (this *MapleJuiceNode) executeJuiceTask(juiceExe MapleJuiceExeFile, sdfsIntermediateFilenamePrefix string, assignedKeys []string) {
 
 	// TODO: add mutex lock
-	mjNode.localWorkerTaskID++
-	localWorkerTaskId := mjNode.localWorkerTaskID
+	this.localWorkerTaskID++
+	localWorkerTaskId := this.localWorkerTaskID
 	// TODO: mutex unlock
 
-	taskDirPath, juiceTaskOutputFile := mjNode.createTempDirsAndFilesForJuiceTask(localWorkerTaskId)
+	taskDirPath, juiceTaskOutputFile := this.createTempDirsAndFilesForJuiceTask(localWorkerTaskId)
 
 	// get the names of the files to fetch from sdfs
-	sdfsInputFilenames := mjNode.createSdfsFilenamesFromIntermediateAndKeys(sdfsIntermediateFilenamePrefix, assignedKeys)
+	sdfsInputFilenames := this.createSdfsFilenamesFromIntermediateAndKeys(sdfsIntermediateFilenamePrefix, assignedKeys)
 
 	// create the names of the corresponding local filenames
 	localInputFilenames := make([]string, 0)
@@ -305,7 +305,7 @@ func (mjNode *MapleJuiceNode) executeJuiceTask(juiceExe MapleJuiceExeFile, sdfsI
 	}
 
 	// fetch the files from sdfs to local tmp dir
-	mjNode.sdfsNode.PerformBlockedGets(sdfsInputFilenames, localInputFilenames)
+	this.sdfsNode.PerformBlockedGets(sdfsInputFilenames, localInputFilenames)
 
 	var wg sync.WaitGroup
 	juiceExeOutputsChan := make(chan string, len(assignedKeys)) // buffered channel so that we don't block on the go routines
@@ -313,7 +313,7 @@ func (mjNode *MapleJuiceNode) executeJuiceTask(juiceExe MapleJuiceExeFile, sdfsI
 	// start a goroutine to execute each juice exe
 	for i, _ := range assignedKeys {
 		wg.Add(1)
-		go mjNode.executeJuiceExeOnKey(juiceExe.ExeFilePath, localInputFilenames[i], juiceExeOutputsChan)
+		go this.executeJuiceExeOnKey(juiceExe.ExeFilePath, localInputFilenames[i], juiceExeOutputsChan)
 		// each task will generate just one key-value pair, which will be returned on the channel
 	}
 
@@ -331,7 +331,7 @@ func (mjNode *MapleJuiceNode) executeJuiceTask(juiceExe MapleJuiceExeFile, sdfsI
 	_ = juiceTaskOutputFile.Close() // close file since we are done writing to it.
 
 	// send the task response back with the file data to the leader
-	leaderConn, conn_err := net.Dial("tcp", mjNode.leaderID.IpAddress+":"+mjNode.leaderID.MapleJuiceServerPort)
+	leaderConn, conn_err := net.Dial("tcp", this.leaderID.IpAddress+":"+this.leaderID.MapleJuiceServerPort)
 	if conn_err != nil {
 		log.Fatalln("Failed to dial to leader server. Error: ", conn_err)
 	}
@@ -354,7 +354,7 @@ Parameters:
 
 TODO: must test this function
 */
-func (mjNode *MapleJuiceNode) executeJuiceExeOnKey(juice_exe string, inputFilepath string, outputChan chan string) {
+func (this *MapleJuiceNode) executeJuiceExeOnKey(juice_exe string, inputFilepath string, outputChan chan string) {
 	cmd := exec.Command(juice_exe)
 
 	stdin_pipe, in_pipe_err := cmd.StdinPipe()
@@ -410,7 +410,7 @@ func (mjNode *MapleJuiceNode) executeJuiceExeOnKey(juice_exe string, inputFilepa
 	outputChan <- string(stdout_bytes)
 }
 
-func (mjNode *MapleJuiceNode) createSdfsFilenamesFromIntermediateAndKeys(sdfsIntermediateFilenamePrefix string, assignedKeys []string) []string {
+func (this *MapleJuiceNode) createSdfsFilenamesFromIntermediateAndKeys(sdfsIntermediateFilenamePrefix string, assignedKeys []string) []string {
 	sdfsFilenames := make([]string, 0)
 	for _, key := range assignedKeys {
 		// use the same function to generate the filename that the leader uses to generate the filename when storing it
@@ -504,8 +504,8 @@ This opens the output file for the maple task, and returns the file object for i
 		|- dataset files pulled from sdfs 	(NOT CREATED HERE)
 	|- maple_task_output_file				(CREATED HERE)
 */
-func (mjn *MapleJuiceNode) createTempDirsAndFilesForMapleTask(taskIndex int, sdfsIntermediateFilenamePrefix string, localWorkerTaskId int) (string, string, *os.File) {
-	task_dirpath := filepath.Join(mjn.nodeTmpDir, fmt.Sprintf(MAPLE_TASK_DIR_NAME_FMT, localWorkerTaskId, taskIndex, sdfsIntermediateFilenamePrefix))
+func (this *MapleJuiceNode) createTempDirsAndFilesForMapleTask(taskIndex int, sdfsIntermediateFilenamePrefix string, localWorkerTaskId int) (string, string, *os.File) {
+	task_dirpath := filepath.Join(this.nodeTmpDir, fmt.Sprintf(MAPLE_TASK_DIR_NAME_FMT, localWorkerTaskId, taskIndex, sdfsIntermediateFilenamePrefix))
 	dataset_dirpath := filepath.Join(task_dirpath, MAPLE_TASK_DATASET_DIR_NAME)
 	output_kv_filepath := filepath.Join(task_dirpath, MAPLE_TASK_OUTPUT_FILENAME)
 
@@ -535,8 +535,8 @@ Returns
 	task_dirpath (string): path to the temporary directory created for this juice task
 	juice_output_file (*os.File): file object for the temporary output file for this juice task
 */
-func (mjn *MapleJuiceNode) createTempDirsAndFilesForJuiceTask(localWorkerId int) (string, *os.File) {
-	task_dirpath := filepath.Join(mjn.nodeTmpDir, fmt.Sprintf(JUICE_TASK_DIR_NAME_FMT, localWorkerId))
+func (this *MapleJuiceNode) createTempDirsAndFilesForJuiceTask(localWorkerId int) (string, *os.File) {
+	task_dirpath := filepath.Join(this.nodeTmpDir, fmt.Sprintf(JUICE_TASK_DIR_NAME_FMT, localWorkerId))
 	juice_output_filepath := filepath.Join(task_dirpath, JUICE_TASK_OUTPUT_FILENAME)
 
 	if task_dir_creation_err := os.MkdirAll(task_dirpath, 0744); task_dir_creation_err != nil {
