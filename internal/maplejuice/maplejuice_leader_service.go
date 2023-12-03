@@ -165,7 +165,7 @@ func (leader *MapleJuiceLeaderService) AddNewAvailableWorkerNode(newNode NodeID)
 
 // SubmitMapleJob Submit a maple job to the wait queue. Dispatcher thread will execute it when its ready
 func (leader *MapleJuiceLeaderService) SubmitMapleJob(mapleExe MapleJuiceExeFile, numMaples int,
-	sdfsIntermediateFilenamePrefix string, sdfsSrcDir string, clientJobId int) {
+	sdfsIntermediateFilenamePrefix string, sdfsSrcDir string, clientJobId int, clientId NodeID) {
 
 	leader.mutex.Lock()
 	job := LeaderMapleJuiceJob{
@@ -179,6 +179,7 @@ func (leader *MapleJuiceLeaderService) SubmitMapleJob(mapleExe MapleJuiceExeFile
 		numTasksCompleted:              0,
 		sdfsIntermediateFilenames:      make(datastructures.HashSet[string]),
 		clientJobId:                    clientJobId,
+		clientId:                       clientId,
 	}
 
 	fmt.Println("Adding maple job to queue in leader!")
@@ -189,7 +190,7 @@ func (leader *MapleJuiceLeaderService) SubmitMapleJob(mapleExe MapleJuiceExeFile
 
 func (leader *MapleJuiceLeaderService) SubmitJuiceJob(juice_exe MapleJuiceExeFile, num_juices int,
 	sdfs_intermediate_filename_prefix string, sdfs_dest_filename string, delete_input bool,
-	juicePartitionScheme JuicePartitionType, clientJobId int) {
+	juicePartitionScheme JuicePartitionType, clientJobId int, clientId NodeID) {
 
 	leader.mutex.Lock()
 	job := LeaderMapleJuiceJob{
@@ -205,6 +206,7 @@ func (leader *MapleJuiceLeaderService) SubmitJuiceJob(juice_exe MapleJuiceExeFil
 		juicePartitionScheme:           juicePartitionScheme,
 		sdfsIntermediateFilenames:      make(datastructures.HashSet[string]),
 		clientJobId:                    clientJobId,
+		clientId:                       clientId,
 	}
 	leader.waitQueue = append(leader.waitQueue, &job)
 	leader.jobsSubmitted++

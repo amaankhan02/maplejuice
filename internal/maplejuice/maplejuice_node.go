@@ -140,6 +140,7 @@ func (this *MapleJuiceNode) HandleTCPServerConnection(conn net.Conn) {
 				mjNetworkMessage.SdfsIntermediateFilenamePrefix,
 				mjNetworkMessage.SdfsSrcDirectory,
 				mjNetworkMessage.ClientJobId,
+				mjNetworkMessage.ClientId,
 			)
 		case JUICE_JOB_REQUEST:
 			_ = conn.Close()
@@ -152,6 +153,7 @@ func (this *MapleJuiceNode) HandleTCPServerConnection(conn net.Conn) {
 				mjNetworkMessage.ShouldDeleteJuiceInput,
 				mjNetworkMessage.JuicePartitionScheme,
 				mjNetworkMessage.ClientJobId,
+				mjNetworkMessage.ClientId,
 			)
 		case MAPLE_TASK_RESPONSE:
 			// this function will read from the connection to get the file and then close the connection
