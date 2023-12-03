@@ -348,8 +348,11 @@ func (this *MapleJuiceNode) executeJuiceTask(juiceExe MapleJuiceExeFile, sdfsInt
 
 	// start a goroutine to execute each juice exe
 	for i, _ := range assignedKeys {
-		wg.Add(1)
-		go this.executeJuiceExeOnKey(juiceExe.ExeFilePath, localInputFilenames[i], juiceExeOutputsChan)
+		go func(idx int) {
+			wg.Add(1)
+			this.executeJuiceExeOnKey(juiceExe.ExeFilePath, localInputFilenames[idx], juiceExeOutputsChan)
+			wg.Done()
+		}(i)
 		// each task will generate just one key-value pair, which will be returned on the channel
 	}
 
@@ -760,4 +763,18 @@ func (this *MapleJuiceNode) ExecuteMapleExe(mapleExe MapleJuiceExeFile,
 	if err := cmd.Run(); err != nil {
 		log.Fatalln("Error! Failed to execute maple_exe OR exit code != 0. Error: ", err)
 	}
+}
+
+func (this *MapleJuiceNode) NewExecuteJuiceExeOnKey(juiceExe MapleJuiceExeFile,
+	inputFilePath string,
+	outputChan chan string,
+) {
+	var stdoutBuffer bytes.Buffer
+	cmd := exec.Command(juiceExe.ExeFilePath, inputFilePath)
+	cmd.Stdout = &stdoutBuffer
+
+	if err := cmd.Run(); err != nil {
+		log.Fatalln("Error! Failed to execute maple_exe OR exit code != 0. Error: ", err)
+	}
+	outputChan <- stdoutBuffer.String()
 }

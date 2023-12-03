@@ -75,3 +75,15 @@ func TestNewExecuteMapleExePrintToFile(t *testing.T) {
 	//defer outputFile.Close()
 	//mjn.NewExecuteMapleExe(mapleExeFilepath, args, outputFile)
 }
+
+func TestNewExecuteJuiceExeOnKey(t *testing.T) {
+	mjn := maplejuice.MapleJuiceNode{}
+	juiceExe := maplejuice.MapleJuiceExeFile{ExeFilePath: ""}
+	inputFilePath := ""
+	juiceOutChan := make(chan string, 1)
+	mjn.NewExecuteJuiceExeOnKey(juiceExe, inputFilePath, juiceOutChan)
+
+	outKV := <-juiceOutChan
+	close(juiceOutChan)
+	fmt.Println("outKV: ", outKV)
+}
