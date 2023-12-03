@@ -2,9 +2,9 @@ package main
 
 import (
 	"bufio"
+	"cs425_mp4/internal/maplejuice_exe"
 	"fmt"
 	"log"
-	"os"
 	"strconv"
 	"strings"
 )
@@ -40,6 +40,8 @@ func PrintKeyValuePairs(kv_pairs map[string]int) {
 }
 
 func main() {
-	detection_val_to_count := JuiceDemoTest1(bufio.NewScanner(os.Stdin))
+	inputFile := maplejuice_exe.GetArgsJuice()
+	defer inputFile.Close()
+	detection_val_to_count := JuiceDemoTest1(bufio.NewScanner(inputFile))
 	PrintKeyValuePairs(detection_val_to_count)
 }

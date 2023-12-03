@@ -2,17 +2,18 @@ package main
 
 import (
 	"bufio"
-	mj "cs425_mp4/internal/maplejuice_exe"
+	"cs425_mp4/internal/maplejuice_exe"
 	"log"
-	"os"
 	"regexp"
-	"strconv"
 )
 
 // this script will generate the key value pairs you need to use for filtering based on SQL command
 // SELECT ALL FROM dataset WHERE <regex>
-func MapleSQLFilter(scanner *bufio.Scanner, regex_string string, num_lines int, schema string) map[string]string {
+func MapleSQLFilter(scanner *bufio.Scanner, starting_line_number int, num_lines int, regex_string string) map[string]string {
 	id_to_row := make(map[string]string)
+
+	// startingLine is 1-indexed. Move file pointer to startingLine
+	maplejuice_exe.MoveFilePointerToLineNumber(scanner, starting_line_number)
 
 	//compile regex expression
 	regex, err := regexp.Compile(regex_string)
@@ -33,32 +34,12 @@ func MapleSQLFilter(scanner *bufio.Scanner, regex_string string, num_lines int, 
 	return id_to_row
 }
 
-// TODO: update index values of args
-func GetArgsSQLFilter() (string, int, string) {
-	// get the command line arg which tells you the number of lines
-	// SELECT ALL FROM dataset WHERE COL = <regex> num_lines ?
-	// need to know:
-	// number of lines
-	// column
-	// regex
-
-	// first arg -> num lines,
-	// second arg -> column schema
-	// third arg -> regex
-
-	num_lines_string := os.Args[0]
-	num_lines, _ := strconv.Atoi(num_lines_string) // Convert the argument to an integer
-
-	schema := os.Args[1]
-
-	regex := os.Args[3]
-	//column := os.Args[1]
-
-	return regex, num_lines, schema
-}
-
 func main() {
-	regex, num_lines, schema := GetArgsSQLFilter()
-	id_to_row := MapleSQLFilter(bufio.NewScanner(os.Stdin), regex, num_lines, schema)
-	mj.PrintKeyValPairsSQLFilter(id_to_row)
+	input_file, starting_line_number, num_lines, regex := maplejuice_exe.GetArgsMaple()
+	defer input_file.Close()
+
+	scanner := bufio.NewScanner(input_file)
+	id_to_row := MapleSQLFilter(scanner, starting_line_number, num_lines, regex)
+
+	maplejuice_exe.PrintKeyValPairsSQLFilter(id_to_row)
 }

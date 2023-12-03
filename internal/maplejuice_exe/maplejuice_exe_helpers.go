@@ -29,6 +29,32 @@ func GetColumnIndex(schema_line string, column string) int {
 	return index
 }
 
+func GetArgsMaple() (*os.File, int, int, string) {
+	inputFilepath := os.Args[1]
+	startingLine, _ := strconv.Atoi(os.Args[2])
+	numLines, _ := strconv.Atoi(os.Args[3])
+
+	inputFile, fileErr := os.OpenFile(inputFilepath, os.O_RDONLY, 0744)
+	if fileErr != nil {
+		log.Fatalln("Failed to open input file")
+	}
+
+	// get X value which is val in "Interconne" to search for
+	X := os.Args[4]
+
+	return inputFile, startingLine, numLines, X
+}
+
+func GetArgsJuice() *os.File {
+	inputFilepath := os.Args[1]
+	inputFile, fileErr := os.OpenFile(inputFilepath, os.O_RDONLY, 0744)
+	if fileErr != nil {
+		os.Exit(3)
+		//log.Fatalln("Failed to open input file")
+	}
+	return inputFile
+}
+
 func GetArgsSQLJoin() (string, int) {
 	// get the command line arg which tells you the number of lines
 	// SELECT ALL FROM dataset WHERE COL = <regex> num_lines ?

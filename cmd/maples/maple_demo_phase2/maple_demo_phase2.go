@@ -2,13 +2,16 @@ package main
 
 import (
 	"bufio"
+	"cs425_mp4/internal/maplejuice_exe"
 	"fmt"
-	"os"
-	"strconv"
 )
 
-func MapleDemoPhase2(scanner *bufio.Scanner, num_lines int) map[string][]string {
+func MapleDemoPhase2(scanner *bufio.Scanner, starting_line int, num_lines int) map[string][]string {
 	// create map for each "null" -> line
+
+	// startingLine is 1-indexed. Move file pointer to startingLine
+	maplejuice_exe.MoveFilePointerToLineNumber(scanner, starting_line)
+
 	null_to_line := make(map[string][]string)
 	for i := 0; i < num_lines && scanner.Scan(); i++ {
 		line := scanner.Text()
@@ -19,17 +22,10 @@ func MapleDemoPhase2(scanner *bufio.Scanner, num_lines int) map[string][]string 
 	return null_to_line
 }
 
-// get X value
-func getArgs() int {
-	// get the command line arg which tells you the number of lines
-	num_lines_string := os.Args[1]
-	num_lines, _ := strconv.Atoi(num_lines_string) // Convert the argument to an integer
-
-	return num_lines
-}
-
 // actual executable
 func main() {
-	num_lines := getArgs()
-	MapleDemoPhase2(bufio.NewScanner(os.Stdin), num_lines)
+	inputFile, starting_line, num_lines, _ := maplejuice_exe.GetArgsMaple()
+	defer inputFile.Close()
+
+	MapleDemoPhase2(bufio.NewScanner(inputFile), starting_line, num_lines)
 }
