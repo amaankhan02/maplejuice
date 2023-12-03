@@ -1,4 +1,4 @@
-package juice_exe_sql
+package main
 
 import (
 	"bufio"

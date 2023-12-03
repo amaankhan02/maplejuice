@@ -1,5 +1,7 @@
 .idea
 .vscode
+app
+bin/
 *.log
 sdfs_data/
 sdfs_data/*
@@ -17,3 +19,4 @@ scripts/input_data_60.txt
 /test/test_files/maplejuice_node_tests/
 /test/maplejuice/test.txt
 /test.txt
+/test/maplejuice/mapletask-1-1-some_prefix_/

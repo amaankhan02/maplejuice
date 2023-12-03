@@ -7,7 +7,6 @@ import (
 	"cs425_mp4/internal/tcp_net"
 	"cs425_mp4/internal/utils"
 	"fmt"
-	"io"
 	"log"
 	"net"
 	"os"
@@ -43,12 +42,29 @@ type MapleJuiceNode struct {
 	mutex                    sync.Mutex // mutex used for the above 3 variables
 }
 
+/*
+maple_exe string,
+	inputFilePath string, startingLine int, numLinesToRead int, columnScheme string, additionalSqlInfo string,
+*/
+
 type MapleJuiceExeFile struct {
 	ExeFilePath string
+	//InputFilePath     string
+	//StartingLine      int
+	//NumLinesToRead    int
+	//SqlColumnSchema   string // the first line of the sql csv file which contains the column names separated by commas
+	SqlAdditionalInfo string // can be the where clause for SQL filter or JOIN
+	// TODO: since the program reads the entire file now, we dont need the sqlcolumn schema anymore. it can read it...
+}
 
-	// Maple exe additional args (other than the number of lines that's passed in)
-	ExeColumnSchema   string // the first line of the sql csv file which contains the column names separated by commas
-	ExeAdditionalInfo string // can be the where clause for SQL filter or JOIN
+func (exeFile *MapleJuiceExeFile) GetMapleArgs(inputFilePath string, startingLine int, numLinesToRead int) []string {
+	return []string{
+		inputFilePath,
+		strconv.Itoa(startingLine),
+		strconv.Itoa(numLinesToRead),
+		//exeFile.SqlColumnSchema,
+		exeFile.SqlAdditionalInfo,
+	}
 }
 
 const LEADER_TMP_DIR = "leader"
@@ -309,7 +325,7 @@ func (this *MapleJuiceNode) executeJuiceTask(juiceExe MapleJuiceExeFile, sdfsInt
 	localWorkerTaskId := this.localWorkerTaskID
 	this.mutex.Unlock()
 
-	taskDirPath, juiceTaskOutputFile := this.createTempDirsAndFilesForJuiceTask(localWorkerTaskId)
+	taskDirPath, juiceTaskOutputFile := this.CreateTempDirsAndFilesForJuiceTask(localWorkerTaskId)
 
 	// get the names of the files to fetch from sdfs
 	sdfsInputFilenames := this.createSdfsFilenamesFromIntermediateAndKeys(sdfsIntermediateFilenamePrefix, assignedKeys)
@@ -331,8 +347,11 @@ func (this *MapleJuiceNode) executeJuiceTask(juiceExe MapleJuiceExeFile, sdfsInt
 
 	// start a goroutine to execute each juice exe
 	for i, _ := range assignedKeys {
-		wg.Add(1)
-		go this.executeJuiceExeOnKey(juiceExe.ExeFilePath, localInputFilenames[i], juiceExeOutputsChan)
+		go func(idx int) {
+			wg.Add(1)
+			this.ExecuteJuiceExeOnKey(juiceExe, localInputFilenames[idx], juiceExeOutputsChan)
+			wg.Done()
+		}(i)
 		// each task will generate just one key-value pair, which will be returned on the channel
 	}
 
@@ -344,7 +363,10 @@ func (this *MapleJuiceNode) executeJuiceTask(juiceExe MapleJuiceExeFile, sdfsInt
 	}()
 
 	for result := range juiceExeOutputsChan {
-		juiceTaskOutputFile.WriteString(result) // TODO: ensure that the result has the \n char at the end
+		_, writeStringErr := juiceTaskOutputFile.WriteString(result)
+		if writeStringErr != nil {
+			log.Fatalln("Failed to write output of channel to juiceTaskOutputFile. Error: ", writeStringErr)
+		}
 	}
 
 	_ = juiceTaskOutputFile.Close() // close file since we are done writing to it.
@@ -356,6 +378,11 @@ func (this *MapleJuiceNode) executeJuiceTask(juiceExe MapleJuiceExeFile, sdfsInt
 	}
 	SendJuiceTaskResponse(leaderConn, juiceTaskOutputFile.Name(), assignedKeys) // ? any other information we gotta send back?
 	_ = leaderConn.Close()
+
+	// close and delete the temporary files & dirs
+	if deleteTmpDirErr := utils.DeleteDirAndAllContents(taskDirPath); deleteTmpDirErr != nil {
+		log.Fatalln("Failed to delete juice task dir path and all its contents. Error: ", deleteTmpDirErr)
+	}
 }
 
 /*
@@ -373,61 +400,61 @@ Parameters:
 
 TODO: must test this function
 */
-func (this *MapleJuiceNode) executeJuiceExeOnKey(juice_exe string, inputFilepath string, outputChan chan string) {
-	cmd := exec.Command(juice_exe)
-
-	stdin_pipe, in_pipe_err := cmd.StdinPipe()
-	if in_pipe_err != nil {
-		panic(in_pipe_err)
-	}
-	stdout_pipe, out_pipe_err := cmd.StdoutPipe()
-	if out_pipe_err != nil {
-		panic(out_pipe_err)
-	}
-
-	// start command but don't block
-	if start_err := cmd.Start(); start_err != nil {
-		panic(start_err)
-	}
-
-	// read from input file, and write line by line to stdin pipe
-	inputFile, open_input_err := os.OpenFile(inputFilepath, os.O_RDONLY, 0744)
-	if open_input_err != nil {
-		log.Fatalln("Failed to open input file")
-	}
-
-	inputFileScanner := bufio.NewScanner(inputFile)
-	stdinInPipeWriter := bufio.NewWriter(stdin_pipe)
-	for inputFileScanner.Scan() {
-		line := inputFileScanner.Text() + "\n" // Scan() does not contain the new line character
-		_, write_err := stdinInPipeWriter.WriteString(line)
-		if write_err != nil {
-			panic(write_err)
-		}
-	}
-	_ = stdinInPipeWriter.Flush() // make sure everything was written to it
-	if in_pipe_close_err := stdin_pipe.Close(); in_pipe_close_err != nil {
-		panic(in_pipe_close_err)
-	}
-
-	// read stdout
-	stdout_bytes, read_stdout_err := io.ReadAll(stdout_pipe)
-	if read_stdout_err != nil {
-		panic(read_stdout_err)
-	}
-
-	// wait for program to finish
-	if wait_err := cmd.Wait(); wait_err != nil {
-		panic(wait_err)
-	}
-
-	// write stdout to channel
-	stdout_string := string(stdout_bytes) // TODO: test if this has the \n char in it or not
-	if stdout_string[len(stdout_string)-1] != '\n' {
-		stdout_string += "\n"
-	}
-	outputChan <- string(stdout_bytes)
-}
+//func (this *MapleJuiceNode) executeJuiceExeOnKey(juice_exe string, inputFilepath string, outputChan chan string) {
+//	cmd := exec.Command(juice_exe)
+//
+//	stdin_pipe, in_pipe_err := cmd.StdinPipe()
+//	if in_pipe_err != nil {
+//		panic(in_pipe_err)
+//	}
+//	stdout_pipe, out_pipe_err := cmd.StdoutPipe()
+//	if out_pipe_err != nil {
+//		panic(out_pipe_err)
+//	}
+//
+//	// start command but don't block
+//	if start_err := cmd.Start(); start_err != nil {
+//		panic(start_err)
+//	}
+//
+//	// read from input file, and write line by line to stdin pipe
+//	inputFile, open_input_err := os.OpenFile(inputFilepath, os.O_RDONLY, 0744)
+//	if open_input_err != nil {
+//		log.Fatalln("Failed to open input file")
+//	}
+//
+//	inputFileScanner := bufio.NewScanner(inputFile)
+//	stdinInPipeWriter := bufio.NewWriter(stdin_pipe)
+//	for inputFileScanner.Scan() {
+//		line := inputFileScanner.Text() + "\n" // Scan() does not contain the new line character
+//		_, write_err := stdinInPipeWriter.WriteString(line)
+//		if write_err != nil {
+//			panic(write_err)
+//		}
+//	}
+//	_ = stdinInPipeWriter.Flush() // make sure everything was written to it
+//	if in_pipe_close_err := stdin_pipe.Close(); in_pipe_close_err != nil {
+//		panic(in_pipe_close_err)
+//	}
+//
+//	// read stdout
+//	stdout_bytes, read_stdout_err := io.ReadAll(stdout_pipe)
+//	if read_stdout_err != nil {
+//		panic(read_stdout_err)
+//	}
+//
+//	// wait for program to finish
+//	if wait_err := cmd.Wait(); wait_err != nil {
+//		panic(wait_err)
+//	}
+//
+//	// write stdout to channel
+//	stdout_string := string(stdout_bytes) // TODO: test if this has the \n char in it or not
+//	if stdout_string[len(stdout_string)-1] != '\n' {
+//		stdout_string += "\n"
+//	}
+//	outputChan <- string(stdout_bytes)
+//}
 
 func (this *MapleJuiceNode) createSdfsFilenamesFromIntermediateAndKeys(sdfsIntermediateFilenamePrefix string, assignedKeys []string) []string {
 	sdfsFilenames := make([]string, 0)
@@ -460,7 +487,7 @@ func (this *MapleJuiceNode) executeMapleTask(
 	this.mutex.Unlock()
 
 	mapleTaskDirpath, datasetDirpath, mapleTaskOutputFile :=
-		this.createTempDirsAndFilesForMapleTask(taskIndex, sdfsIntermediateFilenamePrefix, localWorkerTaskId)
+		this.CreateTempDirsAndFilesForMapleTask(taskIndex, sdfsIntermediateFilenamePrefix, localWorkerTaskId)
 
 	// get the dataset filenames & create corresponding local filenames to save it to
 	sdfsDatasetFilenames := this.sdfsNode.PerformPrefixMatch(sdfsSrcDirectory + ".")
@@ -485,17 +512,17 @@ func (this *MapleJuiceNode) executeMapleTask(
 
 		totalLines := utils.CountNumLinesInFile(inputFile)
 		startLine, endLine := this.calculateStartAndEndLinesForTask(totalLines, numTasks, taskIndex)
-		utils.MoveFilePointerToLineNumber(inputFile, startLine)
+		_ = inputFile.Close()
+		//utils.MoveFilePointerToLineNumber(inputFile, startLine)
 		var numLinesForExe int64
 
 		// increment currLine by the amount of lines that it read
 		for currLine := startLine; currLine < endLine; currLine += numLinesForExe {
 			numLinesForExe = getMin(endLine-currLine, int64(config.LINES_PER_MAPLE_EXE))
-			exeArgs := []string{strconv.FormatInt(numLinesForExe, 10), mapleExe.ExeColumnSchema, mapleExe.ExeAdditionalInfo}
-			this.ExecuteMapleExe(mapleExe.ExeFilePath, exeArgs, inputFile, mapleTaskOutputFile, numLinesForExe)
+			//exeArgs := []string{strconv.FormatInt(numLinesForExe, 10), mapleExe.SqlColumnSchema, mapleExe.SqlAdditionalInfo}
+			//this.ExecuteMapleExe(mapleExe.ExeFilePath, exeArgs, inputFile, mapleTaskOutputFile, numLinesForExe)
+			this.ExecuteMapleExe(mapleExe, localDatasetFilename, int(currLine), int(numLinesForExe), mapleTaskOutputFile)
 		}
-
-		_ = inputFile.Close()
 	}
 	_ = mapleTaskOutputFile.Close() // close file since we are done writing to it.
 
@@ -531,7 +558,7 @@ This opens the output file for the maple task, and returns the file object for i
 		|- dataset files pulled from sdfs 	(NOT CREATED HERE)
 	|- maple_task_output_file				(CREATED HERE)
 */
-func (this *MapleJuiceNode) createTempDirsAndFilesForMapleTask(taskIndex int, sdfsIntermediateFilenamePrefix string, localWorkerTaskId int) (string, string, *os.File) {
+func (this *MapleJuiceNode) CreateTempDirsAndFilesForMapleTask(taskIndex int, sdfsIntermediateFilenamePrefix string, localWorkerTaskId int) (string, string, *os.File) {
 	task_dirpath := filepath.Join(this.mjRootDir, fmt.Sprintf(MAPLE_TASK_DIR_NAME_FMT, localWorkerTaskId, taskIndex, sdfsIntermediateFilenamePrefix))
 	dataset_dirpath := filepath.Join(task_dirpath, MAPLE_TASK_DATASET_DIR_NAME)
 	output_kv_filepath := filepath.Join(task_dirpath, MAPLE_TASK_OUTPUT_FILENAME)
@@ -562,7 +589,7 @@ Returns
 	task_dirpath (string): path to the temporary directory created for this juice task
 	juice_output_file (*os.File): file object for the temporary output file for this juice task
 */
-func (this *MapleJuiceNode) createTempDirsAndFilesForJuiceTask(localWorkerId int) (string, *os.File) {
+func (this *MapleJuiceNode) CreateTempDirsAndFilesForJuiceTask(localWorkerId int) (string, *os.File) {
 	task_dirpath := filepath.Join(this.mjRootDir, fmt.Sprintf(JUICE_TASK_DIR_NAME_FMT, localWorkerId))
 	juice_output_filepath := filepath.Join(task_dirpath, JUICE_TASK_OUTPUT_FILENAME)
 
@@ -626,80 +653,80 @@ Parameters:
 					 at least for now. but that can change if we change the design.
 	inputFile (*os.File): file object for the input file that the maple_exe will read from
 */
-func (this *MapleJuiceNode) ExecuteMapleExe(
-	maple_exe string,
-	args []string,
-	inputFile *os.File,
-	outputFile *os.File,
-	numLinesToProcess int64,
-) {
-	cmd := exec.Command(maple_exe, args...)
-	inputBuff := this.writeFileContentsToBytesBuffer(inputFile, numLinesToProcess)
-	var stdoutBuff bytes.Buffer
+//func (this *MapleJuiceNode) ExecuteMapleExe(
+//	maple_exe string,
+//	args []string,
+//	inputFile *os.File,
+//	outputFile *os.File,
+//	numLinesToProcess int64,
+//) {
+//	cmd := exec.Command(maple_exe, args...)
+//	inputBuff := this.writeFileContentsToBytesBuffer(inputFile, numLinesToProcess)
+//	var stdoutBuff bytes.Buffer
+//
+//	fmt.Println("inputBuff: ", inputBuff.String())
+//	//cmd.Stdin = strings.NewReader(inputBuff.String())
+//
+//	cmd.Stdout = &stdoutBuff
+//
+//	if err := cmd.Run(); err != nil {
+//		log.Fatalln("Error! Failed to execute maple_exe OR exit code != 0. Error: ", err)
+//	}
+//	fmt.Println(stdoutBuff.String())
+//	fmt.Println("Len of stdoutBuff: ", stdoutBuff.Len())
 
-	fmt.Println("inputBuff: ", inputBuff.String())
-	//cmd.Stdin = strings.NewReader(inputBuff.String())
+//stdin_pipe, in_pipe_err := cmd.StdinPipe()
+//if in_pipe_err != nil {
+//	panic(in_pipe_err)
+//}
+//stdout_pipe, out_pipe_err := cmd.StdoutPipe()
+//if out_pipe_err != nil {
+//	panic(out_pipe_err)
+//}
 
-	cmd.Stdout = &stdoutBuff
+// start command but don't block
+//if start_err := cmd.Start(); start_err != nil {
+//	log.Fatalln("Failed to start maple_exe. Error: ", start_err)
+//}
+//
+//// read from input file, and write line by line to stdin pipe
+//inputFileScanner := bufio.NewScanner(inputFile)
+//stdinInPipeWriter := bufio.NewWriter(stdin_pipe)
+//for linesRead := int64(0); linesRead < numLinesToProcess; linesRead++ {
+//	if inputFileScanner.Scan() == false { // if = false, then got an EOF
+//		panic("Failed to read a line from input file! This shouldn't happen!")
+//	}
+//	line := inputFileScanner.Text() + "\n" // Scan() does not contain the new line character
+//	_, write_err := stdinInPipeWriter.WriteString(line)
+//	if write_err != nil {
+//		panic(write_err)
+//	}
+//}
+//_ = stdinInPipeWriter.Flush() // make sure everything was written to it
+//if in_pipe_close_err := stdin_pipe.Close(); in_pipe_close_err != nil {
+//	panic(in_pipe_close_err)
+//}
 
-	if err := cmd.Run(); err != nil {
-		log.Fatalln("Error! Failed to execute maple_exe OR exit code != 0. Error: ", err)
-	}
-	fmt.Println(stdoutBuff.String())
-	fmt.Println("Len of stdoutBuff: ", stdoutBuff.Len())
+//// read stdout
+//stdout_bytes, read_stdout_err := io.ReadAll(stdout_pipe)
+//if read_stdout_err != nil {
+//	panic(read_stdout_err)
+//}
+//fmt.Println("stdout_bytes: ", string(stdout_bytes))
 
-	//stdin_pipe, in_pipe_err := cmd.StdinPipe()
-	//if in_pipe_err != nil {
-	//	panic(in_pipe_err)
-	//}
-	//stdout_pipe, out_pipe_err := cmd.StdoutPipe()
-	//if out_pipe_err != nil {
-	//	panic(out_pipe_err)
-	//}
+// wait for program to finish
+//if wait_err := cmd.Wait(); wait_err != nil {
+//	panic(wait_err)
+//}
 
-	// start command but don't block
-	//if start_err := cmd.Start(); start_err != nil {
-	//	log.Fatalln("Failed to start maple_exe. Error: ", start_err)
-	//}
-	//
-	//// read from input file, and write line by line to stdin pipe
-	//inputFileScanner := bufio.NewScanner(inputFile)
-	//stdinInPipeWriter := bufio.NewWriter(stdin_pipe)
-	//for linesRead := int64(0); linesRead < numLinesToProcess; linesRead++ {
-	//	if inputFileScanner.Scan() == false { // if = false, then got an EOF
-	//		panic("Failed to read a line from input file! This shouldn't happen!")
-	//	}
-	//	line := inputFileScanner.Text() + "\n" // Scan() does not contain the new line character
-	//	_, write_err := stdinInPipeWriter.WriteString(line)
-	//	if write_err != nil {
-	//		panic(write_err)
-	//	}
-	//}
-	//_ = stdinInPipeWriter.Flush() // make sure everything was written to it
-	//if in_pipe_close_err := stdin_pipe.Close(); in_pipe_close_err != nil {
-	//	panic(in_pipe_close_err)
-	//}
+// write stdout to output file
 
-	//// read stdout
-	//stdout_bytes, read_stdout_err := io.ReadAll(stdout_pipe)
-	//if read_stdout_err != nil {
-	//	panic(read_stdout_err)
-	//}
-	//fmt.Println("stdout_bytes: ", string(stdout_bytes))
-
-	// wait for program to finish
-	//if wait_err := cmd.Wait(); wait_err != nil {
-	//	panic(wait_err)
-	//}
-
-	// write stdout to output file
-
-	//output_writer := bufio.NewWriter(outputFile)
-	//_, output_write_err := output_writer.Write(stdout_bytes)
-	//if output_write_err != nil {
-	//	panic(output_write_err)
-	//}
-}
+//output_writer := bufio.NewWriter(outputFile)
+//_, output_write_err := output_writer.Write(stdout_bytes)
+//if output_write_err != nil {
+//	panic(output_write_err)
+//}
+//}
 
 //func (this *MapleJuiceNode) Execute2MapleExe(
 //	maple_exe string,
@@ -730,14 +757,31 @@ func (this *MapleJuiceNode) writeFileContentsToBytesBuffer(inputFile *os.File, n
 	return &buffer
 }
 
-func (this *MapleJuiceNode) NewExecuteMapleExe(maple_exe string,
-	args []string, outputFile *os.File) {
+func (this *MapleJuiceNode) ExecuteMapleExe(mapleExe MapleJuiceExeFile,
+	inputFilePath string,
+	startingLine int, // 1-indexed
+	numLinesToRead int,
+	outputFile *os.File,
+) {
 
-	cmd := exec.Command(maple_exe, args...)
+	cmd := exec.Command(mapleExe.ExeFilePath, mapleExe.GetMapleArgs(inputFilePath, startingLine, numLinesToRead)...)
 	cmd.Stdout = outputFile
 
 	if err := cmd.Run(); err != nil {
 		log.Fatalln("Error! Failed to execute maple_exe OR exit code != 0. Error: ", err)
 	}
+}
 
+func (this *MapleJuiceNode) ExecuteJuiceExeOnKey(juiceExe MapleJuiceExeFile,
+	inputFilePath string,
+	outputChan chan string,
+) {
+	var stdoutBuffer bytes.Buffer
+	cmd := exec.Command(juiceExe.ExeFilePath, inputFilePath)
+	cmd.Stdout = &stdoutBuffer
+
+	if err := cmd.Run(); err != nil {
+		log.Fatalln("Error! Failed to execute juice_exe OR exit code != 0. Error: ", err)
+	}
+	outputChan <- stdoutBuffer.String()
 }

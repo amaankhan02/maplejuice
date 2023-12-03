@@ -99,8 +99,8 @@ func NewMapleJuiceManager(
 }
 
 func (manager *MapleJuiceManager) Start() {
-	// create maple juice root dir (delete it first if it already existed)
-	_ = os.RemoveAll(manager.mapleJuiceNode.mjRootDir + "/")
+	// remove and clear the directory if it already exists, and then create it
+	_ = utils.DeleteDirAndAllContents(manager.mapleJuiceNode.mjRootDir)
 	_ = os.Mkdir(manager.mapleJuiceNode.mjRootDir, 0755)
 	// create SDFS root directory (delete it first if it already existed)
 	_ = os.RemoveAll(manager.sdfsNode.sdfsDir + "/") // remove and clear the directory if it already exists

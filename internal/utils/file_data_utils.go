@@ -49,6 +49,7 @@ func SerializeData(structToSerialize interface{}) ([]byte, error) {
 }
 
 /*
+CountNumLinesInFile
 Counts the number of lines in the file by reading the entire file
 line by line. Additionaly, moves the file pointer back to the start before exiting out
 of the function.
@@ -82,23 +83,22 @@ Moves file pointer to the beginning of the line number of 'lineNumber' (1-indexe
 the 1-indexed line number from the BEGINNING of the file. Therefore, this function calls file.Seek() to move
 the file pointer to the start of the file and then traverses down
 
-TODO: must test this function
 */
-func MoveFilePointerToLineNumber(file *os.File, lineNumber int64) {
-	_, err := file.Seek(0, 0)
-	if err != nil {
-		panic(err)
-	}
-
-	// TODO: wait should line number be 1-indexed or 0-indexed?
-
-	scanner := bufio.NewScanner(file)
-	var currLine int64 = 1
-
-	for currLine < lineNumber && scanner.Scan() {
-		currLine++
-	}
-}
+//func MoveFilePointerToLineNumber(file *os.File, lineNumber int64) {
+//	_, err := file.Seek(0, 0)
+//	if err != nil {
+//		panic(err)
+//	}
+//
+//
+//
+//	scanner := bufio.NewScanner(file)
+//	var currLine int64 = 1
+//
+//	for currLine < lineNumber && scanner.Scan() {
+//		currLine++
+//	}
+//}
 
 // TODO: test this
 func DeleteDirAndAllContents(dirPath string) error {
