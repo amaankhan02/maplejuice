@@ -167,6 +167,8 @@ the contents
 */
 func ReadFile(save_filepath string, conn net.Conn, filesize int64) error {
 	// open the file for writing
+	fmt.Println("Inside ReadFile() - save_filepath: ", save_filepath)
+	fmt.Println("Expected filesize: ", filesize)
 	f, err := os.OpenFile(save_filepath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0666)
 	if err != nil {
 		fmt.Println("Failed to open file for reading")
@@ -175,24 +177,32 @@ func ReadFile(save_filepath string, conn net.Conn, filesize int64) error {
 	defer f.Close()
 
 	reader := bufio.NewReaderSize(conn, BUFFER_SIZE)
-	var b_copied int64 = 0
-	var amt int64 = BUFFER_SIZE
+	//var b_copied int64 = 0
+	//var amt int64 = BUFFER_SIZE
 
-	for b_copied < filesize {
-		if b_copied+amt > filesize {
-			amt = filesize - b_copied
-		} else {
-			amt = BUFFER_SIZE
-		}
-		n, copy_err := io.CopyN(f, reader, amt)
-		if copy_err != nil {
-			fmt.Println("ACTUAL NUM BYTES COPIED FROM FILE: ", b_copied)
-			fmt.Println("Failed to copy file from connection into local disk! - ", copy_err)
-			return copy_err
-		}
+	//for b_copied < filesize {
+	//	if b_copied+amt > filesize {
+	//		amt = filesize - b_copied
+	//	} else {
+	//		amt = BUFFER_SIZE
+	//	}
+	//	n, copy_err := io.CopyN(f, reader, amt)
+	//	if copy_err != nil {
+	//		fmt.Println("ACTUAL NUM BYTES COPIED FROM connection: ", b_copied)
+	//		fmt.Println("Failed to copy file from connection into local disk! - ", copy_err)
+	//		return copy_err
+	//	}
+	//
+	//	b_copied += n
+	//}
 
-		b_copied += n
+	// TODO: change to just read until the EOF...
+	n_read, copy_err := io.Copy(f, reader)
+	if copy_err != nil {
+		fmt.Println("ACTUAL NUM BYTES COPIED FROM connection into file: ", n_read)
+		return copy_err
 	}
+	fmt.Println("ACTUAL NUM BYTES COPIED FROM connection into file: ", n_read)
 
 	return nil
 }
