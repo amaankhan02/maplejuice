@@ -38,7 +38,7 @@ func main() {
 
 func ParseArguments() {
 	var err error
-	logFileName = flag.String("f", "", "Filename of the logfile to write to")
+	logFileName = flag.String("f", "test.log", "Filename of the logfile to write to")
 	tgossip = flag.Int64("g", config.DEFAULT_T_GOSSIP, "T GOSSIP in milliseconds (1000 ms = 1s)")
 	flag.Parse()
 
