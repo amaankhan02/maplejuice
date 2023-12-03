@@ -19,6 +19,20 @@ func TestCreateTempDirsAndFilesForMapleTask(t *testing.T) {
 	fmt.Println("mapleTaskDirPath: ", mapleTaskDirPath)
 }
 
+func TestCreateTempDirsAndFilesForJuiceTask(t *testing.T) {
+	mjn := maplejuice.MapleJuiceNode{}
+	juiceTaskDirPath, file := mjn.CreateTempDirsAndFilesForJuiceTask(1)
+	file.Close()
+	fmt.Println("juiceTaskDirPath: ", juiceTaskDirPath)
+}
+
+func TestDeleteTempDirsAndFilesForJuiceTask(t *testing.T) {
+	err := utils.DeleteDirAndAllContents("juicetask-1")
+	if err != nil {
+		t.Errorf("Error deleting dir: %s", err)
+	}
+}
+
 func TestDeleteTempDirsAndFilesForMapleTask(t *testing.T) {
 	err := utils.DeleteDirAndAllContents("mapletask-1-1-some_prefix_")
 	if err != nil {

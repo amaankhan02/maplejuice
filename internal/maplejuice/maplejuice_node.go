@@ -325,7 +325,7 @@ func (this *MapleJuiceNode) executeJuiceTask(juiceExe MapleJuiceExeFile, sdfsInt
 	localWorkerTaskId := this.localWorkerTaskID
 	this.mutex.Unlock()
 
-	taskDirPath, juiceTaskOutputFile := this.createTempDirsAndFilesForJuiceTask(localWorkerTaskId)
+	taskDirPath, juiceTaskOutputFile := this.CreateTempDirsAndFilesForJuiceTask(localWorkerTaskId)
 
 	// get the names of the files to fetch from sdfs
 	sdfsInputFilenames := this.createSdfsFilenamesFromIntermediateAndKeys(sdfsIntermediateFilenamePrefix, assignedKeys)
@@ -584,7 +584,7 @@ Returns
 	task_dirpath (string): path to the temporary directory created for this juice task
 	juice_output_file (*os.File): file object for the temporary output file for this juice task
 */
-func (this *MapleJuiceNode) createTempDirsAndFilesForJuiceTask(localWorkerId int) (string, *os.File) {
+func (this *MapleJuiceNode) CreateTempDirsAndFilesForJuiceTask(localWorkerId int) (string, *os.File) {
 	task_dirpath := filepath.Join(this.mjRootDir, fmt.Sprintf(JUICE_TASK_DIR_NAME_FMT, localWorkerId))
 	juice_output_filepath := filepath.Join(task_dirpath, JUICE_TASK_OUTPUT_FILENAME)
 
