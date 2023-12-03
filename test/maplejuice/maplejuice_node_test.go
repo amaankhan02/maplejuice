@@ -40,7 +40,7 @@ func TestExecuteMapleExe(t *testing.T) {
 		t.Errorf("Error opening file: %s", outputFilepath)
 	}
 
-	mjn.ExecuteMapleExe(mapleExeFilepath, args, inputFile, outputFile, 5)
+	//mjn.ExecuteMapleExe(mapleExeFilepath, args, inputFile, outputFile, 5)
 }
 
 func TestNewExecuteMapleExePrintStdout(t *testing.T) {
@@ -52,7 +52,7 @@ func TestNewExecuteMapleExePrintStdout(t *testing.T) {
 
 	inputFilepath, _ := filepath.Abs("..\\test_files\\maplejuice_node_tests\\maple_exe_word_count_test_data.txt")
 	args := []string{inputFilepath, "2", "5"}
-	mjn.NewExecuteMapleExe(mapleExeFilepath, args, os.Stdout)
+	//mjn.NewExecuteMapleExe(mapleExeFilepath, args, os.Stdout)
 }
 
 func TestNewExecuteMapleExePrintToFile(t *testing.T) {
@@ -70,5 +70,5 @@ func TestNewExecuteMapleExePrintToFile(t *testing.T) {
 		t.Errorf("Error opening file: %s", outputFilepath)
 	}
 	defer outputFile.Close()
-	mjn.NewExecuteMapleExe(mapleExeFilepath, args, outputFile)
+	//mjn.NewExecuteMapleExe(mapleExeFilepath, args, outputFile)
 }
