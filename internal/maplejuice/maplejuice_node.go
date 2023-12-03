@@ -491,7 +491,7 @@ func (this *MapleJuiceNode) executeMapleTask(
 		for currLine := startLine; currLine < endLine; currLine += numLinesForExe {
 			numLinesForExe = min(endLine-currLine, int64(config.LINES_PER_MAPLE_EXE))
 			exeArgs := []string{strconv.FormatInt(numLinesForExe, 10), mapleExe.ExeColumnSchema, mapleExe.ExeAdditionalInfo}
-			this.executeMapleExe(mapleExe.ExeFilePath, exeArgs, inputFile, mapleTaskOutputFile, numLinesForExe)
+			this.ExecuteMapleExe(mapleExe.ExeFilePath, exeArgs, inputFile, mapleTaskOutputFile, numLinesForExe)
 		}
 
 		_ = inputFile.Close()
@@ -618,7 +618,7 @@ Parameters:
 					 at least for now. but that can change if we change the design.
 	inputFile (*os.File): file object for the input file that the maple_exe will read from
 */
-func (this *MapleJuiceNode) executeMapleExe(
+func (this *MapleJuiceNode) ExecuteMapleExe(
 	maple_exe string,
 	args []string,
 	inputFile *os.File,

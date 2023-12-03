@@ -1,4 +1,4 @@
-package maples_exe_word_count
+package maple_word_count
 
 import (
 	"bufio"
