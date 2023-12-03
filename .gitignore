@@ -1,5 +1,7 @@
 .idea
 .vscode
+app
+bin/
 *.log
 sdfs_data/
 sdfs_data/*
