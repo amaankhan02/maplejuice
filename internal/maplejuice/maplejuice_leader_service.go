@@ -367,13 +367,19 @@ Opens up task output file, reads line by line. For each key value pair, it write
 correct sdfsIntermediateFile (stored locally for now)
 */
 func (leader *MapleJuiceLeaderService) processMapleTaskOutputFile(task_output_file string) {
-	csvFile, file_err := os.OpenFile(task_output_file, os.O_RDONLY, 0444)
+	fmt.Println("--------Inside processing Maple Task Output File--------")
+	actualFilesize := utils.GetFileSize(task_output_file)
+	fmt.Println("Actual Filesize of Received Maple Task Output File: ", actualFilesize)
+	csvFile, file_err := os.OpenFile(task_output_file, os.O_RDONLY, 0744)
 	if file_err != nil {
-		return
+		log.Fatalln("Failed to open maple task output file. Error: ", file_err)
 	}
 	csvReader := csv.NewReader(csvFile)
 
+	fmt.Println("Starting loop of reading file")
+	icount := 0
 	for {
+		icount += 1
 		record, csv_err := csvReader.Read()
 		if csv_err == io.EOF {
 			break
@@ -383,6 +389,13 @@ func (leader *MapleJuiceLeaderService) processMapleTaskOutputFile(task_output_fi
 		}
 		key := record[0]
 		value := strings.TrimSuffix(record[1], "\n")
+
+		if icount < 5 {
+			fmt.Println("key: ", key)
+			fmt.Println("value: ", value)
+		} else if icount == 5 {
+			fmt.Println("... no longer printing the rest but still processing the file ...")
+		}
 
 		// open the soon-to-be sdfs_intermediate file and append to it
 		_sdfsIntermediateFileName := getSdfsIntermediateFilename(leader.currentJob.sdfsIntermediateFilenamePrefix, key)
@@ -397,10 +410,14 @@ func (leader *MapleJuiceLeaderService) processMapleTaskOutputFile(task_output_fi
 			log.Fatalln("Failed to open sdfsIntermediateFileName. Error: ", file2_err)
 		}
 		writer := bufio.NewWriter(intermediateFile)
-		_, interm_write_err := writer.WriteString(key + "," + value + "\n")
+		n_written, interm_write_err := writer.WriteString(key + "," + value + "\n")
 		if interm_write_err != nil {
 			log.Fatalln("Failed to write key value pair to intermediate file. Error: ", interm_write_err)
 		}
+		if icount < 5 {
+			fmt.Println("Number of bytes written to intermediate file: ", n_written)
+		}
+		_ = writer.Flush()
 		_ = intermediateFile.Close()
 		//leader.currentJob.sdfsIntermediateFileMutex.Unlock()
 	}
