@@ -494,7 +494,7 @@ func (this *MapleJuiceNode) executeMapleTask(
 
 	mapleTaskDirpath, datasetDirpath, mapleTaskOutputFile :=
 		this.CreateTempDirsAndFilesForMapleTask(taskIndex, sdfsIntermediateFilenamePrefix, localWorkerTaskId)
-
+	fmt.Println("Maple Task Dirpath: ", mapleTaskDirpath)
 	// get the dataset filenames & create corresponding local filenames to save it to
 	fmt.Println("About to send PerformPrefixMatch()")
 	sdfsDatasetFilenames := this.sdfsNode.PerformPrefixMatch(sdfsSrcDirectory + ".")
