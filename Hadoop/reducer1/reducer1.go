@@ -12,7 +12,7 @@ func Reducer1(scanner *bufio.Scanner) {
 	detection_to_counts := make(map[string]int)
 	for scanner.Scan() {
 		line := scanner.Text()
-		fields := strings.Split(line, ",")
+		fields := strings.Split(line, "\t")
 
 		detection_val := fields[0]
 		count_string := fields[1]
@@ -24,7 +24,7 @@ func Reducer1(scanner *bufio.Scanner) {
 
 	// EMIT VALUES
 	for key, val := range detection_to_counts {
-		fmt.Printf("%s,%d\n", key, val)
+		fmt.Printf("%s\t%d\n", key, val)
 	}
 }
 

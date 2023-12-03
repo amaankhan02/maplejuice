@@ -11,7 +11,6 @@ import (
 
 // this script will generate the key value pairs you need to use for filtering based on SQL command
 // SELECT ALL FROM dataset WHERE <regex>
-
 func MapleSQLFilter(scanner *bufio.Scanner, regex_string string, num_lines int, schema string) map[string]string {
 	id_to_row := make(map[string]string)
 

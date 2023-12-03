@@ -1,8 +1,8 @@
-Loop/Video,4
-Loop,24
-Video,21
- ,1
-None,8
-Radar,1
-Loop/None,2
-,1
+Video	21
+ 	1
+None	8
+Radar	1
+Loop/None	2
+	1
+Loop/Video	4
+Loop	24

@@ -1,4 +1,5 @@
-package main
+// package main // TODO: change back to main
+package juice_demo_phase2
 
 import (
 	"bufio"

@@ -25,7 +25,7 @@ func Mapper1(scanner *bufio.Scanner, x string, schema string) {
 		detection_val := words[column_index_detection]
 
 		if interconne_val == x {
-			fmt.Printf("%s,%d\n", detection_val, 1)
+			fmt.Printf("%s\t%d\n", detection_val, 1)
 		}
 	}
 }

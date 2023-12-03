@@ -3,6 +3,7 @@ package test
 import (
 	"bufio"
 	"cs425_mp4/cmd/juices/juice_demo_phase1"
+	"cs425_mp4/cmd/juices/juice_demo_phase2"
 	"cs425_mp4/cmd/maples/maple_demo_phase1"
 	"cs425_mp4/cmd/maples/maple_demo_phase2"
 	"fmt"
@@ -58,18 +59,15 @@ func TestMapleDemoPhase2(t *testing.T) {
 	maple_demo_phase2.MapleDemoPhase2(filescanner, num_lines)
 }
 
-//
-//func TestJuiceDemoPhase2(t *testing.T) {
-//	file_path := "C:\\Users\\samaa\\Documents\\2023-2024\\DistributedSystems\\MP4\\cs425_mp4\\test\\test_files\\juice_demo_phase2_test.txt"
-//	file, err := os.Open(file_path)
-//	if err != nil {
-//		fmt.Errorf("Error opening file: %s", err)
-//	}
-//	defer file.Close()
-//
-//	// Create a scanner to read the file line by line
-//	filescanner := bufio.NewScanner(file)
-//	_ = juice_exe.JuicePhase2(filescanner)
-//
-//	//maple_demo_phase2.PrintKeyValuePairs(result)
-//}
+func TestJuiceDemoPhase2(t *testing.T) {
+	file_path := "C:\\Users\\samaa\\Documents\\2023-2024\\DistributedSystems\\MP4\\cs425_mp4\\test\\test_files\\juice_demo_phase2_test.txt"
+	file, err := os.Open(file_path)
+	if err != nil {
+		fmt.Errorf("Error opening file: %s", err)
+	}
+	defer file.Close()
+
+	// Create a scanner to read the file line by line
+	filescanner := bufio.NewScanner(file)
+	juice_demo_phase2.JuicePhase2(filescanner)
+}
