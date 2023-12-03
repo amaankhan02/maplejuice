@@ -9,63 +9,74 @@ import (
 	"strings"
 )
 
-func JuicePhase2(scanner *bufio.Scanner) map[string]float32 {
-	// get "null" -> [[]]
-
+func JuicePhase2(scanner *bufio.Scanner) {
 	detection_to_count, total := parse(scanner)
-	detection_to_percentage := make(map[string]float32)
 
 	for detection, count := range detection_to_count {
 		percentage := (float32(count) / total) * 100.0
 
-		// PRINT OUT RESULT
-		// TODO: how to print out properly
-		fmt.Println(detection, percentage)
+		// convert percentage to string
+		percentage_string := strconv.FormatFloat(float64(percentage), 'f', -1, 32)
+
+		fmt.Println(detection + "," + percentage_string)
 	}
-
-	for i := 0; scanner.Scan(); i++ {
-		line := scanner.Text()
-
-		key_val := strings.Split(line, ",")
-		detection := key_val[0]
-		percentage_string := key_val[1]
-		percentage, _ := strconv.ParseFloat(percentage_string, 32)
-
-		detection_to_percentage[detection] = float32(percentage)
-	}
-
-	return detection_to_percentage
 }
 
 func parse(scanner *bufio.Scanner) (map[string]int, float32) {
-	detection_to_count := make(map[string]int)
 	total := 0
 
-	for i := 0; scanner.Scan(); i++ {
+	detection_to_count := make(map[string]int)
+
+	for scanner.Scan() {
 		line := scanner.Text()
+		fields := strings.Split(line, "\t")
 
-		value := extractValue(line)
-		tuples := getTuples(value)
+		val := fields[1]
 
-		for _, tuple := range tuples {
-			key_val := strings.Split(tuple, ",")
-			detection := key_val[0]
-			count_string := key_val[1]
-			count, _ := strconv.Atoi(count_string)
+		detection_count := strings.Split(val, ",")
 
-			_, exists := detection_to_count[detection]
-			if exists {
-				detection_to_count[detection] += count
-			} else {
-				detection_to_count[detection] = count
-			}
+		detection := detection_count[0]
+		count_string := detection_count[1]
+		count, _ := strconv.Atoi(count_string)
 
-			// TODO: if detection == "" or " ", do not add it to total and do not add it to the dictionary?
-			total += count
-		}
+		detection_to_count[detection] = count
+
+		total += count
 	}
+
 	return detection_to_count, float32(total)
 }
+
+//
+//func parse(scanner *bufio.Scanner) (map[string]int, float32) {
+//	detection_to_count := make(map[string]int)
+//	total := 0
+//
+//	for i := 0; scanner.Scan(); i++ {
+//		line := scanner.Text()
+//
+//		value := extractValue(line)
+//		tuples := getTuples(value)
+//
+//		for _, tuple := range tuples {
+//			key_val := strings.Split(tuple, ",")
+//			detection := key_val[0]
+//			count_string := key_val[1]
+//			count, _ := strconv.Atoi(count_string)
+//
+//			_, exists := detection_to_count[detection]
+//			if exists {
+//				detection_to_count[detection] += count
+//			} else {
+//				detection_to_count[detection] = count
+//			}
+//
+//			// TODO: if detection == "" or " ", do not add it to total and do not add it to the dictionary?
+//			total += count
+//		}
+//	}
+//	return detection_to_count, float32(total)
+//}
 
 func getTuples(value string) []string {
 	regex := regexp.MustCompile(`\((.*?)\)`)

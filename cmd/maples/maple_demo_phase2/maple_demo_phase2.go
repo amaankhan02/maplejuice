@@ -1,4 +1,5 @@
-package main
+// package main TODO: chang back to main
+package maple_demo_phase2
 
 import (
 	"bufio"
@@ -19,7 +20,7 @@ func MapleDemoPhase2(scanner *bufio.Scanner, num_lines int) map[string][]string 
 	null_to_line := make(map[string][]string)
 	for i := 0; i < num_lines && scanner.Scan(); i++ {
 		line := scanner.Text()
-		//
+
 		//key_val := strings.Split(line, ",")
 		//detection_word := key_val[0]
 		//count_string := key_val[1]
@@ -29,13 +30,15 @@ func MapleDemoPhase2(scanner *bufio.Scanner, num_lines int) map[string][]string 
 		//	count}
 		//
 
-		current_list := null_to_line["null"]
+		//current_list := null_to_line["null"]
+		//
+		//val := "(" + line + ")"
+		//
+		//current_list = append(current_list, val)
+		//
+		//null_to_line["null"] = current_list
 
-		val := "(" + line + ")"
-
-		current_list = append(current_list, val)
-
-		null_to_line["null"] = current_list
+		fmt.Println("null\t" + line) // already ends with "\n" because line includes that from previous reduce
 	}
 
 	return null_to_line
@@ -90,6 +93,6 @@ func PrintKeyValuePairs(kv_pairs map[string][]string) {
 // actual executable
 func main() {
 	num_lines := getArgs()
-	detection_to_percentage := MapleDemoPhase2(bufio.NewScanner(os.Stdin), num_lines)
-	PrintKeyValuePairs(detection_to_percentage)
+	MapleDemoPhase2(bufio.NewScanner(os.Stdin), num_lines)
+	//PrintKeyValuePairs(detection_to_percentage)
 }

@@ -1,4 +1,5 @@
-package main
+// package main TODO: CHANGE BACK TO MAIN PACKAGE AFTER YOU ARE DONE TESTING
+package maple_demo_phase1
 
 import (
 	"bufio"
@@ -9,7 +10,6 @@ import (
 	"strings"
 )
 
-// TODO: need to see how to parse the empty cells in CSV file, right now replacing with ""
 func MapleDemoPhase1(scanner *bufio.Scanner, num_lines int, X string, schema string) map[string]int {
 	// create map for each word -> word_count
 	detection_val_to_count := make(map[string]int)
@@ -17,6 +17,7 @@ func MapleDemoPhase1(scanner *bufio.Scanner, num_lines int, X string, schema str
 	columnInterconne := "Interconne" // looking for this column
 	columnDetection := "Detection_"
 
+	// TODO: can probably hard code this so you do not need to pass in the schema
 	// define schema
 	column_index_interconne := mj.GetColumnIndex(schema, columnInterconne)
 	column_index_detection := mj.GetColumnIndex(schema, columnDetection)
@@ -46,9 +47,7 @@ func MapleDemoPhase1(scanner *bufio.Scanner, num_lines int, X string, schema str
 	return detection_val_to_count
 }
 
-// TODO: adjust arg values
 func getArgs() (int, string, string) {
-	// get the command line arg which tells you the number of lines
 	num_lines_string := os.Args[1]
 	num_lines, _ := strconv.Atoi(num_lines_string) // Convert the argument to an integer
 

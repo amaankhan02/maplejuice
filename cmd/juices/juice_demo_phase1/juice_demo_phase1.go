@@ -1,9 +1,11 @@
-package main
+// package main // TODO: change back to main
+package juice_demo_phase1
 
 import (
 	"bufio"
-	"cs425_mp4/internal/maplejuice_exe"
+	"fmt"
 	"log"
+	"os"
 	"strconv"
 	"strings"
 )
@@ -26,20 +28,28 @@ func JuiceDemoTest1(scanner *bufio.Scanner) map[string]int {
 			log.Fatal("Error in converting word_count from string to integer")
 		}
 
-		// if word already exists in map, add word_count to the value
-		_, exists := detection_val_to_count[detection]
+		detection_val_to_count[detection] += detection_count
 
-		if exists {
-			detection_val_to_count[detection] += detection_count
-		} else {
-			detection_val_to_count[detection] = detection_count
-		}
+		//// if word already exists in map, add word_count to the value
+		//_, exists := detection_val_to_count[detection]
+		//
+		//if exists {
+		//	detection_val_to_count[detection] += detection_count
+		//} else {
+		//	detection_val_to_count[detection] = detection_count
+		//}
 	}
 
 	return detection_val_to_count
 }
 
+func PrintKeyValuePairs(kv_pairs map[string]int) {
+	for key, val := range kv_pairs {
+		fmt.Printf("%s,%d\n", key, val)
+	}
+}
+
 func main() {
 	detection_val_to_count := JuiceDemoTest1(bufio.NewScanner(os.Stdin))
-	maplejuice_exe.PrintKeyValuePairs(detection_val_to_count)
+	PrintKeyValuePairs(detection_val_to_count)
 }
