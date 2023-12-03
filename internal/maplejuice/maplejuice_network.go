@@ -92,7 +92,9 @@ Parameters:
 	taskOutputFilePpath (string):	file path to the output file containing key value pairs of the maple task output
 */
 func SendMapleTaskResponse(conn net.Conn, taskIndex int, taskOutputFilepath string) {
+	fmt.Println("Sending Maple Task Response")
 	fileSize := utils.GetFileSize(taskOutputFilepath)
+	fmt.Println("File size that I WANT to send is: ", fileSize)
 
 	msg := MapleJuiceNetworkMessage{
 		MsgType:            MAPLE_TASK_RESPONSE,

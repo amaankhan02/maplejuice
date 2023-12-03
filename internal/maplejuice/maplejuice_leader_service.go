@@ -225,14 +225,15 @@ task output files and then creating a new set of files to be saved in the SDFS f
 */
 func (leader *MapleJuiceLeaderService) ReceiveMapleTaskOutput(workerConn net.Conn, taskIndex int, filesize int64,
 	sdfsService *SDFSNode) {
-
+	fmt.Println("INSIDE RECEIVE MAPLE TASK OUTPUT")
 	// read the task output file from the network
 	// TODO: delete these maple task output files after we are done with the job (after we send to sdfs)
 	// but for testing purposes, don't delete it
 	leader.mutex.Lock()
 	save_filepath := filepath.Join(leader.leaderTempDir, fmt.Sprintf(MAPLE_TASK_OUTPUT_FILENAME_FMT, taskIndex))
 	leader.mutex.Unlock()
-
+	fmt.Println("Saving maple task output file to: ", save_filepath)
+	fmt.Println("Expected Filesize: ", filesize)
 	err := tcp_net.ReadFile(save_filepath, workerConn, filesize)
 	if err != nil {
 		log.Fatalln("Failed to read file: Error: ", err) // TODO: for now exit, figure out the best course of action later

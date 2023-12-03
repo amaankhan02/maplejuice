@@ -76,6 +76,7 @@ sends as a stream. Always use this function when sending a file over TCP
 */
 func SendFile(filepath string, conn net.Conn, filesize int64) error {
 	// open the file for reading
+	fmt.Println("Inside SendFile() - filepath: ", filepath)
 	f, err := os.OpenFile(filepath, os.O_RDONLY, 0666)
 	if err != nil {
 		fmt.Println("Failed to open file for reading")
@@ -88,6 +89,7 @@ func SendFile(filepath string, conn net.Conn, filesize int64) error {
 	if copy_err != nil {
 		return copy_err
 	}
+	fmt.Println("Actual number of bytes copied from file: ", n_written)
 	if n_written < filesize {
 		fmt.Println("Failed to copy entire file into connection!")
 		return errors.New("failed to copy entire file into connection")
@@ -184,6 +186,7 @@ func ReadFile(save_filepath string, conn net.Conn, filesize int64) error {
 		}
 		n, copy_err := io.CopyN(f, reader, amt)
 		if copy_err != nil {
+			fmt.Println("ACTUAL NUM BYTES COPIED FROM FILE: ", b_copied)
 			fmt.Println("Failed to copy file from connection into local disk! - ", copy_err)
 			return copy_err
 		}
