@@ -7,15 +7,11 @@ import (
 	"strings"
 )
 
-func Mapper1(scanner *bufio.Scanner, x string, schema string) {
+func Mapper1(scanner *bufio.Scanner, x string) {
 	// get command line arguments
 
-	columnInterconne := "Interconne" // looking for this column
-	columnDetection := "Detection_"
-
-	// define schema
-	column_index_interconne := GetColumnIndex(schema, columnInterconne)
-	column_index_detection := GetColumnIndex(schema, columnDetection)
+	column_index_interconne := 10
+	column_index_detection := 9
 
 	for scanner.Scan() {
 		line := scanner.Text()
@@ -45,7 +41,6 @@ func GetColumnIndex(schema_line string, column string) int {
 func main() {
 	scanner := bufio.NewScanner(os.Stdin)
 	x := os.Getenv("X")
-	schema := os.Getenv("schema")
 
-	Mapper1(scanner, x, schema)
+	Mapper1(scanner, x)
 }
