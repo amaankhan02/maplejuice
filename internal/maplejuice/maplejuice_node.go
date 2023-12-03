@@ -731,10 +731,10 @@ func (this *MapleJuiceNode) writeFileContentsToBytesBuffer(inputFile *os.File, n
 }
 
 func (this *MapleJuiceNode) NewExecuteMapleExe(maple_exe string,
-	args []string) {
+	args []string, outputFile *os.File) {
 
 	cmd := exec.Command(maple_exe, args...)
-	cmd.Stdout = os.Stdout
+	cmd.Stdout = outputFile
 
 	if err := cmd.Run(); err != nil {
 		log.Fatalln("Error! Failed to execute maple_exe OR exit code != 0. Error: ", err)
