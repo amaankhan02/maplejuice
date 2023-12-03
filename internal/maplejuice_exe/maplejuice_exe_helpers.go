@@ -54,27 +54,3 @@ func PrintKeyValPairsSQLJoin(kv_pairs map[string]MapleSQLJoin1Value) {
 		fmt.Printf("%s,%v\n", key, val)
 	}
 }
-
-// TODO: update index values of args
-func GetArgsSQLFilter() (string, int, string) {
-	// get the command line arg which tells you the number of lines
-	// SELECT ALL FROM dataset WHERE COL = <regex> num_lines ?
-	// need to know:
-	// number of lines
-	// column
-	// regex
-
-	// first arg -> num lines,
-	// second arg -> column schema
-	// third arg -> regex
-
-	num_lines_string := os.Args[0]
-	num_lines, _ := strconv.Atoi(num_lines_string) // Convert the argument to an integer
-
-	schema := os.Args[1]
-
-	regex := os.Args[3]
-	//column := os.Args[1]
-
-	return regex, num_lines, schema
-}
