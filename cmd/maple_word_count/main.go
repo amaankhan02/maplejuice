@@ -2,6 +2,7 @@ package main
 
 import (
 	"bufio"
+	"cs425_mp4/internal/maplejuice_exe"
 	"fmt"
 	"log"
 	"os"
@@ -19,18 +20,11 @@ func MapleWordCount(scanner *bufio.Scanner, startingLine int, num_lines int) map
 	// loop through all lines from stdin
 
 	// startingLine is 1-indexed. Move file pointer to startingLine
-	for k := 1; k < startingLine; k++ {
-		if scanner.Scan() == false {
-			log.Fatalln("Could not reach startingLine passed in. Unable to run maple exe")
-		}
-	}
+	maplejuice_exe.MoveFilePointerToLineNumber(scanner, startingLine)
 
 	for i := 0; i < num_lines && scanner.Scan(); i++ {
 		// get each line
 		line := scanner.Text()
-		if i == 0 {
-			fmt.Println("FIRST LINE: ", line)
-		}
 
 		// get list of words from the line
 		words := strings.Fields(line)
@@ -89,7 +83,6 @@ func main() {
 
 	//utils.MoveFilePointerToLineNumber(inputFile, startingLine)
 	fileScanner := bufio.NewScanner(inputFile)
-
 	outputKV := MapleWordCount(fileScanner, startingLine, numLines)
 	PrintKeyValuePairs(outputKV)
 }

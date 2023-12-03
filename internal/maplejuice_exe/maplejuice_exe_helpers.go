@@ -1,7 +1,9 @@
 package maplejuice_exe
 
 import (
+	"bufio"
 	"fmt"
+	"log"
 	"os"
 	"strconv"
 	"strings"
@@ -52,5 +54,17 @@ func PrintKeyValPairsSQLFilter(kv_pairs map[string]string) {
 func PrintKeyValPairsSQLJoin(kv_pairs map[string]MapleSQLJoin1Value) {
 	for key, val := range kv_pairs {
 		fmt.Printf("%s,%v\n", key, val)
+	}
+}
+
+/*
+MoveFilePointerToLineNumber
+StartingLine is 1-indexed. Moves the file pointer to the start of that line
+*/
+func MoveFilePointerToLineNumber(fileScanner *bufio.Scanner, startingLine int) {
+	for k := 1; k < startingLine; k++ {
+		if fileScanner.Scan() == false {
+			log.Fatalln("Could not reach startingLine passed in. Unable to run maple exe")
+		}
 	}
 }
