@@ -752,6 +752,9 @@ Steps:
 */
 func (this *SDFSNode) PerformPut(localfilename string, sdfsfilename string) {
 	// create connection with leader
+	fmt.Println("INSIDE PUT")
+	fmt.Println("leader ip: ", this.leaderID.IpAddress)
+	
 	leaderConn, err1 := net.Dial("tcp", this.leaderID.IpAddress+":"+this.leaderID.SDFSServerPort)
 	if err1 != nil {
 		fmt.Println("Failed to Dial to leader server. Error: ", err1)

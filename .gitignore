@@ -1,6 +1,7 @@
 .idea
 .vscode
 app
+*.csv
 bin/
 *.log
 sdfs_data/
