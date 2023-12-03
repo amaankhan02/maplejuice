@@ -1,12 +1,14 @@
 package maplejuice
 
 import (
+	"cs425_mp4/internal/config"
 	"cs425_mp4/internal/utils"
 	"fmt"
 	"os"
+	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
-	"strconv"
 )
 
 const MAPLE_JUICE_LEADER_DISPATCHER_WAIT_TIME = 500 * time.Millisecond
@@ -269,8 +271,14 @@ func (manager *MapleJuiceManager) executeUserInput(userInput []string) bool {
 }
 
 func (manager *MapleJuiceManager) parseAndExecuteMapleInput(userInput []string) {
+	mapleExeFileName := userInput[1]
+	mapleExeFilePath, err1 := filepath.Abs(filepath.Join(config.EXE_FILES_FOLDER, mapleExeFileName))
+	if err1 != nil {
+		fmt.Println("Unable to parse maple_exe name")
+		return
+	}
 	mapleExe := MapleJuiceExeFile{
-		ExeFilePath: userInput[1],
+		ExeFilePath: mapleExeFilePath,
 	}
 	numMaples, parse_err := strconv.Atoi(userInput[2])
 	if parse_err != nil {
