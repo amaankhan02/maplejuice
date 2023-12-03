@@ -143,6 +143,7 @@ func (this *MapleJuiceNode) HandleTCPServerConnection(conn net.Conn) {
 				mjNetworkMessage.ClientId,
 			)
 		case JUICE_JOB_REQUEST:
+			fmt.Println("Leader RECEIVED JUICE JOB REQUEST")
 			_ = conn.Close()
 			alreadyClosedLeaderConn = true
 			this.leaderService.SubmitJuiceJob(
@@ -284,7 +285,7 @@ func (this *MapleJuiceNode) SubmitJuiceJob(juice_exe MapleJuiceExeFile, num_juic
 		return
 	}
 	defer leaderConn.Close()
-
+	fmt.Println("Sending Juice Job Request to leader")
 	SendMapleJuiceNetworkMessage(leaderConn, mjJob)
 }
 

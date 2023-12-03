@@ -211,6 +211,7 @@ func (leader *MapleJuiceLeaderService) SubmitJuiceJob(juice_exe MapleJuiceExeFil
 	leader.waitQueue = append(leader.waitQueue, &job)
 	leader.jobsSubmitted++
 	leader.mutex.Unlock()
+	fmt.Println("Leader submitted juice job to queue")
 }
 
 /*
@@ -485,6 +486,7 @@ func (leader *MapleJuiceLeaderService) startJob(newJob *LeaderMapleJuiceJob) {
 		leader.mapleAssignTaskIndicesToWorkerNodes(newJob)
 		leader.sendMapleTasksToWorkerNodes(newJob)
 	} else { // JUICE_JOB
+		fmt.Println("Starting juice job!")
 		leader.getAllKeysForJuiceJob(newJob)
 		leader.partitionKeysToWorkerNodes(newJob)
 		leader.sendJuiceTasksToWorkerNodes(newJob)

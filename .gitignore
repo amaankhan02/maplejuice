@@ -1,9 +1,12 @@
 .idea
 .vscode
-app
+!cmd/app
+./app.exe
+./app
 *.csv
 bin/
 *.log
+./word_count_data.txt
 sdfs_data/
 sdfs_data/*
 *.exe
