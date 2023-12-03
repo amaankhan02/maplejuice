@@ -1,3 +1,4 @@
-Loop,5
-Loop/Video,2
- ,2
+Loop/Video,1
+Loop,9
+Video,3
+ ,1

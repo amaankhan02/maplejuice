@@ -46,7 +46,7 @@ func TestJuiceDemoPhase1(t *testing.T) {
 }
 
 func TestMapleDemoPhase2(t *testing.T) {
-	num_lines := 3
+	num_lines := 4
 	file_path := "C:\\Users\\samaa\\Documents\\2023-2024\\DistributedSystems\\MP4\\cs425_mp4\\test\\test_files\\maple_demo_phase2_test.txt"
 	file, err := os.Open(file_path)
 	if err != nil {
@@ -71,7 +71,7 @@ func TestJuiceDemoPhase2(t *testing.T) {
 
 	// Create a scanner to read the file line by line
 	filescanner := bufio.NewScanner(file)
-	result := juice_exe.JuicePhase2(filescanner)
+	_ = juice_exe.JuicePhase2(filescanner)
 
-	maple_demo_phase2.PrintKeyValuePairs(result)
+	//maple_demo_phase2.PrintKeyValuePairs(result)
 }
