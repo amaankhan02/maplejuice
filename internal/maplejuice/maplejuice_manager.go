@@ -291,7 +291,46 @@ func (manager *MapleJuiceManager) parseSqlQuery(userInput []string) {
 }
 
 func (manager *MapleJuiceManager) parseAndExecuteJuiceInput(userInput []string) {
-	// TODO: amaan
+	juiceExeFile := userInput[1]
+	juiceExeFilePath, err1 := filepath.Abs(filepath.Join(config.EXE_FILES_FOLDER, juiceExeFile))
+	if err1 != nil {
+		fmt.Println("Unable to parse juice_exe name")
+		return
+	}
+	juiceExe := MapleJuiceExeFile{
+		ExeFilePath: juiceExeFilePath,
+	}
+	numJuices, parse_err := strconv.Atoi(userInput[2])
+	if parse_err != nil {
+		fmt.Println("Number of Juices parameter is invalid number!")
+		return
+	}
+	sdfsIntermediateFilenamePrefix := userInput[3]
+	sdfsDestFilename := userInput[4]
+	var shouldDelete bool
+	shouldDelStrings := strings.Split(userInput[5], "=")
+	if shouldDelStrings[0] != "delete_input" {
+		fmt.Println("Invalid input for delete_input parameter. Must be delete_input=0 or delete_input=1")
+		return
+	}
+	if shouldDelStrings[1] == "0" {
+		shouldDelete = false
+	} else if shouldDelStrings[1] == "1" {
+		shouldDelete = true
+	} else {
+		fmt.Println("Invalid input for delete_input parameter")
+		return
+	}
+	juicePartitionScheme := HASH_PARTITIONING
+
+	manager.mapleJuiceNode.SubmitJuiceJob(
+		juiceExe,
+		numJuices,
+		sdfsIntermediateFilenamePrefix,
+		sdfsDestFilename,
+		shouldDelete,
+		juicePartitionScheme,
+	)
 }
 
 func (manager *MapleJuiceManager) parseAndExecuteMapleInput(userInput []string) {
