@@ -144,6 +144,9 @@ func (manager *MapleJuiceManager) createLocalAndLeaderNodeID(introducerLeaderVmN
 		isIntroducerLeader,
 		hostname,
 	)
+	if isIntroducerLeader {
+		introducerLeaderId = localNodeId
+	}
 
 	return localNodeId, introducerLeaderId, isIntroducerLeader
 }
