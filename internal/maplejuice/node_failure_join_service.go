@@ -254,6 +254,7 @@ func (this *NodeFailureJoinService) periodicChecks() {
 
 // handles incoming messages to server. UDP Server
 func (this *NodeFailureJoinService) serve() {
+	fmt.Println("INSIDE SERVE()")
 	this.nodeWaitGroup.Add(1)
 	defer this.nodeWaitGroup.Done()
 
@@ -331,6 +332,7 @@ Handles the received client message
 TODO: figure out what the actual function parameters for this should be later
 */
 func (this *NodeFailureJoinService) handleClientMessage(recvMembList *MembershipList) {
+	fmt.Println("INSIDE HANDLE CLIENT MESSAGE")
 	this.MemListMutexLock.Lock()
 	this.MembershipList.Merge(recvMembList, this.LogFile, this.CurrentGossipMode.Mode) // merge this membership list with the received membership list
 	LogMembershipList(this.LogFile, this.MembershipList)
@@ -343,12 +345,15 @@ func (this *NodeFailureJoinService) heartbeatScheduler() {
 	this.nodeWaitGroup.Add(1)
 	defer this.nodeWaitGroup.Done()
 
+	fmt.Println("INSIDE HEARTBEAT SCHEDULER")
 	for this.IsActive {
+		fmt.Println("INSIDE FOR LOOP FOR HB SCHEDULER")
 		this.MemListMutexLock.Lock()
 		startTime := time.Now().UnixNano()
 		var wg sync.WaitGroup
 		this.MembershipList.IncrementHeartbeatCount(&this.Id) // increment hb count of own node
 		targets := this.MembershipList.ChooseRandomTargets(this.Fanout, this.Id)
+		fmt.Println("Len(targets): ", len(targets))
 
 		for _, targetId := range targets {
 			wg.Add(1)

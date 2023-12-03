@@ -61,7 +61,7 @@ func NewMapleJuiceManager(
 	const GOSSIP_TEST_MSG_DROP_RATE = 0
 	manager := &MapleJuiceManager{}
 	localNodeId, introducerLeaderId, isIntroducerLeader := manager.createLocalAndLeaderNodeID(introducerLeaderVmNum)
-
+	
 	failureJoinService := NewNodeFailureJoinService(
 		manager.id,
 		gossipFanout,
@@ -269,6 +269,8 @@ func (manager *MapleJuiceManager) HandleNodeFailure(info FailureDetectionInfo) {
 
 func (manager *MapleJuiceManager) HandleNodeJoin(info NodeJoinInfo) {
 	// if a node joined our membership list, i need to reflect that in leaderService.AvailableWorkerNodes
+	fmt.Println("NODE JOIN HANDLER CALLED")
+
 	if manager.sdfsNode.isLeader {
 		manager.sdfsNode.leaderService.AddNewActiveNode(info.JoinedNodeId)
 	}
