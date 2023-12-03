@@ -489,9 +489,13 @@ func (leader *MapleJuiceLeaderService) startJob(newJob *LeaderMapleJuiceJob) {
 		leader.sendMapleTasksToWorkerNodes(newJob)
 	} else { // JUICE_JOB
 		fmt.Println("Starting juice job!")
+		fmt.Println("Getting all keys for juice job")
 		leader.getAllKeysForJuiceJob(newJob)
+		fmt.Println("Partitioning keys to worker nodes")
 		leader.partitionKeysToWorkerNodes(newJob)
+		fmt.Println("Sending juice tasks to worker nodes")
 		leader.sendJuiceTasksToWorkerNodes(newJob)
+		fmt.Println("Creating temp dirs and files for juice job")
 		leader.juiceJobCreateTempDirsAndFiles(newJob)
 	}
 
