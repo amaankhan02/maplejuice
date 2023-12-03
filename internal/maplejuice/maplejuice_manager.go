@@ -281,7 +281,7 @@ func (manager *MapleJuiceManager) parseSqlQuery(userInput []string) {
 	// FILTER: SELECT ALL FROM DATASET WHERE <REGEX>
 	// JOIN: SELECT ALL FROM D1, D2 WHERE D1.FIELD = D2.FIELD
 
-	num_data_sets := getNumDatasets(userInput)
+	num_data_sets := GetNumDatasets(userInput)
 	mapleExe, num_maples, sdfs_intermediate_filename_prefix, sdfs_src_directory := getMapleSQLInput(userInput)
 	juiceExe, num_juices, sdfs_intermediate_filename_prefix, sdfs_dest_filename, shouldDeleteInput, partitionScheme := getReduceSQLInput(userInput)
 
@@ -297,9 +297,16 @@ func (manager *MapleJuiceManager) parseSqlQuery(userInput []string) {
 		manager.mapleJuiceNode.SubmitMapleJob(mapleExe, num_maples, sdfs_intermediate_filename_prefix, sdfs_src_directory)
 		manager.mapleJuiceNode.SubmitJuiceJob(juiceExe, num_juices, sdfs_intermediate_filename_prefix, sdfs_dest_filename, shouldDeleteInput, partitionScheme)
 
-		// phase 2 -> dataset 2
+		// phase 2 -> dataset 2 (same just different dataset)
+		manager.mapleJuiceNode.SubmitMapleJob(mapleExe, num_maples, sdfs_intermediate_filename_prefix, sdfs_src_directory)
+		manager.mapleJuiceNode.SubmitJuiceJob(juiceExe, num_juices, sdfs_intermediate_filename_prefix, sdfs_dest_filename, shouldDeleteInput, partitionScheme)
 
 		// phase 3 -> take both datasets and parse
+		mapleExe3, num_maples3, sdfs_intermediate_filename_prefix3, sdfs_src_directory3 := getMapleSQLInputJoinPhase3(userInput)
+		juiceExe3, num_juices3, sdfs_intermediate_filename_prefix3, sdfs_dest_filename3, shouldDeleteInput3, partitionScheme3 := getReduceSQLInputJoinPhase3(userInput)
+
+		manager.mapleJuiceNode.SubmitMapleJob(mapleExe3, num_maples3, sdfs_intermediate_filename_prefix3, sdfs_src_directory3)
+		manager.mapleJuiceNode.SubmitJuiceJob(juiceExe3, num_juices3, sdfs_intermediate_filename_prefix3, sdfs_dest_filename3, shouldDeleteInput3, partitionScheme3)
 
 	} else {
 		//INCORRECT
@@ -366,6 +373,65 @@ func getReduceSQLInput(userInput []string) (MapleJuiceExeFile, int, string, stri
 	return juiceExe, num_juices, sdfs_intermediate_filename_prefix, sdfs_dest_filename, should_delete_input, juicePartitionScheme
 }
 
+// INPUTS 10 - 14
+func getMapleSQLInputJoinPhase3(userInput []string) (MapleJuiceExeFile, int, string, string) {
+	// filename
+	mapleExeFileName := userInput[10]
+	filename := filepath.Join(config.EXE_FILES_FOLDER, mapleExeFileName)
+	mapleExeFilePath, err1 := filepath.Abs(filename)
+	if err1 != nil {
+		log.Fatal("Unable to parse maple_exe name")
+	}
+	mapleExe := MapleJuiceExeFile{
+		ExeFilePath: mapleExeFilePath,
+	}
+
+	// num_maples
+	num_maples, parse_err := strconv.Atoi(userInput[11])
+	if parse_err != nil {
+		log.Fatal("Number of Maples parameter is invalid number!")
+	}
+
+	sdfs_intermediate_filename_prefix := userInput[12]
+
+	sdfs_src_directory := userInput[13]
+
+	return mapleExe, num_maples, sdfs_intermediate_filename_prefix, sdfs_src_directory
+}
+
+// INPUTS 14 - 18
+func getReduceSQLInputJoinPhase3(userInput []string) (MapleJuiceExeFile, int, string, string, bool, JuicePartitionType) {
+	// filename
+	juiceExeFilename := userInput[14]
+	filename := filepath.Join(config.EXE_FILES_FOLDER, juiceExeFilename)
+	juiceExeFilePath, err1 := filepath.Abs(filename)
+	if err1 != nil {
+		log.Fatal("Unable to parse juice_exe name")
+	}
+	juiceExe := MapleJuiceExeFile{
+		ExeFilePath: juiceExeFilePath,
+	}
+
+	num_juices, parse_err := strconv.Atoi(userInput[15])
+	if parse_err != nil {
+		log.Fatal("Number of Maples parameter is invalid number!")
+	}
+
+	sdfs_intermediate_filename_prefix := userInput[16]
+
+	sdfs_dest_filename := userInput[17]
+
+	should_delete_input, string_to_bool_err := stringToBool(userInput[18])
+
+	if string_to_bool_err != nil {
+		log.Fatal("Error converting string to bool")
+	}
+
+	juicePartitionScheme := HASH_PARTITIONING
+
+	return juiceExe, num_juices, sdfs_intermediate_filename_prefix, sdfs_dest_filename, should_delete_input, juicePartitionScheme
+}
+
 func stringToBool(s string) (bool, error) {
 	lowercase := strings.ToLower(s)
 	switch lowercase {
@@ -378,7 +444,7 @@ func stringToBool(s string) (bool, error) {
 	}
 }
 
-func getNumDatasets(userInput []string) int {
+func GetNumDatasets(userInput []string) int {
 	num_data_sets := 0
 	start_counting := false
 
