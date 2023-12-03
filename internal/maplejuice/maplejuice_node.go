@@ -238,7 +238,7 @@ func (this *MapleJuiceNode) SubmitMapleJob(maple_exe MapleJuiceExeFile, num_mapl
 		ClientId:                       this.id,
 		ClientJobId:                    clientJob.ClientJobId,
 	}
-	leaderConn, err := net.Dial("tcp", this.leaderID.IpAddress+":"+this.leaderID.SDFSServerPort)
+	leaderConn, err := net.Dial("tcp", this.leaderID.IpAddress+":"+this.leaderID.MapleJuiceServerPort)
 	if err != nil {
 		fmt.Println("Failed to Dial to leader server. Unable to submit job request. Error: ", err)
 		return
@@ -276,7 +276,7 @@ func (this *MapleJuiceNode) SubmitJuiceJob(juice_exe MapleJuiceExeFile, num_juic
 		ClientJobId:                    clientJob.ClientJobId,
 	}
 
-	leaderConn, err := net.Dial("tcp", this.leaderID.IpAddress+":"+this.leaderID.SDFSServerPort)
+	leaderConn, err := net.Dial("tcp", this.leaderID.IpAddress+":"+this.leaderID.MapleJuiceServerPort)
 	if err != nil {
 		fmt.Println("Failed to Dial to leader server. Error: ", err)
 		return
