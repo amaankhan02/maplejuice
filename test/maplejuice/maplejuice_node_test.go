@@ -4,6 +4,8 @@ import (
 	"cs425_mp4/internal/maplejuice"
 	"cs425_mp4/internal/utils"
 	"fmt"
+	"path/filepath"
+	"sync"
 	"testing"
 )
 
@@ -78,12 +80,50 @@ func TestNewExecuteMapleExePrintToFile(t *testing.T) {
 
 func TestNewExecuteJuiceExeOnKey(t *testing.T) {
 	mjn := maplejuice.MapleJuiceNode{}
-	juiceExe := maplejuice.MapleJuiceExeFile{ExeFilePath: ""}
-	inputFilePath := ""
+	exeFilePath, _ := filepath.Abs("..\\..\\juice_word_count.exe")
+	juiceExe := maplejuice.MapleJuiceExeFile{
+		ExeFilePath: exeFilePath,
+	}
+	inputFilePath := "C:\\Users\\amaan\\Dev\\cs425\\cs425_mp4\\test\\test_files\\maplejuice_node_tests\\juice_exe_word_count_input_test.txt"
+	fmt.Println("inputFilePath: ", inputFilePath)
 	juiceOutChan := make(chan string, 1)
-	mjn.NewExecuteJuiceExeOnKey(juiceExe, inputFilePath, juiceOutChan)
+	mjn.ExecuteJuiceExeOnKey(juiceExe, inputFilePath, juiceOutChan)
 
 	outKV := <-juiceOutChan
 	close(juiceOutChan)
 	fmt.Println("outKV: ", outKV)
+}
+
+func TestExecuteJuiceExeInParallel(t *testing.T) {
+	mjn := maplejuice.MapleJuiceNode{}
+	exeFilePath, _ := filepath.Abs("..\\..\\juice_word_count.exe")
+	juiceExe := maplejuice.MapleJuiceExeFile{
+		ExeFilePath: exeFilePath,
+	}
+	inputFilePath := "C:\\Users\\amaan\\Dev\\cs425\\cs425_mp4\\test\\test_files\\maplejuice_node_tests\\juice_exe_word_count_input_test.txt"
+	fmt.Println("inputFilePath: ", inputFilePath)
+
+	var wg sync.WaitGroup
+	juiceExeOutputsChan := make(chan string, 3) // buffered channel so that we don't block on the go routines
+
+	// start a goroutine to execute each juice exe
+	for i := 0; i < 3; i++ {
+		go func(idx int) {
+			wg.Add(1)
+			mjn.ExecuteJuiceExeOnKey(juiceExe, inputFilePath, juiceExeOutputsChan)
+			wg.Done()
+		}(i)
+		// each task will generate just one key-value pair, which will be returned on the channel
+	}
+
+	// close the channel once all goroutines have finished - do it in separate goroutine so that we don't block
+	go func() {
+		wg.Wait()
+		// we must close otherwise the for-loop below where we read from the channel will block forever cuz it will read as long as the channel is open
+		close(juiceExeOutputsChan)
+	}()
+
+	for result := range juiceExeOutputsChan {
+		fmt.Print(result)
+	}
 }

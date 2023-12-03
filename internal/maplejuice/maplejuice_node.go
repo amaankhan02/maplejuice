@@ -7,7 +7,6 @@ import (
 	"cs425_mp4/internal/tcp_net"
 	"cs425_mp4/internal/utils"
 	"fmt"
-	"io"
 	"log"
 	"net"
 	"os"
@@ -350,7 +349,7 @@ func (this *MapleJuiceNode) executeJuiceTask(juiceExe MapleJuiceExeFile, sdfsInt
 	for i, _ := range assignedKeys {
 		go func(idx int) {
 			wg.Add(1)
-			this.executeJuiceExeOnKey(juiceExe.ExeFilePath, localInputFilenames[idx], juiceExeOutputsChan)
+			this.ExecuteJuiceExeOnKey(juiceExe, localInputFilenames[idx], juiceExeOutputsChan)
 			wg.Done()
 		}(i)
 		// each task will generate just one key-value pair, which will be returned on the channel
@@ -364,7 +363,10 @@ func (this *MapleJuiceNode) executeJuiceTask(juiceExe MapleJuiceExeFile, sdfsInt
 	}()
 
 	for result := range juiceExeOutputsChan {
-		juiceTaskOutputFile.WriteString(result) // TODO: ensure that the result has the \n char at the end
+		_, writeStringErr := juiceTaskOutputFile.WriteString(result)
+		if writeStringErr != nil {
+			log.Fatalln("Failed to write output of channel to juiceTaskOutputFile. Error: ", writeStringErr)
+		}
 	}
 
 	_ = juiceTaskOutputFile.Close() // close file since we are done writing to it.
@@ -393,61 +395,61 @@ Parameters:
 
 TODO: must test this function
 */
-func (this *MapleJuiceNode) executeJuiceExeOnKey(juice_exe string, inputFilepath string, outputChan chan string) {
-	cmd := exec.Command(juice_exe)
-
-	stdin_pipe, in_pipe_err := cmd.StdinPipe()
-	if in_pipe_err != nil {
-		panic(in_pipe_err)
-	}
-	stdout_pipe, out_pipe_err := cmd.StdoutPipe()
-	if out_pipe_err != nil {
-		panic(out_pipe_err)
-	}
-
-	// start command but don't block
-	if start_err := cmd.Start(); start_err != nil {
-		panic(start_err)
-	}
-
-	// read from input file, and write line by line to stdin pipe
-	inputFile, open_input_err := os.OpenFile(inputFilepath, os.O_RDONLY, 0744)
-	if open_input_err != nil {
-		log.Fatalln("Failed to open input file")
-	}
-
-	inputFileScanner := bufio.NewScanner(inputFile)
-	stdinInPipeWriter := bufio.NewWriter(stdin_pipe)
-	for inputFileScanner.Scan() {
-		line := inputFileScanner.Text() + "\n" // Scan() does not contain the new line character
-		_, write_err := stdinInPipeWriter.WriteString(line)
-		if write_err != nil {
-			panic(write_err)
-		}
-	}
-	_ = stdinInPipeWriter.Flush() // make sure everything was written to it
-	if in_pipe_close_err := stdin_pipe.Close(); in_pipe_close_err != nil {
-		panic(in_pipe_close_err)
-	}
-
-	// read stdout
-	stdout_bytes, read_stdout_err := io.ReadAll(stdout_pipe)
-	if read_stdout_err != nil {
-		panic(read_stdout_err)
-	}
-
-	// wait for program to finish
-	if wait_err := cmd.Wait(); wait_err != nil {
-		panic(wait_err)
-	}
-
-	// write stdout to channel
-	stdout_string := string(stdout_bytes) // TODO: test if this has the \n char in it or not
-	if stdout_string[len(stdout_string)-1] != '\n' {
-		stdout_string += "\n"
-	}
-	outputChan <- string(stdout_bytes)
-}
+//func (this *MapleJuiceNode) executeJuiceExeOnKey(juice_exe string, inputFilepath string, outputChan chan string) {
+//	cmd := exec.Command(juice_exe)
+//
+//	stdin_pipe, in_pipe_err := cmd.StdinPipe()
+//	if in_pipe_err != nil {
+//		panic(in_pipe_err)
+//	}
+//	stdout_pipe, out_pipe_err := cmd.StdoutPipe()
+//	if out_pipe_err != nil {
+//		panic(out_pipe_err)
+//	}
+//
+//	// start command but don't block
+//	if start_err := cmd.Start(); start_err != nil {
+//		panic(start_err)
+//	}
+//
+//	// read from input file, and write line by line to stdin pipe
+//	inputFile, open_input_err := os.OpenFile(inputFilepath, os.O_RDONLY, 0744)
+//	if open_input_err != nil {
+//		log.Fatalln("Failed to open input file")
+//	}
+//
+//	inputFileScanner := bufio.NewScanner(inputFile)
+//	stdinInPipeWriter := bufio.NewWriter(stdin_pipe)
+//	for inputFileScanner.Scan() {
+//		line := inputFileScanner.Text() + "\n" // Scan() does not contain the new line character
+//		_, write_err := stdinInPipeWriter.WriteString(line)
+//		if write_err != nil {
+//			panic(write_err)
+//		}
+//	}
+//	_ = stdinInPipeWriter.Flush() // make sure everything was written to it
+//	if in_pipe_close_err := stdin_pipe.Close(); in_pipe_close_err != nil {
+//		panic(in_pipe_close_err)
+//	}
+//
+//	// read stdout
+//	stdout_bytes, read_stdout_err := io.ReadAll(stdout_pipe)
+//	if read_stdout_err != nil {
+//		panic(read_stdout_err)
+//	}
+//
+//	// wait for program to finish
+//	if wait_err := cmd.Wait(); wait_err != nil {
+//		panic(wait_err)
+//	}
+//
+//	// write stdout to channel
+//	stdout_string := string(stdout_bytes) // TODO: test if this has the \n char in it or not
+//	if stdout_string[len(stdout_string)-1] != '\n' {
+//		stdout_string += "\n"
+//	}
+//	outputChan <- string(stdout_bytes)
+//}
 
 func (this *MapleJuiceNode) createSdfsFilenamesFromIntermediateAndKeys(sdfsIntermediateFilenamePrefix string, assignedKeys []string) []string {
 	sdfsFilenames := make([]string, 0)
@@ -765,7 +767,7 @@ func (this *MapleJuiceNode) ExecuteMapleExe(mapleExe MapleJuiceExeFile,
 	}
 }
 
-func (this *MapleJuiceNode) NewExecuteJuiceExeOnKey(juiceExe MapleJuiceExeFile,
+func (this *MapleJuiceNode) ExecuteJuiceExeOnKey(juiceExe MapleJuiceExeFile,
 	inputFilePath string,
 	outputChan chan string,
 ) {
@@ -774,7 +776,7 @@ func (this *MapleJuiceNode) NewExecuteJuiceExeOnKey(juiceExe MapleJuiceExeFile,
 	cmd.Stdout = &stdoutBuffer
 
 	if err := cmd.Run(); err != nil {
-		log.Fatalln("Error! Failed to execute maple_exe OR exit code != 0. Error: ", err)
+		log.Fatalln("Error! Failed to execute juice_exe OR exit code != 0. Error: ", err)
 	}
 	outputChan <- stdoutBuffer.String()
 }

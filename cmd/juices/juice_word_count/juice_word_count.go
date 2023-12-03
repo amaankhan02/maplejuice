@@ -56,13 +56,18 @@ func getArgs() *os.File {
 	inputFilepath := os.Args[1]
 	inputFile, fileErr := os.OpenFile(inputFilepath, os.O_RDONLY, 0744)
 	if fileErr != nil {
-		log.Fatalln("Failed to open input file")
+		os.Exit(3)
+		//log.Fatalln("Failed to open input file")
 	}
 	return inputFile
 }
 
 func main() {
 	inputFile := getArgs()
+	defer inputFile.Close()
+	//inputFilepath := os.Args[1]
+	//fmt.Println(inputFilepath)
+
 	wordToWordCount := JuiceWordCount(bufio.NewScanner(inputFile))
 	PrintKeyValuePairs(wordToWordCount)
 }
