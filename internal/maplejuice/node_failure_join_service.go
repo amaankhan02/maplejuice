@@ -346,15 +346,12 @@ func (this *NodeFailureJoinService) heartbeatScheduler() {
 	this.nodeWaitGroup.Add(1)
 	defer this.nodeWaitGroup.Done()
 
-	fmt.Println("INSIDE HEARTBEAT SCHEDULER")
 	for this.IsActive {
-		fmt.Println("INSIDE FOR LOOP FOR HB SCHEDULER")
 		this.MemListMutexLock.Lock()
 		startTime := time.Now().UnixNano()
 		var wg sync.WaitGroup
 		this.MembershipList.IncrementHeartbeatCount(&this.Id) // increment hb count of own node
 		targets := this.MembershipList.ChooseRandomTargets(this.Fanout, this.Id)
-		fmt.Println("Len(targets): ", len(targets))
 
 		for _, targetId := range targets {
 			wg.Add(1)

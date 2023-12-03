@@ -62,12 +62,16 @@ func NewMapleJuiceManager(
 	manager := &MapleJuiceManager{}
 	localNodeId, introducerLeaderId, isIntroducerLeader := manager.createLocalAndLeaderNodeID(introducerLeaderVmNum)
 	
-	fmt.Println("localNodeID: ", localNodeId.ToStringForGossipLogger())
-	// fmt.Println("introducerID: ", introducerLeaderId.ToStringForGossipLogger())
-	fmt.Println("isIntroducer: ", isIntroducerLeader)
-
+	
+	sdfsNode := NewSDFSNode(
+		*localNodeId,
+		*introducerLeaderId,
+		isIntroducerLeader,
+		logFile,
+		sdfsRootDir,
+	)
 	failureJoinService := NewNodeFailureJoinService(
-		manager.id,
+		*localNodeId,
 		gossipFanout,
 		isIntroducerLeader,
 		*introducerLeaderId,
@@ -78,16 +82,8 @@ func NewMapleJuiceManager(
 		tGossip,
 		manager,
 	)
-	
-	sdfsNode := NewSDFSNode(
-		manager.id,
-		*introducerLeaderId,
-		isIntroducerLeader,
-		logFile,
-		sdfsRootDir,
-	)
 	mjNode := NewMapleJuiceNode(
-		manager.id,
+		*localNodeId,
 		*introducerLeaderId,
 		logFile,
 		sdfsNode,
@@ -111,8 +107,8 @@ func (manager *MapleJuiceManager) Start() {
 	_ = os.RemoveAll(manager.sdfsNode.sdfsDir + "/") // remove and clear the directory if it already exists
 	_ = os.Mkdir(manager.sdfsNode.sdfsDir, 0755)
 
-	manager.failureJoinService.JoinGroup()
 	manager.sdfsNode.Start()
+	manager.failureJoinService.JoinGroup()
 	manager.mapleJuiceNode.Start()
 
 	// LogMembershipList(os.Stdout, manager.failureJoinService.MembershipList)
@@ -276,7 +272,6 @@ func (manager *MapleJuiceManager) HandleNodeFailure(info FailureDetectionInfo) {
 
 func (manager *MapleJuiceManager) HandleNodeJoin(info NodeJoinInfo) {
 	// if a node joined our membership list, i need to reflect that in leaderService.AvailableWorkerNodes
-	fmt.Println("NODE JOIN HANDLER CALLED")
 
 	if manager.sdfsNode.isLeader {
 		manager.sdfsNode.leaderService.AddNewActiveNode(info.JoinedNodeId)
