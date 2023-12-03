@@ -62,6 +62,10 @@ func NewMapleJuiceManager(
 	manager := &MapleJuiceManager{}
 	localNodeId, introducerLeaderId, isIntroducerLeader := manager.createLocalAndLeaderNodeID(introducerLeaderVmNum)
 	
+	fmt.Println("localNodeID: ", localNodeId.ToStringForGossipLogger())
+	// fmt.Println("introducerID: ", introducerLeaderId.ToStringForGossipLogger())
+	fmt.Println("isIntroducer: ", isIntroducerLeader)
+
 	failureJoinService := NewNodeFailureJoinService(
 		manager.id,
 		gossipFanout,
@@ -74,6 +78,7 @@ func NewMapleJuiceManager(
 		tGossip,
 		manager,
 	)
+	
 	sdfsNode := NewSDFSNode(
 		manager.id,
 		*introducerLeaderId,
@@ -109,6 +114,8 @@ func (manager *MapleJuiceManager) Start() {
 	manager.failureJoinService.JoinGroup()
 	manager.sdfsNode.Start()
 	manager.mapleJuiceNode.Start()
+
+	// LogMembershipList(os.Stdout, manager.failureJoinService.MembershipList)
 
 	manager.startUserInputLoop()
 }

@@ -261,6 +261,7 @@ func (this *NodeFailureJoinService) serve() {
 	buffer := make([]byte, BUFFER_SIZE) // TODO: figure out a good value for BUFFER_SIZE
 
 	for this.IsActive {
+		fmt.Println("INSIDE THE SERVE FOR LOOP")
 		n, _, err := this.ServerConn.ReadFrom(buffer) // _ is the addr
 		if err != nil {
 			_, _ = fmt.Fprintln(os.Stderr, "Error reading from UDP: ", err)
