@@ -180,6 +180,7 @@ func (leader *MapleJuiceLeaderService) SubmitMapleJob(mapleExe MapleJuiceExeFile
 		sdfsIntermediateFilenames:      make(datastructures.HashSet[string]),
 		clientJobId:                    clientJobId,
 		clientId:                       clientId,
+		keys:                           make(datastructures.HashSet[string]),
 	}
 
 	fmt.Println("Adding maple job to queue in leader!")
@@ -207,6 +208,7 @@ func (leader *MapleJuiceLeaderService) SubmitJuiceJob(juice_exe MapleJuiceExeFil
 		sdfsIntermediateFilenames:      make(datastructures.HashSet[string]),
 		clientJobId:                    clientJobId,
 		clientId:                       clientId,
+		keys:                           make(datastructures.HashSet[string]),
 	}
 	leader.waitQueue = append(leader.waitQueue, &job)
 	leader.jobsSubmitted++
