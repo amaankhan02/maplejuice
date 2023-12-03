@@ -6,6 +6,7 @@ import (
 	"os"
 	"strings"
 	"time"
+	"strconv"
 )
 
 const MAPLE_JUICE_LEADER_DISPATCHER_WAIT_TIME = 500 * time.Millisecond
@@ -61,8 +62,7 @@ func NewMapleJuiceManager(
 	const GOSSIP_TEST_MSG_DROP_RATE = 0
 	manager := &MapleJuiceManager{}
 	localNodeId, introducerLeaderId, isIntroducerLeader := manager.createLocalAndLeaderNodeID(introducerLeaderVmNum)
-	
-	
+
 	sdfsNode := NewSDFSNode(
 		*localNodeId,
 		*introducerLeaderId,
@@ -262,8 +262,25 @@ func (manager *MapleJuiceManager) executeUserInput(userInput []string) bool {
 			return false
 		}
 		manager.sdfsNode.PerformDelete(userInput[1])
+	case "maple":
+		manager.parseAndExecuteMapleInput(userInput)
 	}
 	return false
+}
+
+func (manager *MapleJuiceManager) parseAndExecuteMapleInput(userInput []string) {
+	mapleExe := MapleJuiceExeFile{
+		ExeFilePath: userInput[1],
+	}
+	numMaples, parse_err := strconv.Atoi(userInput[2])
+	if parse_err != nil {
+		fmt.Println("Number of Maples parameter is invalid number!")
+		return
+	}
+	sdfsIntermediateFilenamePrefix := userInput[3]
+	sdfsSrcDirectory := userInput[4]
+
+	manager.mapleJuiceNode.SubmitMapleJob(mapleExe, numMaples, sdfsIntermediateFilenamePrefix, sdfsSrcDirectory)
 }
 
 func (manager *MapleJuiceManager) HandleNodeFailure(info FailureDetectionInfo) {
