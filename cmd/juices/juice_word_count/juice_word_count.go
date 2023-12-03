@@ -2,7 +2,7 @@ package main
 
 import (
 	"bufio"
-	"fmt"
+	"cs425_mp4/internal/maplejuice_exe"
 	"log"
 	"os"
 	"strconv"
@@ -45,13 +45,6 @@ func JuiceWordCount(scanner *bufio.Scanner) map[string]int {
 	return word_to_word_count
 }
 
-func PrintKeyValuePairs(kv_pairs map[string]int) {
-	// print out all key, val pairs
-	for key, val := range kv_pairs {
-		fmt.Printf("%s,%d\n", key, val)
-	}
-}
-
 func getArgs() *os.File {
 	inputFilepath := os.Args[1]
 	inputFile, fileErr := os.OpenFile(inputFilepath, os.O_RDONLY, 0744)
@@ -69,5 +62,5 @@ func main() {
 	//fmt.Println(inputFilepath)
 
 	wordToWordCount := JuiceWordCount(bufio.NewScanner(inputFile))
-	PrintKeyValuePairs(wordToWordCount)
+	maplejuice_exe.PrintKeyValuePairs(wordToWordCount)
 }

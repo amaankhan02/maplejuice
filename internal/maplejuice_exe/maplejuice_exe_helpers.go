@@ -68,3 +68,10 @@ func MoveFilePointerToLineNumber(fileScanner *bufio.Scanner, startingLine int) {
 		}
 	}
 }
+
+func PrintKeyValuePairs(kv_pairs map[string]int) {
+	// print out all key, val pairs
+	for key, val := range kv_pairs {
+		fmt.Printf("%s,%d\n", key, val)
+	}
+}

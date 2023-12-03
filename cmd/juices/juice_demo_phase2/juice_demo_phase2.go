@@ -1,4 +1,4 @@
-package juice_demo_phase2
+package main
 
 import (
 	"bufio"
