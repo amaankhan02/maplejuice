@@ -495,7 +495,7 @@ func (this *SDFSNode) clientHandleReceiveGetInfoResponse(leaderConn1 net.Conn, l
 		ack:           *ack_response,
 		elapsedTimeMs: (time.Now().UnixNano() - ack_response.StartTime) / 1000000,
 	}
-	this.printAck(&localAck)
+	this.printAck(&localAck, false)
 	this.addAcknowledgement(&localAck)
 
 	// check if this was a blocking get operation - if so, then call wg.Done() to indicate it's done
@@ -511,10 +511,14 @@ func (this *SDFSNode) clientHandleReceiveGetInfoResponse(leaderConn1 net.Conn, l
 
 }
 
-func (this *SDFSNode) printAck(localAck *LocalAck) {
+func (this *SDFSNode) printAck(localAck *LocalAck, printToStdout bool) {
 	msg := fmt.Sprintf("Received ACK for Completed Task:\n%s\n%s\nElapsed Time (ms): %d\n",
 		localAck.ack.Message, localAck.ack.AdditionalInfo, localAck.elapsedTimeMs)
-	fmt.Println(msg)
+	if printToStdout {
+		fmt.Println(msg)
+	} else {
+		_, _ = fmt.Fprintln(this.logFile, msg)
+	}
 }
 
 func (this *SDFSNode) addAcknowledgement(localAck *LocalAck) {
@@ -528,7 +532,7 @@ func (this *SDFSNode) PerformAcknowledgementsPrint() {
 	fmt.Println("Printing all Acknowledgements")
 	for i, ack := range this.clientAcks {
 		fmt.Printf("%d) ", i+1)
-		this.printAck(&ack)
+		this.printAck(&ack, true)
 	}
 	this.ackMutex.Unlock()
 }
@@ -575,7 +579,7 @@ func (this *SDFSNode) clientHandleReceivePutInfoResponse(leaderConn1 net.Conn, l
 		elapsedTimeMs: (time.Now().UnixNano() - leader_ack.StartTime) / 1000000,
 	}
 
-	this.printAck(&localAck)
+	this.printAck(&localAck, false)
 	this.addAcknowledgement(&localAck)
 
 	// check if this was a blocking get operation - if so, then call wg.Done() to indicate it's done
@@ -628,7 +632,7 @@ func (this *SDFSNode) clientHandleReceiveDeleteInfoResponse(leaderConn1 net.Conn
 		elapsedTimeMs: (time.Now().UnixNano() - leader_ack.StartTime) / 1000000,
 	}
 
-	this.printAck(&localAck)
+	this.printAck(&localAck, false)
 	this.addAcknowledgement(&localAck)
 
 	errL := leaderConn2.Close()
