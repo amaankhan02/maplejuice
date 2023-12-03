@@ -18,13 +18,11 @@ func TestCreateTempDirsAndFilesForMapleTask(t *testing.T) {
 }
 
 func TestDeleteTempDirsAndFilesForMapleTask(t *testing.T) {
-	utils.DeleteDirAndAllContents("mapletask-1-1-some_prefix_")
+	err := utils.DeleteDirAndAllContents("mapletask-1-1-some_prefix_")
+	if err != nil {
+		t.Errorf("Error deleting dir: %s", err)
+	}
 }
-
-func TestCalculateStartAndEndLinesForTask(t *testing.T) {
-
-}
-
 func TestExecuteMapleExe(t *testing.T) {
 	//mjn := maplejuice.MapleJuiceNode{}
 	//mapleExeFilepath, filepath_err := filepath.Abs("..\\..\\maple_word_count.exe")
