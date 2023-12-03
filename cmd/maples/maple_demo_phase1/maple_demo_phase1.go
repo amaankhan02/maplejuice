@@ -2,24 +2,20 @@ package main
 
 import (
 	"bufio"
-	mj "cs425_mp4/internal/maplejuice_exe"
+	"cs425_mp4/internal/maplejuice_exe"
 	"fmt"
-	"os"
-	"strconv"
 	"strings"
 )
 
-// TODO: need to see how to parse the empty cells in CSV file, right now replacing with ""
-func MapleDemoPhase1(scanner *bufio.Scanner, num_lines int, X string, schema string) map[string]int {
+func MapleDemoPhase1(scanner *bufio.Scanner, num_lines int, starting_line int, X string) map[string]int {
 	// create map for each word -> word_count
+
+	// startingLine is 1-indexed. Move file pointer to startingLine
+	maplejuice_exe.MoveFilePointerToLineNumber(scanner, starting_line)
+
 	detection_val_to_count := make(map[string]int)
-
-	columnInterconne := "Interconne" // looking for this column
-	columnDetection := "Detection_"
-
-	// define schema
-	column_index_interconne := mj.GetColumnIndex(schema, columnInterconne)
-	column_index_detection := mj.GetColumnIndex(schema, columnDetection)
+	column_index_interconne := 10
+	column_index_detection := 9
 
 	// loop through all lines from stdin
 	for i := 0; i < num_lines && scanner.Scan(); i++ {
@@ -46,21 +42,6 @@ func MapleDemoPhase1(scanner *bufio.Scanner, num_lines int, X string, schema str
 	return detection_val_to_count
 }
 
-// TODO: adjust arg values
-func getArgs() (int, string, string) {
-	// get the command line arg which tells you the number of lines
-	num_lines_string := os.Args[1]
-	num_lines, _ := strconv.Atoi(num_lines_string) // Convert the argument to an integer
-
-	// get X value which is val in "Interconne" to search for
-	X := os.Args[2]
-
-	// get the schema
-	schema := os.Args[3]
-
-	return num_lines, X, schema
-}
-
 func PrintKeyValuePairs(kv_pairs map[string]int) {
 	// print out all key, val pairs
 	for key, val := range kv_pairs {
@@ -70,7 +51,9 @@ func PrintKeyValuePairs(kv_pairs map[string]int) {
 
 // actual executable
 func main() {
-	num_lines, X, schema := getArgs()
-	detection_val_to_count := MapleDemoPhase1(bufio.NewScanner(os.Stdin), num_lines, X, schema)
+	inputFile, starting_line, num_lines, X := maplejuice_exe.GetArgsMaple()
+	defer inputFile.Close()
+
+	detection_val_to_count := MapleDemoPhase1(bufio.NewScanner(inputFile), num_lines, starting_line, X)
 	PrintKeyValuePairs(detection_val_to_count)
 }

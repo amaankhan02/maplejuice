@@ -3,11 +3,10 @@ package test
 //
 //import (
 //	"bufio"
-//
-//	juice_exe "cs425_mp4/cmd/juices/juice_demo_phase2"
-//	maples_exe_word_count "cs425_mp4/cmd/maple_word_count"
-//
-//	_ "cs425_mp4/cmd/maples/maple_demo_phase2"
+//	"cs425_mp4/cmd/juices/juice_demo_phase1"
+//	"cs425_mp4/cmd/juices/juice_demo_phase2"
+//	"cs425_mp4/cmd/maples/maple_demo_phase1"
+//	"cs425_mp4/cmd/maples/maple_demo_phase2"
 //	"fmt"
 //	"os"
 //	"testing"
@@ -25,9 +24,8 @@ package test
 //	// Create a scanner to read the file line by line
 //	filescanner := bufio.NewScanner(file)
 //	X := "Fiber"
-//	schema := "X,Y,OBJECTID,Intersecti,UPS,Coord_Type,CNTRL_Seri,CNTRL_Mode,Number_of_,Detection_,Interconne,Percent_St,Year_Timed,LED_Status,CNTRL_Vers,Cabinet_Ty,CNTRL_Note,Install_Da,Black_Hard,Year_Paint,Countdown_,All_Red_Fl,Condition,ConditionDate,InstallDate,WarrantyDate,LegacyID,FACILITYID,Ownership,OwnershipPercent,LED_Installed_Year,Controller_ID,Notes,RepairYear,FieldVerifiedDate"
 //
-//	result := maple_demo_phase1.MapleDemoPhase1(filescanner, num_lines, X, schema)
+//	result := maple_demo_phase1.MapleDemoPhase1(filescanner, num_lines, X)
 //	maple_demo_phase1.PrintKeyValuePairs(result)
 //}
 //
@@ -43,7 +41,7 @@ package test
 //	filescanner := bufio.NewScanner(file)
 //	result := juice_demo_phase1.JuiceDemoTest1(filescanner)
 //
-//	maples_exe_word_count.PrintKeyValuePairs(result)
+//	juice_demo_phase1.PrintKeyValuePairs(result)
 //}
 //
 //func TestMapleDemoPhase2(t *testing.T) {
@@ -58,8 +56,7 @@ package test
 //	// Create a scanner to read the file line by line
 //	filescanner := bufio.NewScanner(file)
 //
-//	result := MapleDemoPhase2(filescanner, num_lines)
-//	maple_demo_phase2.PrintKeyValuePairs(result)
+//	maple_demo_phase2.MapleDemoPhase2(filescanner, num_lines)
 //}
 //
 //func TestJuiceDemoPhase2(t *testing.T) {
@@ -72,7 +69,5 @@ package test
 //
 //	// Create a scanner to read the file line by line
 //	filescanner := bufio.NewScanner(file)
-//	_ = juice_exe.JuicePhase2(filescanner)
-//
-//	//maple_demo_phase2.PrintKeyValuePairs(result)
+//	juice_demo_phase2.JuicePhase2(filescanner)
 //}
