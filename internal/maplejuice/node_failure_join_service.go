@@ -254,14 +254,12 @@ func (this *NodeFailureJoinService) periodicChecks() {
 
 // handles incoming messages to server. UDP Server
 func (this *NodeFailureJoinService) serve() {
-	fmt.Println("INSIDE SERVE()")
 	this.nodeWaitGroup.Add(1)
 	defer this.nodeWaitGroup.Done()
 
 	buffer := make([]byte, BUFFER_SIZE) // TODO: figure out a good value for BUFFER_SIZE
 
 	for this.IsActive {
-		fmt.Println("INSIDE THE SERVE FOR LOOP")
 		n, _, err := this.ServerConn.ReadFrom(buffer) // _ is the addr
 		if err != nil {
 			_, _ = fmt.Fprintln(os.Stderr, "Error reading from UDP: ", err)
@@ -333,7 +331,6 @@ Handles the received client message
 TODO: figure out what the actual function parameters for this should be later
 */
 func (this *NodeFailureJoinService) handleClientMessage(recvMembList *MembershipList) {
-	fmt.Println("INSIDE HANDLE CLIENT MESSAGE")
 	this.MemListMutexLock.Lock()
 	this.MembershipList.Merge(recvMembList, this.LogFile, this.CurrentGossipMode.Mode) // merge this membership list with the received membership list
 	LogMembershipList(this.LogFile, this.MembershipList)
