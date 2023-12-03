@@ -386,7 +386,7 @@ func (this *MapleJuiceNode) executeJuiceTask(juiceExe MapleJuiceExeFile, sdfsInt
 
 	// close and delete the temporary files & dirs
 	if deleteTmpDirErr := utils.DeleteDirAndAllContents(taskDirPath); deleteTmpDirErr != nil {
-		log.Fatalln("Failed to delete juice task dir path and all its contents. Error: ", deleteTmpDirErr)
+		fmt.Println("Failed to delete juice task dir path and all its contents. Error: ", deleteTmpDirErr)
 	}
 }
 
@@ -547,7 +547,8 @@ func (this *MapleJuiceNode) executeMapleTask(
 
 	// close and delete the temporary files & dirs
 	if deleteTmpDirErr := utils.DeleteDirAndAllContents(mapleTaskDirpath); deleteTmpDirErr != nil {
-		log.Fatalln("Failed to delete maple_task_dirpath and all its contents. Error: ", deleteTmpDirErr)
+		//log.Fatalln("Failed to delete maple_task_dirpath and all its contents. Error: ", deleteTmpDirErr)
+		fmt.Println("Failed to delete maple_task_dirpath and all its contents. Error: ", deleteTmpDirErr)
 	}
 }
 
