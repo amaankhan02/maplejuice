@@ -378,6 +378,11 @@ func (this *MapleJuiceNode) executeJuiceTask(juiceExe MapleJuiceExeFile, sdfsInt
 	}
 	SendJuiceTaskResponse(leaderConn, juiceTaskOutputFile.Name(), assignedKeys) // ? any other information we gotta send back?
 	_ = leaderConn.Close()
+
+	// close and delete the temporary files & dirs
+	if deleteTmpDirErr := utils.DeleteDirAndAllContents(taskDirPath); deleteTmpDirErr != nil {
+		log.Fatalln("Failed to delete juice task dir path and all its contents. Error: ", deleteTmpDirErr)
+	}
 }
 
 /*
