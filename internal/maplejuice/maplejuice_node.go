@@ -489,7 +489,7 @@ func (this *MapleJuiceNode) executeMapleTask(
 
 		// increment currLine by the amount of lines that it read
 		for currLine := startLine; currLine < endLine; currLine += numLinesForExe {
-			numLinesForExe = min(endLine-currLine, int64(config.LINES_PER_MAPLE_EXE))
+			numLinesForExe = getMin(endLine-currLine, int64(config.LINES_PER_MAPLE_EXE))
 			exeArgs := []string{strconv.FormatInt(numLinesForExe, 10), mapleExe.ExeColumnSchema, mapleExe.ExeAdditionalInfo}
 			this.ExecuteMapleExe(mapleExe.ExeFilePath, exeArgs, inputFile, mapleTaskOutputFile, numLinesForExe)
 		}
@@ -511,6 +511,13 @@ func (this *MapleJuiceNode) executeMapleTask(
 	if deleteTmpDirErr := utils.DeleteDirAndAllContents(mapleTaskDirpath); deleteTmpDirErr != nil {
 		log.Fatalln("Failed to delete maple_task_dirpath and all its contents. Error: ", deleteTmpDirErr)
 	}
+}
+
+func getMin(a int64, b int64) int64 {
+	if a < b {
+		return a
+	}
+	return b
 }
 
 /*
