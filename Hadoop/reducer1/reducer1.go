@@ -9,6 +9,7 @@ import (
 )
 
 func Reducer1(scanner *bufio.Scanner) {
+	fmt.Fprintln(os.Stderr, "Inside REDUCER function")
 	detection_to_counts := make(map[string]int)
 	for scanner.Scan() {
 		line := scanner.Text()
@@ -24,6 +25,7 @@ func Reducer1(scanner *bufio.Scanner) {
 
 	// EMIT VALUES
 	for key, val := range detection_to_counts {
+		fmt.Fprintln(os.Stderr, "Debug: Reducer receiving key-value pair:", key, val)
 		fmt.Printf("%s\t%d\n", key, val)
 	}
 }
