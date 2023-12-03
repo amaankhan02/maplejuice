@@ -8,8 +8,8 @@ import (
 	"strings"
 )
 
-func reducer2() {
-	detection_to_count, total := parse()
+func Reducer2(scanner *bufio.Scanner) {
+	detection_to_count, total := parse(scanner)
 
 	for detection, count := range detection_to_count {
 		percentage := (float32(count) / total) * 100.0
@@ -21,9 +21,7 @@ func reducer2() {
 	}
 }
 
-func parse() (map[string]int, float32) {
-	scanner := bufio.NewScanner(os.Stdin)
-
+func parse(scanner *bufio.Scanner) (map[string]int, float32) {
 	total := 0
 
 	detection_to_count := make(map[string]int)
@@ -49,5 +47,6 @@ func parse() (map[string]int, float32) {
 }
 
 func main() {
-	reducer2()
+	scanner := bufio.NewScanner(os.Stdin)
+	Reducer2(scanner)
 }

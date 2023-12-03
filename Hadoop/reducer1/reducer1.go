@@ -8,9 +8,7 @@ import (
 	"strings"
 )
 
-func reducer1() {
-	scanner := bufio.NewScanner(os.Stdin)
-
+func Reducer1(scanner *bufio.Scanner) {
 	detection_to_counts := make(map[string]int)
 	for scanner.Scan() {
 		line := scanner.Text()
@@ -20,13 +18,8 @@ func reducer1() {
 		count_string := fields[1]
 		count, _ := strconv.Atoi(count_string)
 
-		_, exists := detection_to_counts[detection_val]
-
-		if exists {
-			detection_to_counts[detection_val] += count
-		} else {
-			detection_to_counts[detection_val] = count
-		}
+		//TODO: see if we want to exclude the " " & ""
+		detection_to_counts[detection_val] += count
 	}
 
 	// EMIT VALUES
@@ -36,5 +29,6 @@ func reducer1() {
 }
 
 func main() {
-	reducer1()
+	scanner := bufio.NewScanner(os.Stdin)
+	Reducer1(scanner)
 }

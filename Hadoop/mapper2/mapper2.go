@@ -6,10 +6,7 @@ import (
 	"os"
 )
 
-func mapper2() {
-
-	scanner := bufio.NewScanner(os.Stdin)
-
+func Mapper2(scanner *bufio.Scanner) {
 	for scanner.Scan() {
 		line := scanner.Text()
 		fmt.Println("null\t" + line) // already ends with "\n" because line includes that from previous reduce
@@ -17,5 +14,6 @@ func mapper2() {
 }
 
 func main() {
-	mapper2()
+	scanner := bufio.NewScanner(os.Stdin)
+	Mapper2(scanner)
 }
