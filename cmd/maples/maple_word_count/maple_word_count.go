@@ -16,7 +16,6 @@ import (
 func MapleWordCount(scanner *bufio.Scanner, startingLine int, num_lines int) map[string]int {
 	// create map for each word -> word_count
 	word_to_word_count := make(map[string]int)
-	fmt.Println("NUM LINES: ", num_lines)
 	// loop through all lines from stdin
 
 	// startingLine is 1-indexed. Move file pointer to startingLine
