@@ -132,6 +132,7 @@ func (this *MapleJuiceNode) HandleTCPServerConnection(conn net.Conn) {
 		case MAPLE_JOB_REQUEST:
 			_ = conn.Close()
 			alreadyClosedLeaderConn = true
+			this.logBoth("Leader received Maple Job Request\n")
 
 			this.leaderService.SubmitMapleJob(
 				mjNetworkMessage.ExeFile,
@@ -178,6 +179,7 @@ func (this *MapleJuiceNode) HandleTCPServerConnection(conn net.Conn) {
 		case MAPLE_TASK_REQUEST: // must execute some task and send back to leader
 			_ = conn.Close()
 			alreadyClosedLeaderConn = true
+			fmt.Println("Received MAPLE TASK REQUEST")
 			this.executeMapleTask(
 				mjNetworkMessage.NumTasks,
 				mjNetworkMessage.ExeFile,
@@ -243,6 +245,7 @@ func (this *MapleJuiceNode) SubmitMapleJob(maple_exe MapleJuiceExeFile, num_mapl
 	}
 	defer leaderConn.Close()
 
+	this.logBoth("Sending Maple Juice Network message to leader\n")
 	SendMapleJuiceNetworkMessage(leaderConn, mjJob) // submit job to leader
 }
 
@@ -481,6 +484,7 @@ func (this *MapleJuiceNode) executeMapleTask(
 	sdfsSrcDirectory string,
 	taskIndex int,
 ) {
+	fmt.Println("Executing Maple Task request")
 	this.mutex.Lock()
 	this.localWorkerTaskID++
 	localWorkerTaskId := this.localWorkerTaskID
@@ -490,7 +494,9 @@ func (this *MapleJuiceNode) executeMapleTask(
 		this.CreateTempDirsAndFilesForMapleTask(taskIndex, sdfsIntermediateFilenamePrefix, localWorkerTaskId)
 
 	// get the dataset filenames & create corresponding local filenames to save it to
+	fmt.Println("About to send PerformPrefixMatch()")
 	sdfsDatasetFilenames := this.sdfsNode.PerformPrefixMatch(sdfsSrcDirectory + ".")
+	fmt.Println("Finished sending PerformPrefixMatch() & got result")
 	localDatasetFilenames := make([]string, 0)
 	for _, currSdfsDatasetFilename := range sdfsDatasetFilenames {
 		newLocalFilename := filepath.Join(datasetDirpath, fmt.Sprintf(LOCAL_SDFS_DATASET_FILENAME_FMT, currSdfsDatasetFilename))
@@ -498,9 +504,11 @@ func (this *MapleJuiceNode) executeMapleTask(
 	}
 
 	// retrieve the dataset files from distributed file system
+	fmt.Println("Above to send PerformBlockedGets()")
 	if getErr := this.sdfsNode.PerformBlockedGets(sdfsDatasetFilenames, localDatasetFilenames); getErr != nil {
 		log.Fatalln("Error! Could not do PerformBlockedGets(): ", getErr)
 	}
+	fmt.Println("Finished PerformBlockedGets()")
 
 	// for each dataset file, find the portion this task runs on, execute maple exe on it for how many
 	// ever times it needs to finish the entire portion, and output the outputs for maple exe to output_kv_file

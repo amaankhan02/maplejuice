@@ -181,6 +181,7 @@ func (leader *MapleJuiceLeaderService) SubmitMapleJob(mapleExe MapleJuiceExeFile
 		clientJobId:                    clientJobId,
 	}
 
+	fmt.Println("Adding maple job to queue in leader!")
 	leader.waitQueue = append(leader.waitQueue, &job)
 	leader.jobsSubmitted++
 	leader.mutex.Unlock()
@@ -437,6 +438,7 @@ func (leader *MapleJuiceLeaderService) dispatcher() {
 	for leader.IsRunning {
 		leader.mutex.Lock()
 		if leader.currentJob == nil && len(leader.waitQueue) > 0 {
+			fmt.Println("Going to start job!")
 			// schedule a new one
 			leader.currentJob = leader.waitQueue[0]
 			leader.waitQueue = leader.waitQueue[1:]
@@ -456,6 +458,7 @@ and sending them task requests to have them begin their work
 func (leader *MapleJuiceLeaderService) startJob(newJob *LeaderMapleJuiceJob) {
 	leader.shuffleAvailableWorkerNodes() // randomize selection of worker nodes each time
 	if newJob.jobType == MAPLE_JOB {
+		fmt.Println("Starting maple job")
 		leader.mapleAssignTaskIndicesToWorkerNodes(newJob)
 		leader.sendMapleTasksToWorkerNodes(newJob)
 	} else { // JUICE_JOB
@@ -586,6 +589,7 @@ func (leader *MapleJuiceLeaderService) sendMapleTasksToWorkerNodes(job *LeaderMa
 		}
 
 		for _, taskIndex := range taskIndices {
+			fmt.Println("Sending maple task request to worker node!")
 			SendMapleTaskRequest(
 				workerConn,
 				job.numTasks,
