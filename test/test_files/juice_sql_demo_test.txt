@@ -1,1 +1,2 @@
--88.2811473784593,40.1591448735627,112,LEGACY/OLYMPIAN,None,,,,,Video,None,,,,,,,,,,Yes,,,,,,,1,,,,,,,,
+null,[(-88.2386887654473,40.1163263757893,156,FIRST/UNIVERSITY,None,,,,,Video,Radio,,,,,,,,,,No,,,,,,,45,,,,,,,) (-88.2336101402336,40.1163808945166,157,FOURTH/UNIVERSITY,Alpha FXM 1100,,,,,Video,Radio,,,,,,,,,,Yes,,,,,,,46,,,,,,,)]
+null,[(-88.2386887654473,40.1163263757893,156,FIRST/UNIVERSITY,None,,,,,Video,Radio,,,,,,,,,,No,,,,,,,45,,,,,,,) (-88.2336101402336,40.1163808945166,157,FOURTH/UNIVERSITY,Alpha FXM 1100,,,,,Video,Radio,,,,,,,,,,Yes,,,,,,,46,,,,,,,)]

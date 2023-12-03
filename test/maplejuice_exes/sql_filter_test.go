@@ -29,7 +29,7 @@ func TestMapleSQLFilter(t *testing.T) {
 }
 
 func TestMapleSQLFilterTrafficData1(t *testing.T) {
-	num_lines := 121
+	num_lines := 61
 	file_path := "C:\\Users\\samaa\\Documents\\2023-2024\\DistributedSystems\\MP4\\cs425_mp4\\test\\test_files\\Traffic_Signal_Intersections.csv"
 	file, err := os.Open(file_path)
 	if err != nil {
@@ -101,9 +101,7 @@ func TestJuiceSQLFilter(t *testing.T) {
 
 	// Create a scanner to read the file line by line
 	filescanner := bufio.NewScanner(file)
-	matched_lines := juice_exe_sql.JuiceSQL(filescanner)
-
-	juice_exe_sql.PrintSliceString(matched_lines)
+	juice_exe_sql.JuiceSQL(filescanner)
 }
 
 func TestJuiceSQLFilterDemo(t *testing.T) {
@@ -116,7 +114,5 @@ func TestJuiceSQLFilterDemo(t *testing.T) {
 
 	// Create a scanner to read the file line by line
 	filescanner := bufio.NewScanner(file)
-	matched_lines := juice_exe_sql.JuiceSQL(filescanner)
-
-	juice_exe_sql.PrintSliceString(matched_lines)
+	juice_exe_sql.JuiceSQL(filescanner)
 }

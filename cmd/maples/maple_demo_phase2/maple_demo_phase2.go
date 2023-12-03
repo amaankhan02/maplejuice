@@ -8,18 +8,48 @@ import (
 	"strings"
 )
 
-func MapleDemoPhase2(scanner *bufio.Scanner, num_lines int) map[string]float32 {
-	// create map for each word -> word_count
-	detection_to_percentage := make(map[string]float32)
+type Tuple struct {
+	DetectionWord string
+	Count         int
+}
 
-	total, detection_to_count := parse(scanner, num_lines)
+func MapleDemoPhase2(scanner *bufio.Scanner, num_lines int) map[string][]string {
+	// create map for each "null" -> line
 
-	for detection, count := range detection_to_count {
-		percentage := (float32(count) / total) * 100.0
-		detection_to_percentage[detection] = percentage
+	null_to_line := make(map[string][]string)
+	for i := 0; i < num_lines && scanner.Scan(); i++ {
+		line := scanner.Text()
+		//
+		//key_val := strings.Split(line, ",")
+		//detection_word := key_val[0]
+		//count_string := key_val[1]
+		//count, _  := strconv.Atoi(count_string)
+		//
+		//new_tuple := Tuple{detection_word,
+		//	count}
+		//
+
+		current_list := null_to_line["null"]
+
+		val := "(" + line + ")"
+
+		current_list = append(current_list, val)
+
+		null_to_line["null"] = current_list
 	}
 
-	return detection_to_percentage
+	return null_to_line
+
+	//detection_to_percentage := make(map[string]float32)
+	//
+	//total, detection_to_count := parse(scanner, num_lines)
+	//
+	//for detection, count := range detection_to_count {
+	//	percentage := (float32(count) / total) * 100.0
+	//	detection_to_percentage[detection] = percentage
+	//}
+	//
+	//return detection_to_percentage
 }
 
 func parse(scanner *bufio.Scanner, num_lines int) (float32, map[string]float32) {
@@ -50,10 +80,10 @@ func getArgs() int {
 	return num_lines
 }
 
-func PrintKeyValuePairs(kv_pairs map[string]float32) {
+func PrintKeyValuePairs(kv_pairs map[string][]string) {
 	// print out all key, val pairs
 	for key, val := range kv_pairs {
-		fmt.Printf("%s,%f\n", key, val)
+		fmt.Printf("%s,%v\n", key, val)
 	}
 }
 

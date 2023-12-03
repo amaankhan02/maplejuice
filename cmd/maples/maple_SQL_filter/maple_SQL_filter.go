@@ -6,6 +6,7 @@ import (
 	"log"
 	"os"
 	"regexp"
+	"strconv"
 )
 
 // this script will generate the key value pairs you need to use for filtering based on SQL command
@@ -33,8 +34,32 @@ func MapleSQLFilter(scanner *bufio.Scanner, regex_string string, num_lines int, 
 	return id_to_row
 }
 
+// TODO: update index values of args
+func GetArgsSQLFilter() (string, int, string) {
+	// get the command line arg which tells you the number of lines
+	// SELECT ALL FROM dataset WHERE COL = <regex> num_lines ?
+	// need to know:
+	// number of lines
+	// column
+	// regex
+
+	// first arg -> num lines,
+	// second arg -> column schema
+	// third arg -> regex
+
+	num_lines_string := os.Args[0]
+	num_lines, _ := strconv.Atoi(num_lines_string) // Convert the argument to an integer
+
+	schema := os.Args[1]
+
+	regex := os.Args[3]
+	//column := os.Args[1]
+
+	return regex, num_lines, schema
+}
+
 func main() {
-	regex, num_lines, schema := mj.GetArgsSQLFilter()
+	regex, num_lines, schema := GetArgsSQLFilter()
 	id_to_row := MapleSQLFilter(bufio.NewScanner(os.Stdin), regex, num_lines, schema)
 	mj.PrintKeyValPairsSQLFilter(id_to_row)
 }

@@ -3,6 +3,7 @@ package maples_exe_sql_join_phase_2
 import (
 	"bufio"
 	mj "cs425_mp4/internal/maplejuice_exe"
+	"fmt"
 	"log"
 	"os"
 	"strings"
@@ -70,8 +71,14 @@ func getDatasets(scanner *bufio.Scanner, num_lines int) ([]string, []string) {
 	return D1, D2
 }
 
+func PrintKeyValJoin(kv_pairs map[string]string) {
+	for key, val := range kv_pairs {
+		fmt.Printf("%s,%v\n", key, val)
+	}
+}
+
 func main() {
 	column, num_lines := mj.GetArgsSQLJoin()
 	row_to_field := MapleSQLJoin3(bufio.NewScanner(os.Stdin), column, num_lines)
-	mj.PrintKeyValPairsSQLFilter(row_to_field)
+	PrintKeyValJoin(row_to_field)
 }
