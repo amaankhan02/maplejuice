@@ -68,10 +68,6 @@ func (exeFile *MapleJuiceExeFile) GetMapleArgs(inputFilePath string, startingLin
 	}
 }
 
-func (exeFile *MapleJuiceExeFile) GetJuiceArgs() []string {
-	return []string{exeFile.InputFilePath}
-}
-
 const LEADER_TMP_DIR = "leader"
 
 const MAPLE_TASK_DIR_NAME_FMT = "mapletask-%d-%d-%s" // formats: this.localWorkerTaskID, taskIndex, sdfsIntermediateFilenamePrefix
