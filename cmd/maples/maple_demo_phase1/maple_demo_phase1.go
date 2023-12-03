@@ -1,26 +1,19 @@
-// package main TODO: CHANGE BACK TO MAIN PACKAGE AFTER YOU ARE DONE TESTING
-package maple_demo_phase1
+package main
 
 import (
 	"bufio"
-	mj "cs425_mp4/internal/maplejuice_exe"
 	"fmt"
 	"os"
 	"strconv"
 	"strings"
 )
 
-func MapleDemoPhase1(scanner *bufio.Scanner, num_lines int, X string, schema string) map[string]int {
+func MapleDemoPhase1(scanner *bufio.Scanner, num_lines int, X string) map[string]int {
 	// create map for each word -> word_count
 	detection_val_to_count := make(map[string]int)
 
-	columnInterconne := "Interconne" // looking for this column
-	columnDetection := "Detection_"
-
-	// TODO: can probably hard code this so you do not need to pass in the schema
-	// define schema
-	column_index_interconne := mj.GetColumnIndex(schema, columnInterconne)
-	column_index_detection := mj.GetColumnIndex(schema, columnDetection)
+	column_index_interconne := 10
+	column_index_detection := 9
 
 	// loop through all lines from stdin
 	for i := 0; i < num_lines && scanner.Scan(); i++ {
@@ -47,17 +40,14 @@ func MapleDemoPhase1(scanner *bufio.Scanner, num_lines int, X string, schema str
 	return detection_val_to_count
 }
 
-func getArgs() (int, string, string) {
+func getArgs() (int, string) {
 	num_lines_string := os.Args[1]
 	num_lines, _ := strconv.Atoi(num_lines_string) // Convert the argument to an integer
 
 	// get X value which is val in "Interconne" to search for
 	X := os.Args[2]
 
-	// get the schema
-	schema := os.Args[3]
-
-	return num_lines, X, schema
+	return num_lines, X
 }
 
 func PrintKeyValuePairs(kv_pairs map[string]int) {
@@ -69,7 +59,7 @@ func PrintKeyValuePairs(kv_pairs map[string]int) {
 
 // actual executable
 func main() {
-	num_lines, X, schema := getArgs()
-	detection_val_to_count := MapleDemoPhase1(bufio.NewScanner(os.Stdin), num_lines, X, schema)
+	num_lines, X := getArgs()
+	detection_val_to_count := MapleDemoPhase1(bufio.NewScanner(os.Stdin), num_lines, X)
 	PrintKeyValuePairs(detection_val_to_count)
 }

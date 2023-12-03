@@ -23,9 +23,8 @@ func TestMapleDemoPhase1(t *testing.T) {
 	// Create a scanner to read the file line by line
 	filescanner := bufio.NewScanner(file)
 	X := "Fiber"
-	schema := "X,Y,OBJECTID,Intersecti,UPS,Coord_Type,CNTRL_Seri,CNTRL_Mode,Number_of_,Detection_,Interconne,Percent_St,Year_Timed,LED_Status,CNTRL_Vers,Cabinet_Ty,CNTRL_Note,Install_Da,Black_Hard,Year_Paint,Countdown_,All_Red_Fl,Condition,ConditionDate,InstallDate,WarrantyDate,LegacyID,FACILITYID,Ownership,OwnershipPercent,LED_Installed_Year,Controller_ID,Notes,RepairYear,FieldVerifiedDate"
 
-	result := maple_demo_phase1.MapleDemoPhase1(filescanner, num_lines, X, schema)
+	result := maple_demo_phase1.MapleDemoPhase1(filescanner, num_lines, X)
 	maple_demo_phase1.PrintKeyValuePairs(result)
 }
 

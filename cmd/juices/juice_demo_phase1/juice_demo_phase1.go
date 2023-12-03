@@ -1,5 +1,4 @@
-// package main // TODO: change back to main
-package juice_demo_phase1
+package main
 
 import (
 	"bufio"
@@ -29,15 +28,6 @@ func JuiceDemoTest1(scanner *bufio.Scanner) map[string]int {
 		}
 
 		detection_val_to_count[detection] += detection_count
-
-		//// if word already exists in map, add word_count to the value
-		//_, exists := detection_val_to_count[detection]
-		//
-		//if exists {
-		//	detection_val_to_count[detection] += detection_count
-		//} else {
-		//	detection_val_to_count[detection] = detection_count
-		//}
 	}
 
 	return detection_val_to_count
