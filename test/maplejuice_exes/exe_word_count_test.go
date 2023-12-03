@@ -3,7 +3,7 @@ package test
 import (
 	"bufio"
 	juicewordcount "cs425_mp4/cmd/juices/juice_word_count"
-	maplewordcount "cs425_mp4/cmd/maples/maple_word_count"
+	maplewordcount "cs425_mp4/cmd/maple_word_count"
 	"fmt"
 	"os"
 	"testing"

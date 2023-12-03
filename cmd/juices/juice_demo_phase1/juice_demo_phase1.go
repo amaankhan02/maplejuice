@@ -2,7 +2,7 @@ package juice_demo_phase1
 
 import (
 	"bufio"
-	maples_exe_word_count "cs425_mp4/cmd/maples/maple_word_count"
+	maples_exe_word_count "cs425_mp4/cmd/maple_word_count"
 	"log"
 	"os"
 	"strconv"
