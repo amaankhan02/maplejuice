@@ -266,12 +266,38 @@ func (manager *MapleJuiceManager) executeUserInput(userInput []string) bool {
 		manager.sdfsNode.PerformDelete(userInput[1])
 	case "maple":
 		manager.parseAndExecuteMapleInput(userInput)
+	case "juice":
+		manager.parseAndExecuteJuiceInput(userInput)
+	case "select":
+		manager.parseSqlQuery(userInput)
 	}
 	return false
 }
 
+func (manager *MapleJuiceManager) parseSqlQuery(userInput []string) {
+	// TODO: samaah implement this
+
+	// filename := filepath.Join(config.EXE_FILES_FOLDER, maple_filter1)
+	// fullPath := filepath.Abs(filename)
+	//exeFile := MapleJuiceExeFile{ExeFilePath: fullPath, SqlAdditionalInfo: "some stuff here u parsed"}
+
+	// parsing of the inputs to get the variables
+	// 0. figure out is it FILTER, JOIN, or incorrect input
+	// 1. first map phase for FILTER
+	// manager.mapleJuiceNode.SubmitMapleJob(filterMapExe, ...)
+	// 2. run the juice phase
+	// manager.mapleJuiceNode.SubmitJuiceJob(filterReduceExe, ...)
+	//juicePartitionScheme := HASH_PARTITIONING
+}
+
+func (manager *MapleJuiceManager) parseAndExecuteJuiceInput(userInput []string) {
+	// TODO: amaan
+}
+
 func (manager *MapleJuiceManager) parseAndExecuteMapleInput(userInput []string) {
-	mapleExeFileName := userInput[1]
+	mapleExeFileName := userInput[1] // just type in "maple_word_count"
+
+	// join with "bin" directory, and then get absolute path
 	mapleExeFilePath, err1 := filepath.Abs(filepath.Join(config.EXE_FILES_FOLDER, mapleExeFileName))
 	if err1 != nil {
 		fmt.Println("Unable to parse maple_exe name")
