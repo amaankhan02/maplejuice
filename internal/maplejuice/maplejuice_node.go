@@ -2,6 +2,7 @@ package maplejuice
 
 import (
 	"bufio"
+	"bytes"
 	"cs425_mp4/internal/config"
 	"cs425_mp4/internal/tcp_net"
 	"cs425_mp4/internal/utils"
@@ -633,56 +634,110 @@ func (this *MapleJuiceNode) ExecuteMapleExe(
 	numLinesToProcess int64,
 ) {
 	cmd := exec.Command(maple_exe, args...)
+	inputBuff := this.writeFileContentsToBytesBuffer(inputFile, numLinesToProcess)
+	var stdoutBuff bytes.Buffer
 
-	stdin_pipe, in_pipe_err := cmd.StdinPipe()
-	if in_pipe_err != nil {
-		panic(in_pipe_err)
+	fmt.Println("inputBuff: ", inputBuff.String())
+	//cmd.Stdin = strings.NewReader(inputBuff.String())
+
+	cmd.Stdout = &stdoutBuff
+
+	if err := cmd.Run(); err != nil {
+		log.Fatalln("Error! Failed to execute maple_exe OR exit code != 0. Error: ", err)
 	}
-	stdout_pipe, out_pipe_err := cmd.StdoutPipe()
-	if out_pipe_err != nil {
-		panic(out_pipe_err)
-	}
+	fmt.Println(stdoutBuff.String())
+	fmt.Println("Len of stdoutBuff: ", stdoutBuff.Len())
+
+	//stdin_pipe, in_pipe_err := cmd.StdinPipe()
+	//if in_pipe_err != nil {
+	//	panic(in_pipe_err)
+	//}
+	//stdout_pipe, out_pipe_err := cmd.StdoutPipe()
+	//if out_pipe_err != nil {
+	//	panic(out_pipe_err)
+	//}
 
 	// start command but don't block
-	if start_err := cmd.Start(); start_err != nil {
-		log.Fatalln("Failed to start maple_exe. Error: ", start_err)
-	}
+	//if start_err := cmd.Start(); start_err != nil {
+	//	log.Fatalln("Failed to start maple_exe. Error: ", start_err)
+	//}
+	//
+	//// read from input file, and write line by line to stdin pipe
+	//inputFileScanner := bufio.NewScanner(inputFile)
+	//stdinInPipeWriter := bufio.NewWriter(stdin_pipe)
+	//for linesRead := int64(0); linesRead < numLinesToProcess; linesRead++ {
+	//	if inputFileScanner.Scan() == false { // if = false, then got an EOF
+	//		panic("Failed to read a line from input file! This shouldn't happen!")
+	//	}
+	//	line := inputFileScanner.Text() + "\n" // Scan() does not contain the new line character
+	//	_, write_err := stdinInPipeWriter.WriteString(line)
+	//	if write_err != nil {
+	//		panic(write_err)
+	//	}
+	//}
+	//_ = stdinInPipeWriter.Flush() // make sure everything was written to it
+	//if in_pipe_close_err := stdin_pipe.Close(); in_pipe_close_err != nil {
+	//	panic(in_pipe_close_err)
+	//}
 
-	// read from input file, and write line by line to stdin pipe
-	inputFileScanner := bufio.NewScanner(inputFile)
-	stdinInPipeWriter := bufio.NewWriter(stdin_pipe)
-	for linesRead := int64(0); linesRead < numLinesToProcess; linesRead++ {
-		if inputFileScanner.Scan() == false { // if = false, then got an EOF
-			panic("Failed to read a line from input file! This shouldn't happen!")
-		}
-		line := inputFileScanner.Text() + "\n" // Scan() does not contain the new line character
-		_, write_err := stdinInPipeWriter.WriteString(line)
-		if write_err != nil {
-			panic(write_err)
-		}
-	}
-	_ = stdinInPipeWriter.Flush() // make sure everything was written to it
-	if in_pipe_close_err := stdin_pipe.Close(); in_pipe_close_err != nil {
-		panic(in_pipe_close_err)
-	}
-
-	// read stdout
-	stdout_bytes, read_stdout_err := io.ReadAll(stdout_pipe)
-	if read_stdout_err != nil {
-		panic(read_stdout_err)
-	}
+	//// read stdout
+	//stdout_bytes, read_stdout_err := io.ReadAll(stdout_pipe)
+	//if read_stdout_err != nil {
+	//	panic(read_stdout_err)
+	//}
+	//fmt.Println("stdout_bytes: ", string(stdout_bytes))
 
 	// wait for program to finish
-	if wait_err := cmd.Wait(); wait_err != nil {
-		panic(wait_err)
-	}
+	//if wait_err := cmd.Wait(); wait_err != nil {
+	//	panic(wait_err)
+	//}
 
 	// write stdout to output file
-	// TODO: do i need a file lock since multiple tasks may be writing to the same file?
-	// TODO: ^ do we even have multiple goroutines writing to the same file? I don't think so?
-	output_writer := bufio.NewWriter(outputFile)
-	_, output_write_err := output_writer.Write(stdout_bytes)
-	if output_write_err != nil {
-		panic(output_write_err)
+
+	//output_writer := bufio.NewWriter(outputFile)
+	//_, output_write_err := output_writer.Write(stdout_bytes)
+	//if output_write_err != nil {
+	//	panic(output_write_err)
+	//}
+}
+
+//func (this *MapleJuiceNode) Execute2MapleExe(
+//	maple_exe string,
+//	args []string,
+//	inputFile *os.File,
+//	outputFile *os.File,
+//	numLinesToProcess int64,
+//) {
+//	cmd := exec.Command(maple_exe, args...)
+//
+//}
+
+func (this *MapleJuiceNode) writeFileContentsToBytesBuffer(inputFile *os.File, numLines int64) *bytes.Buffer {
+	var buffer bytes.Buffer
+	scanner := bufio.NewScanner(inputFile)
+
+	for i := int64(0); i < numLines; i++ {
+		if scanner.Scan() {
+			buffer.WriteString(scanner.Text() + "\n")
+		} else {
+			if err := scanner.Err(); err != nil {
+				log.Fatalln("Error in scanner: ", err)
+			}
+			// end of file reached before we read numLines
+			break
+		}
 	}
+	return &buffer
+}
+
+func (this *MapleJuiceNode) NewExecuteMapleExe(maple_exe string,
+	args []string) {
+
+	cmd := exec.Command(maple_exe, args...)
+	cmd.Stdout = os.Stdout
+
+	if err := cmd.Run(); err != nil {
+		log.Fatalln("Error! Failed to execute maple_exe OR exit code != 0. Error: ", err)
+	}
+
 }

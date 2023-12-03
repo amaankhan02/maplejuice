@@ -35,10 +35,22 @@ func TestExecuteMapleExe(t *testing.T) {
 	}
 
 	outputFilepath := "..\\test_files\\maplejuice_node_tests\\maple_exe_word_count_test_data_OUTPUT.txt"
-	outputFile, err2 := os.OpenFile(outputFilepath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0666)
+	outputFile, err2 := os.OpenFile(outputFilepath, os.O_CREATE|os.O_WRONLY, 0666)
 	if err2 != nil {
 		t.Errorf("Error opening file: %s", outputFilepath)
 	}
 
-	mjn.ExecuteMapleExe(mapleExeFilepath, args, inputFile, outputFile, 20)
+	mjn.ExecuteMapleExe(mapleExeFilepath, args, inputFile, outputFile, 5)
+}
+
+func TestNewExecuteMapleExe(t *testing.T) {
+	mjn := maplejuice.MapleJuiceNode{}
+	mapleExeFilepath, filepath_err := filepath.Abs("..\\..\\maple_word_count.exe")
+	if filepath_err != nil {
+		t.Errorf("Error getting absolute path for maple_exe: %s", filepath_err)
+	}
+
+	inputFilepath, _ := filepath.Abs("..\\test_files\\maplejuice_node_tests\\maple_exe_word_count_test_data.txt")
+	args := []string{inputFilepath, "2", "5"}
+	mjn.NewExecuteMapleExe(mapleExeFilepath, args)
 }

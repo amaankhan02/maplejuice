@@ -1,4 +1,4 @@
-package maples_exe_sql_join_phase_1
+package main
 
 import (
 	"bufio"

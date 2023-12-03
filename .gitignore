@@ -15,3 +15,5 @@ scripts/input_data_60.txt
 /test/test_files/tcp_net_tests/
 /test/test_files/maplejuice_node_tests/maple_exe_word_count_test_data.txt
 /test/test_files/maplejuice_node_tests/
+/test/maplejuice/test.txt
+/test.txt

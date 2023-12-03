@@ -1,4 +1,4 @@
-package maple_demo_phase1
+package main
 
 import (
 	"bufio"

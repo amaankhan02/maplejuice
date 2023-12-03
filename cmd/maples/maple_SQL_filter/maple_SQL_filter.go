@@ -1,4 +1,4 @@
-package maples_exe_sql_filter
+package main
 
 import (
 	"bufio"
