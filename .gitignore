@@ -1,6 +1,5 @@
 .idea
 .vscode
-main
 *.log
 sdfs_data/
 sdfs_data/*

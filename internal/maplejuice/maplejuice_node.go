@@ -638,7 +638,7 @@ func (this *MapleJuiceNode) ExecuteMapleExe(
 
 	// start command but don't block
 	if start_err := cmd.Start(); start_err != nil {
-		panic(start_err)
+		log.Fatalln("Failed to start maple_exe. Error: ", start_err)
 	}
 
 	// read from input file, and write line by line to stdin pipe

@@ -1,8 +1,10 @@
-package maplejuice
+package test
 
 import (
 	"cs425_mp4/internal/maplejuice"
+	"fmt"
 	"os"
+	"path/filepath"
 	"testing"
 )
 
@@ -20,8 +22,11 @@ func TestCalculateStartAndEndLinesForTask(t *testing.T) {
 
 func TestExecuteMapleExe(t *testing.T) {
 	mjn := maplejuice.MapleJuiceNode{}
-	mapleExeFilepath := "..\\..\\maple_word_count.exe"
-
+	mapleExeFilepath, filepath_err := filepath.Abs("..\\..\\maple_word_count.exe")
+	if filepath_err != nil {
+		t.Errorf("Error getting absolute path for maple_exe: %s", filepath_err)
+	}
+	fmt.Println("Full path: ", mapleExeFilepath)
 	var args []string = []string{"", ""}
 	inputFilepath := "..\\test_files\\maplejuice_node_tests\\maple_exe_word_count_test_data.txt"
 	inputFile, err1 := os.OpenFile(inputFilepath, os.O_RDONLY, 0666)
