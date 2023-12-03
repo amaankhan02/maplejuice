@@ -387,6 +387,9 @@ func (leader *MapleJuiceLeaderService) processMapleTaskOutputFile(task_output_fi
 			fmt.Println("Failed to parse CSV file - failed to read line! Exiting...")
 			log.Fatalln(csv_err)
 		}
+		if len(record) != 2 {
+			continue // just skip it, prob invalid data
+		}
 		key := record[0]
 		value := strings.TrimSuffix(record[1], "\n")
 
