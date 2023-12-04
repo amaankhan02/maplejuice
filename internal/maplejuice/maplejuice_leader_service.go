@@ -408,6 +408,11 @@ func (leader *MapleJuiceLeaderService) processMapleTaskOutputFile(task_output_fi
 	if file_err != nil {
 		log.Fatalln("Failed to open maple task output file. Error: ", file_err)
 	}
+	defer csvFile.Close()
+	if actualFilesize == 0 {
+		fmt.Println("Received maple task output file is empty! Not doing anything with it...")
+		return
+	}
 	csvReader := csv.NewReader(csvFile)
 
 	fmt.Println("Starting loop of reading file")
@@ -460,7 +465,6 @@ func (leader *MapleJuiceLeaderService) processMapleTaskOutputFile(task_output_fi
 		_ = intermediateFile.Close()
 		//leader.currentJob.sdfsIntermediateFileMutex.Unlock()
 	}
-	_ = csvFile.Close()
 
 	// TODO: delete the task output file since we no longer need it... but for testing purposes don't do it yet... add this as a functionality later
 }
