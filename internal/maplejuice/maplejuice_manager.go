@@ -277,6 +277,10 @@ func (manager *MapleJuiceManager) executeUserInput(userInput []string) bool {
 	case "select":
 		manager.parseAndExecuteSqlQuery(userInput)
 	case "test1":
+		if len(userInput) != 4 {
+			fmt.Println("Invalid usage. Expected usage: test1 [x] [num_workers] [dataset]")
+			return false
+		}
 		x := userInput[1]
 		numWorkers, _ := strconv.Atoi(userInput[2])
 		dataset := userInput[3]
