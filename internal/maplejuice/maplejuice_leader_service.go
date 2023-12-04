@@ -212,6 +212,7 @@ func (leader *MapleJuiceLeaderService) SubmitJuiceJob(juice_exe MapleJuiceExeFil
 		keys:                           make(datastructures.HashSet[string]),
 		workerToKeys:                   make(map[NodeID][]string),
 	}
+	//job.keys = leader.finishedMapleJobs[sdfs_intermediate_filename_prefix].keys // get the keys from the maple job that finished
 	leader.waitQueue = append(leader.waitQueue, &job)
 	leader.jobsSubmitted++
 	leader.mutex.Unlock()
@@ -410,6 +411,7 @@ func (leader *MapleJuiceLeaderService) processMapleTaskOutputFile(task_output_fi
 		_sdfsIntermediateFileName := getSdfsIntermediateFilename(leader.currentJob.sdfsIntermediateFilenamePrefix, key)
 		fullSdfsIntermediateFilePath := filepath.Join(leader.leaderTempDir, _sdfsIntermediateFileName)
 		leader.currentJob.sdfsIntermediateFilenames.Add(_sdfsIntermediateFileName)
+		leader.currentJob.keys.Add(key)
 
 		// TODO: instead of writing to the file every iteration, you can make leader a buffered write to make it faster! future improvement!
 		// ^ you can first append it to a map, and once the map reaches a certain size you can then write the map to its respective files
@@ -570,6 +572,7 @@ func (leader *MapleJuiceLeaderService) partitionKeysToWorkerNodes(job *LeaderMap
 func (leader *MapleJuiceLeaderService) hashPartitionKeysToJuiceTasks(job *LeaderMapleJuiceJob) [][]string {
 	hasher := fnv.New32()
 	tasks := make([][]string, job.numTasks) // create a list of tasks where index = taskIndex and value = list of keys assigned to this task
+	// TODO: len(job.keys) = 0 here.
 	fmt.Println("len(job.keys) = ", len(job.keys))
 	fmt.Println("job.numTasks = ", job.numTasks)
 
