@@ -8,7 +8,7 @@ executable that will be ran on each VM. `make` will also create binary executabl
 for all the maple, juice, and hadoop map/reduce executables in the `bin` folder.
 
 
-## Command Line Arguments for `./main` 
+## Command Line Arguments for `./app` 
 * `-f` **[REQUIRED]**
     * Pass the name of the log file after `-f`. If the file does not exist, it will create it. If
       if it already exists, it will truncate the file and overwrite it
