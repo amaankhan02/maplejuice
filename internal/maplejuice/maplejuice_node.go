@@ -163,6 +163,7 @@ func (this *MapleJuiceNode) HandleTCPServerConnection(conn net.Conn) {
 				mjNetworkMessage.CurrTaskIdx,
 				mjNetworkMessage.TaskOutputFileSize,
 				this.sdfsNode,
+				mjNetworkMessage.TaskOutputFileData,
 			)
 			alreadyClosedLeaderConn = true
 		case JUICE_TASK_RESPONSE:
@@ -172,7 +173,7 @@ func (this *MapleJuiceNode) HandleTCPServerConnection(conn net.Conn) {
 				mjNetworkMessage.Keys,
 				mjNetworkMessage.TaskOutputFileSize,
 				this.sdfsNode,
-				mjNetworkMessage.JuiceTaskOutputFileData,
+				mjNetworkMessage.TaskOutputFileData,
 			)
 			alreadyClosedLeaderConn = true
 		case MAPLE_JOB_RESPONSE: // acknowledging the job is done

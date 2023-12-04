@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"bytes"
 	"cs425_mp4/internal/datastructures"
-	"cs425_mp4/internal/tcp_net"
 	"cs425_mp4/internal/utils"
 	"encoding/csv"
 	"fmt"
@@ -233,7 +232,7 @@ task output files and then creating a new set of files to be saved in the SDFS f
 * NOTE: this function reads the file from the connection object, and then closes the connection
 */
 func (leader *MapleJuiceLeaderService) ReceiveMapleTaskOutput(workerConn net.Conn, taskIndex int, filesize int64,
-	sdfsService *SDFSNode) {
+	sdfsService *SDFSNode, taskOutputFileData []byte) {
 	fmt.Println("INSIDE RECEIVE MAPLE TASK OUTPUT")
 	// read the task output file from the network
 	// TODO: delete these maple task output files after we are done with the job (after we send to sdfs)
@@ -241,13 +240,28 @@ func (leader *MapleJuiceLeaderService) ReceiveMapleTaskOutput(workerConn net.Con
 	leader.mutex.Lock()
 	save_filepath := filepath.Join(leader.leaderTempDir, fmt.Sprintf(MAPLE_TASK_OUTPUT_FILENAME_FMT, taskIndex))
 	leader.mutex.Unlock()
-	fmt.Println("Saving maple task output file to: ", save_filepath)
-	fmt.Println("Expected Filesize: ", filesize)
-	err := tcp_net.ReadFile(save_filepath, workerConn, filesize)
-	if err != nil {
-		log.Fatalln("Failed to read file: Error: ", err) // TODO: for now exit, figure out the best course of action later
-	}
+	//fmt.Println("Saving maple task output file to: ", save_filepath)
+	//fmt.Println("Expected Filesize: ", filesize)
+	//err := tcp_net.ReadFile(save_filepath, workerConn, filesize)
+	//if err != nil {
+	//	log.Fatalln("Failed to read file: Error: ", err) // TODO: for now exit, figure out the best course of action later
+	//}
+	fmt.Println("Maple Task Output File Data size: ", len(taskOutputFileData))
 	_ = workerConn.Close() // close the connection with this worker since we got all the data we needed from it
+
+	// dump taskOutputFileData into the save_filepath
+	savedDataFile, openErr := os.OpenFile(save_filepath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)
+	if openErr != nil {
+		log.Fatalln("Failed to open file to save data. Error: ", openErr)
+		return
+	}
+	n_write, err56 := savedDataFile.Write(taskOutputFileData)
+	if err56 != nil {
+		fmt.Println("ERROR writing taskOutput to savedDataFile. Error: ", err56)
+		fmt.Println("\tn_write: ", n_write)
+	}
+	fmt.Println("Number of bytes written to savedDataFile: ", n_write)
+	savedDataFile.Close()
 
 	// mark the task as completed now that we got the file
 	leader.mutex.Lock()

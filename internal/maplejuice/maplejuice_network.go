@@ -47,7 +47,7 @@ type MapleJuiceNetworkMessage struct {
 	TaskOutputFileSize             int64
 	ClientJobId                    int      // id that the client created for the job it submitted
 	Keys                           []string // used for juice tasks (to know what keys to operate on)
-	JuiceTaskOutputFileData        []byte   // used for juice tasks (to send the output file data)
+	TaskOutputFileData             []byte   // used for juice tasks (to send the output file data)
 }
 
 func SendMapleJobResponse(conn net.Conn, clientJobId int) {
@@ -103,13 +103,19 @@ func SendMapleTaskResponse(conn net.Conn, taskIndex int, taskOutputFilepath stri
 		CurrTaskIdx:        taskIndex,
 		TaskOutputFileSize: fileSize,
 	}
+	data, err := os.ReadFile(taskOutputFilepath)
+	if err != nil {
+		log.Fatalln("Failed to read file in SendJuiceTaskResponse(). error: ", err)
+	}
+	fmt.Println("***Length of file read into memory is: ", len(data))
+	msg.TaskOutputFileData = data
 
 	SendMapleJuiceNetworkMessage(conn, &msg)
 
-	send_file_err := tcp_net.SendFile(taskOutputFilepath, conn, fileSize)
-	if send_file_err != nil {
-		log.Fatalln("Failed to send file in SendMapleTaskResponse(). error: ", send_file_err)
-	}
+	//send_file_err := tcp_net.SendFile(taskOutputFilepath, conn, fileSize)
+	//if send_file_err != nil {
+	//	log.Fatalln("Failed to send file in SendMapleTaskResponse(). error: ", send_file_err)
+	//}
 }
 
 /*
@@ -144,7 +150,7 @@ func SendJuiceTaskResponse(conn net.Conn, taskOutputFilepath string, assignedKey
 		log.Fatalln("Failed to read file in SendJuiceTaskResponse(). error: ", err)
 	}
 	fmt.Println("***Length of file read into memory is: ", len(data))
-	msg.JuiceTaskOutputFileData = data
+	msg.TaskOutputFileData = data
 
 	SendMapleJuiceNetworkMessage(conn, &msg)
 
