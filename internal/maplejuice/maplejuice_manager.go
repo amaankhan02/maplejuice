@@ -311,11 +311,11 @@ func (manager *MapleJuiceManager) executeSqlFilter(dataset string, regex string)
 		SqlAdditionalInfo: regex,
 	}
 
-	juiceExeFilePath, err2 := filepath.Abs(filepath.Join(config.EXE_FILES_FOLDER, SQL_FILTER_JUICE_EXE_FILENAME))
-	if err2 != nil {
-		fmt.Println("Unable to parse juice_exe name")
-		return
-	}
+	//juiceExeFilePath, err2 := filepath.Abs(filepath.Join(config.EXE_FILES_FOLDER, SQL_FILTER_JUICE_EXE_FILENAME))
+	//if err2 != nil {
+	//	fmt.Println("Unable to parse juice_exe name")
+	//	return
+	//}
 	//juiceExe := MapleJuiceExeFile{
 	//	ExeFilePath: juiceExeFilePath,
 	//}
