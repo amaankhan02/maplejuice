@@ -200,6 +200,7 @@ func ReadFile(save_filepath string, conn net.Conn, filesize int64) error {
 	n_read, copy_err := io.Copy(f, reader)
 	if copy_err != nil {
 		fmt.Println("ACTUAL NUM BYTES COPIED FROM connection into file: ", n_read)
+		fmt.Println("error: ", copy_err.Error())
 		return copy_err
 	}
 	fmt.Println("ACTUAL NUM BYTES COPIED FROM connection into file: ", n_read)

@@ -323,7 +323,6 @@ func (leader *MapleJuiceLeaderService) ReceiveJuiceTaskOutput(workerConn net.Con
 }
 
 func (leader *MapleJuiceLeaderService) finishCurrentJuiceJob(sdfsService *SDFSNode) {
-	// TODO: do i even need to do a "blocked" put tho? I don't need to wait on the file technically so i could just put it
 	_ = sdfsService.PerformBlockedPuts([]string{leader.currentJob.juiceJobOutputFilepath}, []string{leader.currentJob.sdfsDestFilename})
 
 	//sdfsService.PerformPut(leader.currentJob.juiceJobOutputFilepath, leader.currentJob.sdfsDestFilename)
