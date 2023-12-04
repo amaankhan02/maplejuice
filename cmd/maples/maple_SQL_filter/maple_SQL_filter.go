@@ -3,7 +3,9 @@ package main
 import (
 	"bufio"
 	"cs425_mp4/internal/maplejuice_exe"
+	"fmt"
 	"log"
+	"os"
 	"regexp"
 )
 
@@ -28,7 +30,7 @@ func MapleSQLFilter(scanner *bufio.Scanner, starting_line_number int, num_lines 
 
 		// check if the regex exists in the line
 		if regex.MatchString(line) {
-			id_to_row[line] = "" // NOTE: this will result in an extra comma at the end of the line
+			id_to_row[line] = "NULL" // NOTE: this will result in an extra comma at the end of the line
 		}
 	}
 	return id_to_row
@@ -40,6 +42,7 @@ func main() {
 
 	scanner := bufio.NewScanner(input_file)
 	id_to_row := MapleSQLFilter(scanner, starting_line_number, num_lines, regex)
+	_, _ = fmt.Fprintf(os.Stderr, "id_to_row: %v\n", id_to_row)
 
 	maplejuice_exe.PrintKeyValPairsSQLFilter(id_to_row)
 }
