@@ -804,6 +804,7 @@ func (this *MapleJuiceNode) ExecuteMapleExe(mapleExe MapleJuiceExeFile,
 		fmt.Println("STDERR from program: ", stderrBuffer.String())
 		fmt.Println("Error! Failed to execute maple_exe OR exit code != 0. Error: ", err)
 	}
+	fmt.Println("STDERR: ", stderrBuffer.String())
 }
 
 func (this *MapleJuiceNode) ExecuteJuiceExeOnKey(juiceExe MapleJuiceExeFile,
