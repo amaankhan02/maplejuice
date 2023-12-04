@@ -286,7 +286,7 @@ func (leader *MapleJuiceLeaderService) ReceiveJuiceTaskOutput(workerConn net.Con
 	save_filepath := filepath.Join(leader.currentJob.juiceJobTmpDirPath, fmt.Sprintf(JUICE_WORKER_OUTPUT_FILENAME_FMT, workerVMNumber))
 	leader.mutex.Unlock()
 
-	err := tcp_net.ReadFile(save_filepath, workerConn, filesize)
+	err := tcp_net.ReadFile2(save_filepath, workerConn, filesize) // TODO: changed readfile to readfile2
 	if err != nil {
 		log.Fatalln("Failed to read juice task output file from worker node. Error: ", err)
 	}

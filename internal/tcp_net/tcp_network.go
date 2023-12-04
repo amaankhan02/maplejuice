@@ -2,6 +2,7 @@ package tcp_net
 
 import (
 	"bufio"
+	"bytes"
 	"encoding/binary"
 	"errors"
 	"fmt"
@@ -204,6 +205,39 @@ func ReadFile(save_filepath string, conn net.Conn, filesize int64) error {
 		return copy_err
 	}
 	fmt.Println("(no error) ACTUAL NUM BYTES COPIED FROM connection into file: ", n_read)
+
+	return nil
+}
+
+func ReadFile2(save_filepath string, conn net.Conn, filesize int64) error {
+	// open the file for writing
+	fmt.Println("####Inside ReadFile2() - save_filepath: ", save_filepath)
+	fmt.Println("Expected filesize: ", filesize)
+	f, err := os.OpenFile(save_filepath, os.O_WRONLY|os.O_CREATE, 0744)
+	if err != nil {
+		fmt.Println("Failed to open file for writing into")
+		return err
+	}
+	defer f.Close()
+
+	reader := bufio.NewReaderSize(conn, BUFFER_SIZE)
+	var buff bytes.Buffer
+
+	n_read, copy_err := io.Copy(&buff, reader)
+	if copy_err != nil {
+		fmt.Println("(error) ACTUAL NUM BYTES COPIED FROM connection into file: ", n_read)
+		fmt.Println("error: ", copy_err.Error())
+		return copy_err
+	}
+	fmt.Println("(no error) ACTUAL NUM BYTES COPIED FROM connection into file: ", n_read)
+
+	n_written, write_err := f.Write(buff.Bytes())
+	if write_err != nil {
+		fmt.Println("Failed to write to file: ", write_err.Error())
+		fmt.Println("Wrote this many bytes: ", n_written)
+		return write_err
+	}
+	fmt.Println("Wrote this many bytes to file: ", n_written)
 
 	return nil
 }
