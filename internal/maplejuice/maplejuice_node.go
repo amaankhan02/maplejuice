@@ -363,28 +363,31 @@ func (this *MapleJuiceNode) executeJuiceTask(juiceExe MapleJuiceExeFile, sdfsInt
 	}
 	fmt.Println("Finished PerformBlockedGets()")
 
-	var wg sync.WaitGroup
+	//var wg sync.WaitGroup
 	juiceExeOutputsChan := make(chan string, len(assignedKeys)) // buffered channel so that we don't block on the go routines
 
 	// start a goroutine to execute each juice exe
 	for i, _ := range assignedKeys {
-		go func(idx int) {
-			wg.Add(1)
-			this.ExecuteJuiceExeOnKey(juiceExe, localInputFilenames[idx], juiceExeOutputsChan)
-			wg.Done()
-		}(i)
+		//wg.Add(1)
+		//go func(idx int) {
+		//	defer wg.Done()
+		//	this.ExecuteJuiceExeOnKey(juiceExe, localInputFilenames[idx], juiceExeOutputsChan)
+		//}(i)
+
+		go this.ExecuteJuiceExeOnKey(juiceExe, localInputFilenames[i], juiceExeOutputsChan)
 		// each task will generate just one key-value pair, which will be returned on the channel
 	}
 
 	// close the channel once all goroutines have finished - do it in separate goroutine so that we don't block
-	go func() {
-		wg.Wait()
-		// we must close otherwise the for-loop below where we read from the channel will block forever cuz it will read as long as the channel is open
-		close(juiceExeOutputsChan)
-		fmt.Println("Closed juiceExeOutputsChan")
-	}()
+	//go func() {
+	//	wg.Wait()
+	//	// we must close otherwise the for-loop below where we read from the channel will block forever cuz it will read as long as the channel is open
+	//	close(juiceExeOutputsChan)
+	//	fmt.Println("Closed juiceExeOutputsChan")
+	//}()
 
-	for result := range juiceExeOutputsChan {
+	for i := 0; i < len(assignedKeys); i++ {
+		result := <-juiceExeOutputsChan
 		fmt.Println("KV Result from channel: ", result)
 		n_bytes, writeStringErr := juiceTaskOutputFile.WriteString(result)
 		if writeStringErr != nil {
