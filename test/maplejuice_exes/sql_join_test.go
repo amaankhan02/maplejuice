@@ -2,7 +2,7 @@ package test
 
 //import (
 //	"bufio"
-//	juice_exe_sql "cs425_mp4/cmd/juices/juice_SQL"
+//	juice_exe_sql "cs425_mp4/cmd/juices/juice_SQL_filter"
 //	maples_exe_sql_join_phase_1 "cs425_mp4/cmd/maples/maple_sql_join_phase_1"
 //	mj "cs425_mp4/internal/maplejuice_exe"
 //	"fmt"

@@ -13,6 +13,11 @@ import (
 )
 
 const MAPLE_JUICE_LEADER_DISPATCHER_WAIT_TIME = 500 * time.Millisecond
+const SQL_FILTER_MAPLE_EXE_FILENAME = "maple_SQL_filter"
+const SQL_FILTER_JUICE_EXE_FILENAME = "juice_SQL_filter"
+const SQL_FILTER_INTERMEDIATE_FILENAME_PREFIX_FMT = "SQL_filter_intermediate_%s_%d" // fmt: (dataset, unix.Nano() time)
+const SQL_FILTER_DEST_FILENAME_FMT = "SQL_filter_output_$s"                         // fmt: (dataset)
+const SQL_FILTER_NUM_TASKS = 4                                                      // num_maples and num_juices for the SQL filter job
 
 /*
 	INodeManager interface
@@ -271,47 +276,101 @@ func (manager *MapleJuiceManager) executeUserInput(userInput []string) bool {
 	case "juice":
 		manager.parseAndExecuteJuiceInput(userInput)
 	case "select":
-		manager.parseSqlQuery(userInput)
+		manager.parseAndExecuteSqlQuery(userInput)
 	}
 	return false
 }
 
-func (manager *MapleJuiceManager) parseSqlQuery(userInput []string) {
-	// TODO: samaah implement this
-
+func (manager *MapleJuiceManager) parseAndExecuteSqlQuery(userInput []string) {
 	// FILTER: SELECT ALL FROM DATASET WHERE <REGEX>
 	// JOIN: SELECT ALL FROM D1, D2 WHERE D1.FIELD = D2.FIELD
 
 	num_data_sets := GetNumDatasets(userInput)
-	mapleExe, num_maples, sdfs_intermediate_filename_prefix, sdfs_src_directory := getMapleSQLInput(userInput)
-	juiceExe, num_juices, sdfs_intermediate_filename_prefix, sdfs_dest_filename, shouldDeleteInput, partitionScheme := getReduceSQLInput(userInput)
+	//mapleExe, num_maples, sdfs_intermediate_filename_prefix, sdfs_src_directory := getMapleSQLInput(userInput)
+	//juiceExe, num_juices, sdfs_intermediate_filename_prefix, sdfs_dest_filename, shouldDeleteInput, partitionScheme := getReduceSQLInput(userInput)
 
-	if num_data_sets == 1 {
-		// FILTER
-		manager.mapleJuiceNode.SubmitMapleJob(mapleExe, num_maples, sdfs_intermediate_filename_prefix, sdfs_src_directory)
-		manager.mapleJuiceNode.SubmitJuiceJob(juiceExe, num_juices, sdfs_intermediate_filename_prefix, sdfs_dest_filename, shouldDeleteInput, partitionScheme)
+	if num_data_sets == 1 { // FILTER
+		dataset, regex := parseSqlFilterQuery(userInput)
+		manager.executeSqlFilter(dataset, regex)
 	} else if num_data_sets == 2 {
 		// JOIN
 
 		// phase 1 -> dataset 1
-		manager.mapleJuiceNode.SubmitMapleJob(mapleExe, num_maples, sdfs_intermediate_filename_prefix, sdfs_src_directory)
-		manager.mapleJuiceNode.SubmitJuiceJob(juiceExe, num_juices, sdfs_intermediate_filename_prefix, sdfs_dest_filename, shouldDeleteInput, partitionScheme)
-
-		// phase 2 -> dataset 2 (same just different dataset)
-		manager.mapleJuiceNode.SubmitMapleJob(mapleExe, num_maples, sdfs_intermediate_filename_prefix, sdfs_src_directory)
-		manager.mapleJuiceNode.SubmitJuiceJob(juiceExe, num_juices, sdfs_intermediate_filename_prefix, sdfs_dest_filename, shouldDeleteInput, partitionScheme)
-
-		// phase 3 -> take both datasets and parse
-		mapleExe3, num_maples3, sdfs_intermediate_filename_prefix3, sdfs_src_directory3 := getMapleSQLInputJoinPhase3(userInput)
-		juiceExe3, num_juices3, sdfs_intermediate_filename_prefix3, sdfs_dest_filename3, shouldDeleteInput3, partitionScheme3 := getReduceSQLInputJoinPhase3(userInput)
-
-		manager.mapleJuiceNode.SubmitMapleJob(mapleExe3, num_maples3, sdfs_intermediate_filename_prefix3, sdfs_src_directory3)
-		manager.mapleJuiceNode.SubmitJuiceJob(juiceExe3, num_juices3, sdfs_intermediate_filename_prefix3, sdfs_dest_filename3, shouldDeleteInput3, partitionScheme3)
+		//manager.mapleJuiceNode.SubmitMapleJob(mapleExe, num_maples, sdfs_intermediate_filename_prefix, sdfs_src_directory)
+		//manager.mapleJuiceNode.SubmitJuiceJob(juiceExe, num_juices, sdfs_intermediate_filename_prefix, sdfs_dest_filename, shouldDeleteInput, partitionScheme)
+		//
+		//// phase 2 -> dataset 2 (same just different dataset)
+		//manager.mapleJuiceNode.SubmitMapleJob(mapleExe, num_maples, sdfs_intermediate_filename_prefix, sdfs_src_directory)
+		//manager.mapleJuiceNode.SubmitJuiceJob(juiceExe, num_juices, sdfs_intermediate_filename_prefix, sdfs_dest_filename, shouldDeleteInput, partitionScheme)
+		//
+		//// phase 3 -> take both datasets and parse
+		//mapleExe3, num_maples3, sdfs_intermediate_filename_prefix3, sdfs_src_directory3 := getMapleSQLInputJoinPhase3(userInput)
+		//juiceExe3, num_juices3, sdfs_intermediate_filename_prefix3, sdfs_dest_filename3, shouldDeleteInput3, partitionScheme3 := getReduceSQLInputJoinPhase3(userInput)
+		//
+		//manager.mapleJuiceNode.SubmitMapleJob(mapleExe3, num_maples3, sdfs_intermediate_filename_prefix3, sdfs_src_directory3)
+		//manager.mapleJuiceNode.SubmitJuiceJob(juiceExe3, num_juices3, sdfs_intermediate_filename_prefix3, sdfs_dest_filename3, shouldDeleteInput3, partitionScheme3)
 
 	} else {
 		//INCORRECT
 		fmt.Println("Invalid SQL Query")
 	}
+}
+
+func (manager *MapleJuiceManager) executeSqlFilter(dataset string, regex string) {
+	// dataset = src directory in sdfs
+	// regex = regex to match --> put under SQL additional info
+
+	// get full path to the maple_exe file and juice_exe file
+	mapleExeFilePath, err1 := filepath.Abs(filepath.Join(config.EXE_FILES_FOLDER, SQL_FILTER_MAPLE_EXE_FILENAME))
+	if err1 != nil {
+		fmt.Println("Unable to parse maple_exe name")
+		return
+	}
+	mapleExe := MapleJuiceExeFile{
+		ExeFilePath:       mapleExeFilePath,
+		SqlAdditionalInfo: regex,
+	}
+
+	juiceExeFilePath, err2 := filepath.Abs(filepath.Join(config.EXE_FILES_FOLDER, SQL_FILTER_JUICE_EXE_FILENAME))
+	if err2 != nil {
+		fmt.Println("Unable to parse juice_exe name")
+		return
+	}
+	juiceExe := MapleJuiceExeFile{
+		ExeFilePath: juiceExeFilePath,
+	}
+	sdfsIntermediateFileName := fmt.Sprintf(SQL_FILTER_INTERMEDIATE_FILENAME_PREFIX_FMT, dataset, time.Now().Unix())
+	sdfsDestFileName := fmt.Sprintf(SQL_FILTER_DEST_FILENAME_FMT, dataset)
+
+	fmt.Printf("Submitting MapleJuice job for SQL filter.\nSDFS Destination File: %s\nSDFS Intermediate Filename Prefix: %s",
+		sdfsDestFileName, sdfsIntermediateFileName)
+
+	manager.mapleJuiceNode.SubmitMapleJob(
+		mapleExe,
+		SQL_FILTER_NUM_TASKS,
+		sdfsIntermediateFileName,
+		dataset,
+	)
+	time.Sleep(1 * time.Second) // give it enough time for maple to be submitted
+	manager.mapleJuiceNode.SubmitJuiceJob(
+		juiceExe,
+		SQL_FILTER_NUM_TASKS,
+		sdfsIntermediateFileName,
+		sdfsDestFileName,
+		false,
+		HASH_PARTITIONING,
+	)
+}
+
+func parseSqlFilterQuery(userInput []string) (string, string) {
+	dataset := userInput[3]
+	regex := userInput[5]
+	// Check if the string starts and ends with double quotes
+	if len(regex) >= 2 && regex[0] == '"' && regex[len(regex)-1] == '"' {
+		// Remove the first and last character (the double quotes)
+		regex = regex[1 : len(regex)-1]
+	}
+	return dataset, regex
 }
 
 // INPUTS 1 - 4
@@ -451,7 +510,8 @@ func GetNumDatasets(userInput []string) int {
 	contains_FROM, contains_WHERE := doesQueryHasFROMandWHERE(userInput)
 
 	if !contains_FROM || !contains_WHERE {
-		log.Fatal("Incorrect SQL Query, does not contains FROM or WHERE")
+		fmt.Println("Incorrect SQL Query, does not contains FROM or WHERE")
+		return -1
 	}
 
 	// count number of words between FROM and WHERE (because this is number of datasets)
