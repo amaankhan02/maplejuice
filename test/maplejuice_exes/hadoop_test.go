@@ -2,9 +2,6 @@ package test
 
 import (
 	"bufio"
-	"cs425_mp4/cmd/mapper1"
-	"cs425_mp4/cmd/mapper2"
-	"cs425_mp4/cmd/reducer1"
 	"cs425_mp4/cmd/reducer2"
 	"fmt"
 	"os"
