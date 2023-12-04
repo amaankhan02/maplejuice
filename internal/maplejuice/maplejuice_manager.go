@@ -15,7 +15,7 @@ const MAPLE_JUICE_LEADER_DISPATCHER_WAIT_TIME = 500 * time.Millisecond
 const SQL_FILTER_MAPLE_EXE_FILENAME = "maple_SQL_filter"
 const SQL_FILTER_JUICE_EXE_FILENAME = "juice_SQL_filter"
 const SQL_FILTER_INTERMEDIATE_FILENAME_PREFIX_FMT = "SQL_filter_intermediate_%s_%d" // fmt: (dataset, unix.Nano() time)
-const SQL_FILTER_DEST_FILENAME_FMT = "SQL_filter_output_$s"                         // fmt: (dataset)
+const SQL_FILTER_DEST_FILENAME_FMT = "SQL_filter_output_%s"                         // fmt: (dataset)
 const SQL_FILTER_NUM_TASKS = 4                                                      // num_maples and num_juices for the SQL filter job
 
 /*
@@ -316,13 +316,13 @@ func (manager *MapleJuiceManager) executeSqlFilter(dataset string, regex string)
 		fmt.Println("Unable to parse juice_exe name")
 		return
 	}
-	juiceExe := MapleJuiceExeFile{
-		ExeFilePath: juiceExeFilePath,
-	}
+	//juiceExe := MapleJuiceExeFile{
+	//	ExeFilePath: juiceExeFilePath,
+	//}
 	sdfsIntermediateFileName := fmt.Sprintf(SQL_FILTER_INTERMEDIATE_FILENAME_PREFIX_FMT, dataset, time.Now().Unix())
 	sdfsDestFileName := fmt.Sprintf(SQL_FILTER_DEST_FILENAME_FMT, dataset)
 
-	fmt.Printf("Submitting MapleJuice job for SQL filter.\nSDFS Destination File: %s\nSDFS Intermediate Filename Prefix: %s",
+	fmt.Printf("Submitting MapleJuice job for SQL filter.\nSDFS Destination File: %s\nSDFS Intermediate Filename Prefix: %s\n",
 		sdfsDestFileName, sdfsIntermediateFileName)
 
 	manager.mapleJuiceNode.SubmitMapleJob(
@@ -332,14 +332,14 @@ func (manager *MapleJuiceManager) executeSqlFilter(dataset string, regex string)
 		dataset,
 	)
 	time.Sleep(1 * time.Second) // give it enough time for maple to be submitted
-	manager.mapleJuiceNode.SubmitJuiceJob(
-		juiceExe,
-		SQL_FILTER_NUM_TASKS,
-		sdfsIntermediateFileName,
-		sdfsDestFileName,
-		false,
-		HASH_PARTITIONING,
-	)
+	//manager.mapleJuiceNode.SubmitJuiceJob(
+	//	juiceExe,
+	//	SQL_FILTER_NUM_TASKS,
+	//	sdfsIntermediateFileName,
+	//	sdfsDestFileName,
+	//	false,
+	//	HASH_PARTITIONING,
+	//)
 }
 
 func parseSqlFilterQuery(userInput []string) (string, string) {
