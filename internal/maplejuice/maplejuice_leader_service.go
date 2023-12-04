@@ -719,6 +719,11 @@ func (leader *MapleJuiceLeaderService) IndicateNodeFailed(failedNode NodeID) {
 	leader.mutex.Lock()
 	defer leader.mutex.Unlock()
 
+	if leader.currentJob == nil {
+		fmt.Println("Detected a node failure, but no job is currently running. No need to reassign tasks")
+		return
+	}
+
 	if leader.currentJob.jobType == MAPLE_JOB {
 		leader.reassignFailedNodeMapleTasks(failedNode)
 	} else { // JUICE JOB
