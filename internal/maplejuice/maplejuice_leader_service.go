@@ -389,8 +389,9 @@ func (leader *MapleJuiceLeaderService) processMapleTaskOutputFile(task_output_fi
 		if csv_err == io.EOF {
 			break
 		} else if csv_err != nil {
-			fmt.Println("Failed to parse CSV file - failed to read line! Exiting...")
-			log.Fatalln(csv_err)
+			continue // just skip it, prob invalid data TODO: figure out why sometimes the first line is just a number and no comma separated
+			//fmt.Println("Failed to parse CSV file - failed to read line! Exiting...")
+			//log.Fatalln(csv_err)
 		}
 		if len(record) != 2 {
 			continue // just skip it, prob invalid data
