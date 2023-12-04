@@ -80,7 +80,6 @@ type LeaderMapleJuiceJob struct {
 	juiceJobOutputFilepath         string             // only for juice job
 	juiceJobTmpDirPath             string             // only for juice job
 
-	// TODO: implement on map side to update this set of keys
 	keys datastructures.HashSet[string] // map job updates this, juice job will look at this later to know what keys are there
 	// ! is it fine that I'm storing all the keys in memory? maybe we can store it in a file instead? (future improvement)
 
@@ -316,7 +315,9 @@ func (leader *MapleJuiceLeaderService) ReceiveJuiceTaskOutput(workerConn net.Con
 
 func (leader *MapleJuiceLeaderService) finishCurrentJuiceJob(sdfsService *SDFSNode) {
 	// TODO: do i even need to do a "blocked" put tho? I don't need to wait on the file technically so i could just put it
-	sdfsService.PerformPut(leader.currentJob.juiceJobOutputFilepath, leader.currentJob.sdfsDestFilename)
+	_ = sdfsService.PerformBlockedPuts([]string{leader.currentJob.juiceJobOutputFilepath}, []string{leader.currentJob.sdfsDestFilename})
+
+	//sdfsService.PerformPut(leader.currentJob.juiceJobOutputFilepath, leader.currentJob.sdfsDestFilename)
 
 	// delete the intermediate files if the user specified to do so
 	if leader.currentJob.delete_input {
