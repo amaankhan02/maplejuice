@@ -411,6 +411,9 @@ func (manager *MapleJuiceManager) executeSqlFilter(dataset string, regex string)
 		false,
 		HASH_PARTITIONING,
 	)
+	time.Sleep(1 * time.Second)
+
+	fmt.Println("ANSWER IN ", sdfsDestFileName)
 }
 
 func parseSqlFilterQuery(userInput []string) (string, string) {
