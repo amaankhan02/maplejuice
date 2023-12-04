@@ -335,6 +335,7 @@ to the output file.
 Once all channels have been read from, we can send the output file back to the leader.
 */
 func (this *MapleJuiceNode) executeJuiceTask(juiceExe MapleJuiceExeFile, sdfsIntermediateFilenamePrefix string, assignedKeys []string) {
+	fmt.Println("INSIDE EXECUTE JUICE TASK()")
 
 	this.mutex.Lock()
 	this.localWorkerTaskID++
@@ -345,18 +346,22 @@ func (this *MapleJuiceNode) executeJuiceTask(juiceExe MapleJuiceExeFile, sdfsInt
 
 	// get the names of the files to fetch from sdfs
 	sdfsInputFilenames := this.createSdfsFilenamesFromIntermediateAndKeys(sdfsIntermediateFilenamePrefix, assignedKeys)
+	fmt.Println("len(sdfsInputFilenames) = ", len(sdfsInputFilenames))
 
 	// create the names of the corresponding local filenames
 	localInputFilenames := make([]string, 0)
 	for _, sdfsInputFilename := range sdfsInputFilenames {
 		localInputFilenames = append(localInputFilenames, filepath.Join(taskDirPath, fmt.Sprintf(JUICE_LOCAL_INPUT_SDFS_INTERM_FILENAME_FMT, sdfsInputFilename)))
 	}
+	fmt.Println("len(localInputFilenames) = ", len(localInputFilenames))
 
 	// fetch the files from sdfs to local tmp dir
+	fmt.Println("About to send PerformBlockedGets()")
 	err := this.sdfsNode.PerformBlockedGets(sdfsInputFilenames, localInputFilenames)
 	if err != nil {
 		log.Fatalln("Error! Could not do PerformBlockedGets(): ", err)
 	}
+	fmt.Println("Finished PerformBlockedGets()")
 
 	var wg sync.WaitGroup
 	juiceExeOutputsChan := make(chan string, len(assignedKeys)) // buffered channel so that we don't block on the go routines
@@ -376,18 +381,22 @@ func (this *MapleJuiceNode) executeJuiceTask(juiceExe MapleJuiceExeFile, sdfsInt
 		wg.Wait()
 		// we must close otherwise the for-loop below where we read from the channel will block forever cuz it will read as long as the channel is open
 		close(juiceExeOutputsChan)
+		fmt.Println("Closed juiceExeOutputsChan")
 	}()
 
 	for result := range juiceExeOutputsChan {
-		_, writeStringErr := juiceTaskOutputFile.WriteString(result)
+		fmt.Println("KV Result from channel: ", result)
+		n_bytes, writeStringErr := juiceTaskOutputFile.WriteString(result)
 		if writeStringErr != nil {
 			log.Fatalln("Failed to write output of channel to juiceTaskOutputFile. Error: ", writeStringErr)
 		}
+		fmt.Println("Wrote ", n_bytes, " bytes to juiceTaskOutputFile")
 	}
 
 	_ = juiceTaskOutputFile.Close() // close file since we are done writing to it.
 
 	// send the task response back with the file data to the leader
+	fmt.Println("Contacting leader to send juice task response")
 	leaderConn, conn_err := net.Dial("tcp", this.leaderID.IpAddress+":"+this.leaderID.MapleJuiceServerPort)
 	if conn_err != nil {
 		log.Fatalln("Failed to dial to leader server. Error: ", conn_err)
@@ -798,6 +807,7 @@ func (this *MapleJuiceNode) ExecuteJuiceExeOnKey(juiceExe MapleJuiceExeFile,
 	inputFilePath string,
 	outputChan chan string,
 ) {
+	fmt.Println("Executing JUICE EXE on inputFilepath: ", inputFilePath)
 	var stdoutBuffer bytes.Buffer
 	cmd := exec.Command(juiceExe.ExeFilePath, inputFilePath)
 	cmd.Stdout = &stdoutBuffer
