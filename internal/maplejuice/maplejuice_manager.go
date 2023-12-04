@@ -311,14 +311,14 @@ func (manager *MapleJuiceManager) executeSqlFilter(dataset string, regex string)
 		SqlAdditionalInfo: regex,
 	}
 
-	//juiceExeFilePath, err2 := filepath.Abs(filepath.Join(config.EXE_FILES_FOLDER, SQL_FILTER_JUICE_EXE_FILENAME))
-	//if err2 != nil {
-	//	fmt.Println("Unable to parse juice_exe name")
-	//	return
-	//}
-	//juiceExe := MapleJuiceExeFile{
-	//	ExeFilePath: juiceExeFilePath,
-	//}
+	juiceExeFilePath, err2 := filepath.Abs(filepath.Join(config.EXE_FILES_FOLDER, SQL_FILTER_JUICE_EXE_FILENAME))
+	if err2 != nil {
+		fmt.Println("Unable to parse juice_exe name")
+		return
+	}
+	juiceExe := MapleJuiceExeFile{
+		ExeFilePath: juiceExeFilePath,
+	}
 	sdfsIntermediateFileName := fmt.Sprintf(SQL_FILTER_INTERMEDIATE_FILENAME_PREFIX_FMT, dataset, time.Now().Unix())
 	sdfsDestFileName := fmt.Sprintf(SQL_FILTER_DEST_FILENAME_FMT, dataset)
 
@@ -332,14 +332,14 @@ func (manager *MapleJuiceManager) executeSqlFilter(dataset string, regex string)
 		dataset,
 	)
 	time.Sleep(1 * time.Second) // give it enough time for maple to be submitted
-	//manager.mapleJuiceNode.SubmitJuiceJob(
-	//	juiceExe,
-	//	SQL_FILTER_NUM_TASKS,
-	//	sdfsIntermediateFileName,
-	//	sdfsDestFileName,
-	//	false,
-	//	HASH_PARTITIONING,
-	//)
+	manager.mapleJuiceNode.SubmitJuiceJob(
+		juiceExe,
+		SQL_FILTER_NUM_TASKS,
+		sdfsIntermediateFileName,
+		sdfsDestFileName,
+		false,
+		HASH_PARTITIONING,
+	)
 }
 
 func parseSqlFilterQuery(userInput []string) (string, string) {
