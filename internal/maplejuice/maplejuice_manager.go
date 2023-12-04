@@ -560,11 +560,13 @@ func (manager *MapleJuiceManager) HandleNodeFailure(info FailureDetectionInfo) {
 	if manager.sdfsNode.isLeader {
 		manager.sdfsNode.leaderService.IndicateNodeFailed(info.FailedNodeId)
 	}
+	if manager.mapleJuiceNode.isLeader {
+		manager.mapleJuiceNode.leaderService.IndicateNodeFailed(info.FailedNodeId)
+	}
 }
 
 func (manager *MapleJuiceManager) HandleNodeJoin(info NodeJoinInfo) {
 	// if a node joined our membership list, i need to reflect that in leaderService.AvailableWorkerNodes
-
 	if manager.sdfsNode.isLeader {
 		manager.sdfsNode.leaderService.AddNewActiveNode(info.JoinedNodeId)
 	}

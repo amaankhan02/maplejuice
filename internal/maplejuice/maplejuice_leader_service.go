@@ -660,3 +660,60 @@ func (leader *MapleJuiceLeaderService) sendMapleTasksToWorkerNodes(job *LeaderMa
 		_ = workerConn.Close()
 	}
 }
+
+func (leader *MapleJuiceLeaderService) IndicateNodeFailed(failedNode NodeID) {
+	// check if from the current job, if the failed node was assigned any tasks. If it was,
+	// then we need to reassign those tasks to another node and send the task request to that node
+	// and then also remove it from the AvailableWorkerNodes list.
+	// Use any mutex locks wherever needed
+	leader.mutex.Lock()
+	defer leader.mutex.Unlock()
+
+	if leader.currentJob.jobType == MAPLE_JOB {
+		leader.reassignFailedNodeMapleTasks(failedNode)
+	} else { // JUICE JOB
+
+	}
+}
+
+func (leader *MapleJuiceLeaderService) reassignFailedNodeMapleTasks(failedNode NodeID) {
+	taskIndices, exists := leader.currentJob.workerToTaskIndices[failedNode]
+	if !exists {
+		fmt.Println("Failed node was not assigned any tasks. No need to reassign tasks")
+		return // no tasks were assigned to this node
+	} else if len(taskIndices) == 0 {
+		fmt.Println("Failed node was assigned tasks, but they all completed before the failure. No need to reassign tasks")
+		return // no tasks were assigned to this node
+	}
+
+	// remove the failed node from the list of available worker nodes
+	leader.AvailableWorkerNodes = RemoveElementFromSlice(leader.AvailableWorkerNodes, failedNode)
+
+	// pick a new node to assign the tasks to
+	newWorkerNode := leader.AvailableWorkerNodes[rand.Intn(len(leader.AvailableWorkerNodes))]
+	_, ok := leader.currentJob.workerToTaskIndices[newWorkerNode]
+	if !ok { // create the list of tasks if this worker has not been assigned a task yet
+		leader.currentJob.workerToTaskIndices[newWorkerNode] = make([]int, 0)
+	}
+	leader.currentJob.workerToTaskIndices[newWorkerNode] = append(leader.currentJob.workerToTaskIndices[newWorkerNode], taskIndices...)
+
+	// send the task request to the new worker node
+	workerConn, conn_err := net.Dial("tcp", newWorkerNode.IpAddress+":"+newWorkerNode.MapleJuiceServerPort)
+	if conn_err != nil {
+		fmt.Println("*****Failed to connect to worker node when re-assigning tasks after failure!!*****")
+		fmt.Println(conn_err)
+	}
+	defer workerConn.Close()
+
+	for _, taskIndex := range taskIndices {
+		fmt.Println("Sending maple task request to worker node (reassigning after failure)!")
+		SendMapleTaskRequest(
+			workerConn,
+			leader.currentJob.numTasks,
+			leader.currentJob.exeFile,
+			leader.currentJob.sdfsIntermediateFilenamePrefix,
+			leader.currentJob.sdfsSrcDirectory,
+			taskIndex,
+		)
+	}
+}
