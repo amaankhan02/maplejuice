@@ -529,6 +529,9 @@ func (leader *MapleJuiceLeaderService) sendJuiceTasksToWorkerNodes(job *LeaderMa
 			fmt.Println("*****Failed to connect to worker node!*****")
 			fmt.Println(conn_err)
 		} else {
+			fmt.Println(">>>>>>Sending juice task request to worker node!<<<<")
+			fmt.Println("\tlen(assignedKeys) = ", len(assignedKeys))
+			fmt.Println("\tsdfsIntermediateFilenamePrefix: ", job.sdfsIntermediateFilenamePrefix)
 			SendJuiceTaskRequest(workerConn, job.exeFile, job.sdfsIntermediateFilenamePrefix, assignedKeys)
 		}
 		_ = workerConn.Close()
