@@ -4,6 +4,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"sync"
 )
 
 /*
@@ -15,7 +16,8 @@ type FileSystemService struct {
 	RootDirPath string
 
 	// HashMap of Filename to a list of ShardMetaData's belonging to that file, stored on this node
-	ShardMetadatas map[string][]ShardMetaData
+	ShardMetadatas    map[string][]ShardMetaData
+	ShardMetaDataLock sync.Mutex
 }
 
 func NewFileSystemService(rootDirPath string) *FileSystemService {
@@ -37,7 +39,9 @@ TODO: immediately send it in the stream, and then delete the object, and then re
 TODO: in the TCP message should be calcualted before hand. so there's a bit of work to change for that - DO THIS LATER!
 */
 func (this *FileSystemService) GetShards(sdfs_filename string) []Shard {
+	this.ShardMetaDataLock.Lock()
 	metadatas, ok := this.ShardMetadatas[sdfs_filename]
+	this.ShardMetaDataLock.Unlock()
 	if !ok {
 		log.Fatalln("GetShards(): Invalid sdfs_filename requested! Does not exist!")
 	}
@@ -55,21 +59,23 @@ Delete all Shards associated with the sdfs_filename from the disk and remove
 it from the FileSystemService map of shard meta datas
 */
 func (this *FileSystemService) DeleteAllShards(sdfs_filename string) {
+	this.ShardMetaDataLock.Lock()
+	defer this.ShardMetaDataLock.Unlock()
+	// delete from disk
+	// TODO: should i return an error instead of doing log.fatal
+	// delete sdfs_filename from the map
 	metadatas, ok := this.ShardMetadatas[sdfs_filename]
 	if !ok {
 		log.Fatalln("Invalid maplejuice Filename - does not exist")
 	}
 
-	// delete from disk
 	for _, md := range metadatas {
 		err := os.Remove(md.ShardFilename)
 		if err != nil {
 			log.Fatalf("Failed to remove file %s\n", md.ShardFilename)
-			// TODO: should i return an error instead of doing log.fatal
 		}
 	}
 
-	// delete sdfs_filename from the map
 	delete(this.ShardMetadatas, sdfs_filename)
 }
 
@@ -104,8 +110,10 @@ func (this *FileSystemService) WriteShard(shard Shard) {
 	}
 
 	// record the shard in our FileSystemService
+	this.ShardMetaDataLock.Lock()
 	this.ShardMetadatas[shard.Metadata.SdfsFilename] = append(
 		this.ShardMetadatas[shard.Metadata.SdfsFilename], shard.Metadata)
+	this.ShardMetaDataLock.Unlock()
 }
 
 /*
@@ -114,9 +122,10 @@ stored on this machine.
 */
 func (this *FileSystemService) GetAllSDFSFilenames() []string {
 	keys := make([]string, 0)
-
+	this.ShardMetaDataLock.Lock()
 	for filename, _ := range this.ShardMetadatas {
 		keys = append(keys, filename)
 	}
+	this.ShardMetaDataLock.Unlock()
 	return keys
 }
