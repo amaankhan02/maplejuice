@@ -271,7 +271,8 @@ func (leader *MapleJuiceLeaderService) ReceiveMapleTaskOutput(workerConn net.Con
 
 func (leader *MapleJuiceLeaderService) ReceiveJuiceTaskOutput(workerConn net.Conn, taskAssignedKeys []string, filesize int64, sdfsService *SDFSNode) {
 	fmt.Println("INSIDE RECEIVE JUICE TASK OUTPUT")
-	workerIp := workerConn.RemoteAddr().String()
+	workerIpAndPort := workerConn.RemoteAddr().String()
+	workerIp := strings.Split(workerIpAndPort, ":")[0]
 	fmt.Println("workerIp: ", workerIp)
 	hostnames, err22 := net.LookupAddr(workerIp)
 	if err22 != nil {
