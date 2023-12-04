@@ -364,8 +364,8 @@ func (this *MapleJuiceNode) executeJuiceTask(juiceExe MapleJuiceExeFile, sdfsInt
 	fmt.Println("Finished PerformBlockedGets()")
 
 	//var wg sync.WaitGroup
-	juiceExeOutputsChan := make(chan string, len(assignedKeys)) // buffered channel so that we don't block on the go routines
-
+	//juiceExeOutputsChan := make(chan string, len(assignedKeys)) // buffered channel so that we don't block on the go routines
+	juiceExeOutputsChan := make(chan string)
 	// start a goroutine to execute each juice exe
 	for i, _ := range assignedKeys {
 		//wg.Add(1)
