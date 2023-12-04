@@ -438,7 +438,7 @@ func (leader *MapleJuiceLeaderService) processMapleTaskOutputFile(task_output_fi
 		if csv_err == io.EOF {
 			break
 		} else if csv_err != nil {
-			continue // just skip it, prob invalid data TODO: figure out why sometimes the first line is just a number and no comma separated
+			break // just skip it, prob invalid data TODO: figure out why sometimes the first line is just a number and no comma separated
 			//fmt.Println("Failed to parse CSV file - failed to read line! Exiting...")
 			//log.Fatalln(csv_err)
 		}
@@ -460,7 +460,7 @@ func (leader *MapleJuiceLeaderService) processMapleTaskOutputFile(task_output_fi
 		fullSdfsIntermediateFilePath := filepath.Join(leader.leaderTempDir, _sdfsIntermediateFileName)
 		leader.currentJob.sdfsIntermediateFilenames.Add(_sdfsIntermediateFileName)
 		leader.currentJob.keys.Add(key)
-
+		fmt.Println(">>>1<<<")
 		// TODO: instead of writing to the file every iteration, you can make leader a buffered write to make it faster! future improvement!
 		// ^ you can first append it to a map, and once the map reaches a certain size you can then write the map to its respective files
 		//leader.currentJob.sdfsIntermediateFileMutex.Lock()
@@ -468,6 +468,7 @@ func (leader *MapleJuiceLeaderService) processMapleTaskOutputFile(task_output_fi
 		if file2_err != nil {
 			log.Fatalln("Failed to open sdfsIntermediateFileName. Error: ", file2_err)
 		}
+		fmt.Println(">>>2<<<")
 		writer := bufio.NewWriter(intermediateFile)
 		n_written, interm_write_err := writer.WriteString(key + "\t" + value + "\n")
 		if interm_write_err != nil {
@@ -478,9 +479,10 @@ func (leader *MapleJuiceLeaderService) processMapleTaskOutputFile(task_output_fi
 		}
 		_ = writer.Flush()
 		_ = intermediateFile.Close()
+		fmt.Println(">>>LOOP_END<<<")
 		//leader.currentJob.sdfsIntermediateFileMutex.Unlock()
 	}
-
+	fmt.Println(">>>FUNC_END<<<")
 	// TODO: delete the task output file since we no longer need it... but for testing purposes don't do it yet... add this as a functionality later
 }
 
