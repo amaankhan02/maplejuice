@@ -181,6 +181,7 @@ func (leader *MapleJuiceLeaderService) SubmitMapleJob(mapleExe MapleJuiceExeFile
 		clientJobId:                    clientJobId,
 		clientId:                       clientId,
 		keys:                           make(datastructures.HashSet[string]),
+		workerToKeys:                   make(map[NodeID][]string),
 	}
 
 	fmt.Println("Adding maple job to queue in leader!")
@@ -209,6 +210,7 @@ func (leader *MapleJuiceLeaderService) SubmitJuiceJob(juice_exe MapleJuiceExeFil
 		clientJobId:                    clientJobId,
 		clientId:                       clientId,
 		keys:                           make(datastructures.HashSet[string]),
+		workerToKeys:                   make(map[NodeID][]string),
 	}
 	leader.waitQueue = append(leader.waitQueue, &job)
 	leader.jobsSubmitted++
@@ -546,6 +548,7 @@ func (leader *MapleJuiceLeaderService) partitionKeysToWorkerNodes(job *LeaderMap
 	if job.juicePartitionScheme == HASH_PARTITIONING {
 		// get a list of keys assigned to each task. the index of the list represents the task index
 		keysForTasks := leader.hashPartitionKeysToJuiceTasks(job)
+		fmt.Println("len(keysForTasks) = ", len(keysForTasks))
 
 		// now assign the keys to the worker nodes
 		for i, keys := range keysForTasks {
@@ -563,6 +566,9 @@ func (leader *MapleJuiceLeaderService) partitionKeysToWorkerNodes(job *LeaderMap
 func (leader *MapleJuiceLeaderService) hashPartitionKeysToJuiceTasks(job *LeaderMapleJuiceJob) [][]string {
 	hasher := fnv.New32()
 	tasks := make([][]string, job.numTasks) // create a list of tasks where index = taskIndex and value = list of keys assigned to this task
+	fmt.Println("len(job.keys) = ", len(job.keys))
+	fmt.Println("job.numTasks = ", job.numTasks)
+
 	for key := range job.keys {
 		hasher.Write([]byte(key)) // write the key to the hash
 
