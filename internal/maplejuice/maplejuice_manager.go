@@ -4,7 +4,6 @@ import (
 	"cs425_mp4/internal/config"
 	"cs425_mp4/internal/utils"
 	"fmt"
-	"log"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -284,34 +283,15 @@ func (manager *MapleJuiceManager) executeUserInput(userInput []string) bool {
 func (manager *MapleJuiceManager) parseAndExecuteSqlQuery(userInput []string) {
 	// FILTER: SELECT ALL FROM DATASET WHERE <REGEX>
 	// JOIN: SELECT ALL FROM D1, D2 WHERE D1.FIELD = D2.FIELD
-
 	num_data_sets := GetNumDatasets(userInput)
-	//mapleExe, num_maples, sdfs_intermediate_filename_prefix, sdfs_src_directory := getMapleSQLInput(userInput)
-	//juiceExe, num_juices, sdfs_intermediate_filename_prefix, sdfs_dest_filename, shouldDeleteInput, partitionScheme := getReduceSQLInput(userInput)
 
 	if num_data_sets == 1 { // FILTER
 		dataset, regex := parseSqlFilterQuery(userInput)
 		manager.executeSqlFilter(dataset, regex)
-	} else if num_data_sets == 2 {
-		// JOIN
-
-		// phase 1 -> dataset 1
-		//manager.mapleJuiceNode.SubmitMapleJob(mapleExe, num_maples, sdfs_intermediate_filename_prefix, sdfs_src_directory)
-		//manager.mapleJuiceNode.SubmitJuiceJob(juiceExe, num_juices, sdfs_intermediate_filename_prefix, sdfs_dest_filename, shouldDeleteInput, partitionScheme)
-		//
-		//// phase 2 -> dataset 2 (same just different dataset)
-		//manager.mapleJuiceNode.SubmitMapleJob(mapleExe, num_maples, sdfs_intermediate_filename_prefix, sdfs_src_directory)
-		//manager.mapleJuiceNode.SubmitJuiceJob(juiceExe, num_juices, sdfs_intermediate_filename_prefix, sdfs_dest_filename, shouldDeleteInput, partitionScheme)
-		//
-		//// phase 3 -> take both datasets and parse
-		//mapleExe3, num_maples3, sdfs_intermediate_filename_prefix3, sdfs_src_directory3 := getMapleSQLInputJoinPhase3(userInput)
-		//juiceExe3, num_juices3, sdfs_intermediate_filename_prefix3, sdfs_dest_filename3, shouldDeleteInput3, partitionScheme3 := getReduceSQLInputJoinPhase3(userInput)
-		//
-		//manager.mapleJuiceNode.SubmitMapleJob(mapleExe3, num_maples3, sdfs_intermediate_filename_prefix3, sdfs_src_directory3)
-		//manager.mapleJuiceNode.SubmitJuiceJob(juiceExe3, num_juices3, sdfs_intermediate_filename_prefix3, sdfs_dest_filename3, shouldDeleteInput3, partitionScheme3)
-
-	} else {
-		//INCORRECT
+	} else if num_data_sets == 2 { // JOIN
+		d1, d2, field1, field2 := parseSqlJoinQuery(userInput)
+		manager.executeSqlJoin(d1, d2, field1, field2)
+	} else { //INCORRECT
 		fmt.Println("Invalid SQL Query")
 	}
 }
@@ -371,124 +351,6 @@ func parseSqlFilterQuery(userInput []string) (string, string) {
 		regex = regex[1 : len(regex)-1]
 	}
 	return dataset, regex
-}
-
-// INPUTS 1 - 4
-func getMapleSQLInput(userInput []string) (MapleJuiceExeFile, int, string, string) {
-	// filename
-	mapleExeFileName := userInput[1]
-	filename := filepath.Join(config.EXE_FILES_FOLDER, mapleExeFileName)
-	mapleExeFilePath, err1 := filepath.Abs(filename)
-	if err1 != nil {
-		log.Fatal("Unable to parse maple_exe name")
-	}
-	mapleExe := MapleJuiceExeFile{
-		ExeFilePath: mapleExeFilePath,
-	}
-
-	// num_maples
-	num_maples, parse_err := strconv.Atoi(userInput[2])
-	if parse_err != nil {
-		log.Fatal("Number of Maples parameter is invalid number!")
-	}
-
-	sdfs_intermediate_filename_prefix := userInput[3]
-
-	sdfs_src_directory := userInput[4]
-
-	return mapleExe, num_maples, sdfs_intermediate_filename_prefix, sdfs_src_directory
-}
-
-// INPUTS 5 - 9
-func getReduceSQLInput(userInput []string) (MapleJuiceExeFile, int, string, string, bool, JuicePartitionType) {
-	// filename
-	juiceExeFilename := userInput[5]
-	filename := filepath.Join(config.EXE_FILES_FOLDER, juiceExeFilename)
-	juiceExeFilePath, err1 := filepath.Abs(filename)
-	if err1 != nil {
-		log.Fatal("Unable to parse juice_exe name")
-	}
-	juiceExe := MapleJuiceExeFile{
-		ExeFilePath: juiceExeFilePath,
-	}
-
-	num_juices, parse_err := strconv.Atoi(userInput[6])
-	if parse_err != nil {
-		log.Fatal("Number of Maples parameter is invalid number!")
-	}
-
-	sdfs_intermediate_filename_prefix := userInput[7]
-
-	sdfs_dest_filename := userInput[8]
-
-	should_delete_input, string_to_bool_err := stringToBool(userInput[9])
-
-	if string_to_bool_err != nil {
-		log.Fatal("Error converting string to bool")
-	}
-
-	juicePartitionScheme := HASH_PARTITIONING
-
-	return juiceExe, num_juices, sdfs_intermediate_filename_prefix, sdfs_dest_filename, should_delete_input, juicePartitionScheme
-}
-
-// INPUTS 10 - 14
-func getMapleSQLInputJoinPhase3(userInput []string) (MapleJuiceExeFile, int, string, string) {
-	// filename
-	mapleExeFileName := userInput[10]
-	filename := filepath.Join(config.EXE_FILES_FOLDER, mapleExeFileName)
-	mapleExeFilePath, err1 := filepath.Abs(filename)
-	if err1 != nil {
-		log.Fatal("Unable to parse maple_exe name")
-	}
-	mapleExe := MapleJuiceExeFile{
-		ExeFilePath: mapleExeFilePath,
-	}
-
-	// num_maples
-	num_maples, parse_err := strconv.Atoi(userInput[11])
-	if parse_err != nil {
-		log.Fatal("Number of Maples parameter is invalid number!")
-	}
-
-	sdfs_intermediate_filename_prefix := userInput[12]
-
-	sdfs_src_directory := userInput[13]
-
-	return mapleExe, num_maples, sdfs_intermediate_filename_prefix, sdfs_src_directory
-}
-
-// INPUTS 14 - 18
-func getReduceSQLInputJoinPhase3(userInput []string) (MapleJuiceExeFile, int, string, string, bool, JuicePartitionType) {
-	// filename
-	juiceExeFilename := userInput[14]
-	filename := filepath.Join(config.EXE_FILES_FOLDER, juiceExeFilename)
-	juiceExeFilePath, err1 := filepath.Abs(filename)
-	if err1 != nil {
-		log.Fatal("Unable to parse juice_exe name")
-	}
-	juiceExe := MapleJuiceExeFile{
-		ExeFilePath: juiceExeFilePath,
-	}
-
-	num_juices, parse_err := strconv.Atoi(userInput[15])
-	if parse_err != nil {
-		log.Fatal("Number of Maples parameter is invalid number!")
-	}
-
-	sdfs_intermediate_filename_prefix := userInput[16]
-
-	sdfs_dest_filename := userInput[17]
-
-	should_delete_input, string_to_bool_err := stringToBool(userInput[18])
-
-	if string_to_bool_err != nil {
-		log.Fatal("Error converting string to bool")
-	}
-
-	juicePartitionScheme := HASH_PARTITIONING
-
-	return juiceExe, num_juices, sdfs_intermediate_filename_prefix, sdfs_dest_filename, should_delete_input, juicePartitionScheme
 }
 
 func stringToBool(s string) (bool, error) {
@@ -613,6 +475,19 @@ func (manager *MapleJuiceManager) parseAndExecuteMapleInput(userInput []string) 
 	sdfsSrcDirectory := userInput[4]
 
 	manager.mapleJuiceNode.SubmitMapleJob(mapleExe, numMaples, sdfsIntermediateFilenamePrefix, sdfsSrcDirectory)
+}
+
+func parseSqlJoinQuery(userInput []string) (string, string, string, string) {
+	d1 := userInput[3]
+	d2 := userInput[5]
+	field1 := userInput[7]
+	field2 := userInput[9]
+
+	return d1, d2, field1, field2
+}
+
+func (manager *MapleJuiceManager) executeSqlJoin(d1 string, d2 string, f1 string, f2 string) {
+
 }
 
 func (manager *MapleJuiceManager) HandleNodeFailure(info FailureDetectionInfo) {
