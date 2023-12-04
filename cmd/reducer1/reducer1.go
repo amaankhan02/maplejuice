@@ -1,4 +1,4 @@
-package reducer1
+package main
 
 import (
 	"bufio"

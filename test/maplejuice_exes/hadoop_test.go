@@ -2,10 +2,7 @@ package test
 
 import (
 	"bufio"
-	"cs425_mp4/Hadoop/mapper1"
-	"cs425_mp4/Hadoop/mapper2"
-	"cs425_mp4/Hadoop/reducer1"
-	"cs425_mp4/Hadoop/reducer2"
+	"cs425_mp4/cmd/reducer2"
 	"fmt"
 	"os"
 	"testing"

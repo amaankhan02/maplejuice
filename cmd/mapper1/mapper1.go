@@ -1,4 +1,4 @@
-package mapper1
+package main
 
 import (
 	"bufio"
@@ -11,10 +11,14 @@ func Mapper1(scanner *bufio.Scanner, x string) {
 	// get command line arguments
 
 	fmt.Fprintln(os.Stderr, "Inside MAPPER function")
+	fmt.Fprintln(os.Stderr, "X STRING: ", x)
+
 	column_index_interconne := 10
 	column_index_detection := 9
 
 	for scanner.Scan() {
+
+		fmt.Println("LOOPING THROUGH LINE")
 		line := scanner.Text()
 		words := strings.Split(line, ",")
 
