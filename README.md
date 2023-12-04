@@ -2,13 +2,13 @@
 
 ## Build Instruction
 * Program is written in Go, so make sure you have go installed
-* Once installed, from the root directory of this project, run `go build cmd/main.go`
-  which will create an executable `./main` on Linux/Unix systems, or `main.exe` on Windows
+* Once installed, from the root directory of this project, run `make`
+  which will create an executable `app` in the root directory of the project. This is the main
+executable that will be ran on each VM. `make` will also create binary executables
+for all the maple, juice, and hadoop map/reduce executables in the `bin` folder.
 
 
-## Command Line Arguments for `./main`
-**NOTE**: these command line args are the same from MP2 as this MP was built on top of it
-There were no new command line args for this MP3 so they stay the same.
+## Command Line Arguments for `./main` 
 * `-f` **[REQUIRED]**
     * Pass the name of the log file after `-f`. If the file does not exist, it will create it. If
       if it already exists, it will truncate the file and overwrite it
@@ -18,13 +18,6 @@ There were no new command line args for this MP3 so they stay the same.
     * Represents `T_GOSSIP` (the gossip period, i.e., the number of seconds between gossip heartbeats).
     * Represented in milliseconds
     * type: integer
-* `-t`
-    * boots program in `TEST` mode.
-    * The argument after `-t` reprsents the Message Drop Probability. By default the value is 0,
-      but if you wish to drop UDP packets on the receiving end, you can pass an `integer` between 0 and 100
-      representing the probability (percentage) of dropping a packet.
-    * Test mode, along with the message drop probability, adds additional logging that was used
-      in the report section to find various metrics.
 
 ## Details
 * The introducer & leader is always VM1. However, this can be changed in the `config.go` by changing the `INTRODUCER_LEADER_VM` variable
@@ -66,3 +59,13 @@ There were no new command line args for this MP3 so they stay the same.
     * `multiread [sdfs filename] [local filename] VMi VMj ... VMk`
       * launches a GET/read operation from VMs i to k, inclusive simultaneously for the
       sdfs filename
+    * `maple [maple_exe] [num_maples] [sdfs_intermediate_filename_prefix] [sdfs_src_directory]`
+      * launches a maple job
+    * `juice [juice_exe] [num_juices] [sdfs_intermediate_filename_prefix] [sdfs_dest_filename] delete_input={0,1}`
+      * launches a juice job
+    * `SELECT ALL FROM D1 WHERE <REGEX>`
+      * launches a SQL FILTER query on the D1 dataset (must be stored in SDFS) by running
+        maple and juice jobs
+    * `SELECT ALL FROM D1, D2 WHERE <CONDITION>`
+      * launches a SQL JOIN query on the D1 and D2 datasets (must be stored in SDFS) by running
+        maple and juice jobs
