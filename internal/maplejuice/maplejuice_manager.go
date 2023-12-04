@@ -16,7 +16,7 @@ const SQL_FILTER_MAPLE_EXE_FILENAME = "maple_SQL_filter"
 const SQL_FILTER_JUICE_EXE_FILENAME = "juice_SQL_filter"
 const SQL_FILTER_INTERMEDIATE_FILENAME_PREFIX_FMT = "SQL_filter_intermediate_%s_%d" // fmt: (dataset, unix.Nano() time)
 const SQL_FILTER_DEST_FILENAME_FMT = "SQL_filter_output_%s"                         // fmt: (dataset)
-const SQL_FILTER_NUM_TASKS = 2                                                      // num_maples and num_juices for the SQL filter job
+const SQL_FILTER_NUM_TASKS = 6                                                      // num_maples and num_juices for the SQL filter job
 
 /*
 	INodeManager interface
@@ -561,7 +561,72 @@ func parseSqlJoinQuery(userInput []string) (string, string, string, string) {
 }
 
 func (manager *MapleJuiceManager) executeSqlJoin(d1 string, d2 string, f1 string, f2 string) {
+	// dataset = src directory in sdfs
+	// regex = regex to match --> put under SQL additional info
 
+	// get full path to the maple_exe file and juice_exe file
+	mapleExeFilePath, err1 := filepath.Abs(filepath.Join(config.EXE_FILES_FOLDER, SQL_FILTER_MAPLE_EXE_FILENAME))
+	if err1 != nil {
+		fmt.Println("Unable to parse maple_exe name")
+		return
+	}
+	mapleExe := MapleJuiceExeFile{
+		ExeFilePath:       mapleExeFilePath,
+		SqlAdditionalInfo: f1,
+	}
+	mapleExe2 := MapleJuiceExeFile{
+		ExeFilePath:       mapleExeFilePath,
+		SqlAdditionalInfo: f2,
+	}
+
+	juiceExeFilePath, err2 := filepath.Abs(filepath.Join(config.EXE_FILES_FOLDER, SQL_FILTER_JUICE_EXE_FILENAME))
+	if err2 != nil {
+		fmt.Println("Unable to parse juice_exe name")
+		return
+	}
+	juiceExe := MapleJuiceExeFile{
+		ExeFilePath: juiceExeFilePath,
+	}
+	sdfsIntermediateFileName := fmt.Sprintf(SQL_FILTER_INTERMEDIATE_FILENAME_PREFIX_FMT, d1, time.Now().Unix())
+	sdfsDestFileName := fmt.Sprintf(SQL_FILTER_DEST_FILENAME_FMT, d1)
+
+	fmt.Printf("Submitting MapleJuice job for SQL filter.\nSDFS Destination File: %s\nSDFS Intermediate Filename Prefix: %s\n",
+		sdfsDestFileName, sdfsIntermediateFileName)
+
+	manager.mapleJuiceNode.SubmitMapleJob(
+		mapleExe,
+		SQL_FILTER_NUM_TASKS,
+		sdfsIntermediateFileName,
+		d1,
+	)
+	time.Sleep(1 * time.Second) // give it enough time for maple to be submitted
+	manager.mapleJuiceNode.SubmitJuiceJob(
+		juiceExe,
+		SQL_FILTER_NUM_TASKS,
+		sdfsIntermediateFileName,
+		sdfsDestFileName,
+		false,
+		HASH_PARTITIONING,
+	)
+	time.Sleep(1 * time.Second)
+	manager.mapleJuiceNode.SubmitMapleJob(
+		mapleExe2,
+		SQL_FILTER_NUM_TASKS,
+		sdfsIntermediateFileName,
+		d2,
+	)
+	time.Sleep(1 * time.Second) // give it enough time for maple to be submitted
+	manager.mapleJuiceNode.SubmitJuiceJob(
+		juiceExe,
+		SQL_FILTER_NUM_TASKS,
+		sdfsIntermediateFileName,
+		sdfsDestFileName,
+		false,
+		HASH_PARTITIONING,
+	)
+	time.Sleep(1 * time.Second)
+
+	fmt.Println("ANSWER IN ", sdfsDestFileName)
 }
 
 func (manager *MapleJuiceManager) HandleNodeFailure(info FailureDetectionInfo) {

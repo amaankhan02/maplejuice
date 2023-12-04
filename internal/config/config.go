@@ -18,7 +18,7 @@ const (
 // Gossip Failure Detection Configuration Variables
 const (
 	GOSSIP_PORT_FORMAT       = "81%02d" // 8101, 8102, ... 8110 - based on the hostname number
-	INTRODUCER_LEADER_VM int = 1        // the introducer & leader is vm 1
+	INTRODUCER_LEADER_VM int = 6        // the introducer & leader is vm 1
 
 	T_FAIL_NORMAL     time.Duration = 5500 * time.Millisecond // 2 seconds	- T_FAIL used in NORMAL mode
 	T_FAIL_SUSPICIOUS time.Duration = 1500 * time.Millisecond // T_FAIL used in SUSPICIOUS mode, (amt of time in suspicious mode allowable)
