@@ -281,7 +281,9 @@ func (leader *MapleJuiceLeaderService) ReceiveMapleTaskOutput(workerConn net.Con
 	}
 
 	// if all tasks finished, process the output files and save into SDFS
+	fmt.Println("OUTSIDE")
 	if leader.currentJob.numTasksCompleted == leader.currentJob.numTasks {
+		fmt.Println("GOING TO FINISH CURRENT MAPLE JOB")
 		leader.finishCurrentMapleJob(sdfsService)
 	}
 	leader.mutex.Unlock()
@@ -384,17 +386,17 @@ func (leader *MapleJuiceLeaderService) finishCurrentMapleJob(sdfsService *SDFSNo
 	// write intermediate files to SDFS
 	localFileNames := make([]string, 0)
 	sdfsFileNames := make([]string, 0)
-
+	fmt.Println(">>>1<<<")
 	for sdfsIntermFilepath := range leader.currentJob.sdfsIntermediateFilenames {
 		localFileNames = append(localFileNames, filepath.Join(leader.leaderTempDir, sdfsIntermFilepath))
 		sdfsFileNames = append(sdfsFileNames, sdfsIntermFilepath)
 	}
-
+	fmt.Println(">>>2<<<")
 	err := sdfsService.PerformBlockedPuts(localFileNames, sdfsFileNames)
 	if err != nil {
 		log.Fatalln("Failed to put intermediate files to SDFS. Error: ", err)
 	}
-
+	fmt.Println(">>>3<<<")
 	// establish connection with the client and send a response indicating the job is finished
 	clientConn, conn_err := net.Dial("tcp", leader.currentJob.clientId.IpAddress+":"+leader.currentJob.clientId.MapleJuiceServerPort)
 	if conn_err != nil {
@@ -404,10 +406,11 @@ func (leader *MapleJuiceLeaderService) finishCurrentMapleJob(sdfsService *SDFSNo
 		SendMapleJobResponse(clientConn, leader.currentJob.clientJobId) // notify client that job is finished by sending a JOP RESPONSE
 	}
 	clientConn.Close()
-
+	fmt.Println(">>>4<<<")
 	// add the job to the finished maple jobs map so that juice jobs can access it later
 	leader.finishedMapleJobs[leader.currentJob.sdfsIntermediateFilenamePrefix] = leader.currentJob
 	leader.currentJob = nil
+	fmt.Println(">>>5<<<")
 }
 
 /*
