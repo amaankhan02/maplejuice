@@ -169,9 +169,9 @@ func ReadFile(save_filepath string, conn net.Conn, filesize int64) error {
 	// open the file for writing
 	fmt.Println("Inside ReadFile() - save_filepath: ", save_filepath)
 	fmt.Println("Expected filesize: ", filesize)
-	f, err := os.OpenFile(save_filepath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0666)
+	f, err := os.OpenFile(save_filepath, os.O_WRONLY|os.O_CREATE, 0744)
 	if err != nil {
-		fmt.Println("Failed to open file for reading")
+		fmt.Println("Failed to open file for writing into")
 		return err
 	}
 	defer f.Close()
@@ -199,11 +199,11 @@ func ReadFile(save_filepath string, conn net.Conn, filesize int64) error {
 	// TODO: change to just read until the EOF...
 	n_read, copy_err := io.Copy(f, reader)
 	if copy_err != nil {
-		fmt.Println("ACTUAL NUM BYTES COPIED FROM connection into file: ", n_read)
+		fmt.Println("(error) ACTUAL NUM BYTES COPIED FROM connection into file: ", n_read)
 		fmt.Println("error: ", copy_err.Error())
 		return copy_err
 	}
-	fmt.Println("ACTUAL NUM BYTES COPIED FROM connection into file: ", n_read)
+	fmt.Println("(no error) ACTUAL NUM BYTES COPIED FROM connection into file: ", n_read)
 
 	return nil
 }
