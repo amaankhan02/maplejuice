@@ -73,13 +73,14 @@ type LeaderMapleJuiceJob struct {
 	exeFile                        MapleJuiceExeFile
 	sdfsIntermediateFilenamePrefix string
 	numTasksCompleted              int
-	numJuiceWorkerNodesCompleted   int                // used ony by juice job (since all juice tasks in a worker are put together in one request)
-	sdfsSrcDirectory               string             // only for maple job
-	sdfsDestFilename               string             // only for juice job
-	delete_input                   bool               // only for juice job
-	juicePartitionScheme           JuicePartitionType // only for juice job
-	juiceJobOutputFilepath         string             // only for juice job
-	juiceJobTmpDirPath             string             // only for juice job
+	completedWorkers               map[NodeID]struct{} // used during reassigning of tasks after node failure
+	numJuiceWorkerNodesCompleted   int                 // used ony by juice job (since all juice tasks in a worker are put together in one request)
+	sdfsSrcDirectory               string              // only for maple job
+	sdfsDestFilename               string              // only for juice job
+	delete_input                   bool                // only for juice job
+	juicePartitionScheme           JuicePartitionType  // only for juice job
+	juiceJobOutputFilepath         string              // only for juice job
+	juiceJobTmpDirPath             string              // only for juice job
 
 	keys datastructures.HashSet[string] // map job updates this, juice job will look at this later to know what keys are there
 	// ! is it fine that I'm storing all the keys in memory? maybe we can store it in a file instead? (future improvement)
@@ -174,6 +175,7 @@ func (leader *MapleJuiceLeaderService) SubmitMapleJob(mapleExe MapleJuiceExeFile
 		exeFile:                        mapleExe,
 		numTasks:                       numMaples,
 		workerToTaskIndices:            make(map[NodeID][]int),
+		completedWorkers:               make(map[NodeID]struct{}),
 		sdfsIntermediateFilenamePrefix: sdfsIntermediateFilenamePrefix,
 		sdfsSrcDirectory:               sdfsSrcDir,
 		numTasksCompleted:              0,
@@ -201,6 +203,7 @@ func (leader *MapleJuiceLeaderService) SubmitJuiceJob(juice_exe MapleJuiceExeFil
 		workerToTaskIndices:            make(map[NodeID][]int),
 		numTasks:                       num_juices,
 		exeFile:                        juice_exe,
+		completedWorkers:               make(map[NodeID]struct{}),
 		sdfsIntermediateFilenamePrefix: sdfs_intermediate_filename_prefix,
 		sdfsDestFilename:               sdfs_dest_filename,
 		delete_input:                   delete_input,
@@ -319,11 +322,23 @@ func (leader *MapleJuiceLeaderService) ReceiveJuiceTaskOutput(workerConn net.Con
 
 	// mark the task as completed now that we got the file
 	leader.currentJob.numJuiceWorkerNodesCompleted += 1
+	leader.markJuiceWorkerAsCompleted(workerIp)
 	if leader.currentJob.numJuiceWorkerNodesCompleted == len(leader.currentJob.workerToKeys) {
 		// all juice tasks have finished! we can now merge the files and send it to sdfs
 		leader.finishCurrentJuiceJob(sdfsService)
 	}
 	leader.mutex.Unlock()
+}
+
+func (leader *MapleJuiceLeaderService) markJuiceWorkerAsCompleted(workerIp string) {
+	// find the nodeid in the workerToKeys map that matches the workerIp
+	// then insert that node into leader.currentJob.completedWorkers
+
+	for workerNodeId, _ := range leader.currentJob.workerToKeys {
+		if workerNodeId.IpAddress == workerIp {
+			leader.currentJob.completedWorkers[workerNodeId] = struct{}{}
+		}
+	}
 }
 
 func (leader *MapleJuiceLeaderService) finishCurrentJuiceJob(sdfsService *SDFSNode) {
@@ -471,6 +486,9 @@ func (leader *MapleJuiceLeaderService) markMapleTaskAsCompleted(taskIndex int) {
 				leader.currentJob.workerToTaskIndices[workerNodeId] =
 					utils.RemoveIthElementFromSlice(leader.currentJob.workerToTaskIndices[workerNodeId], i)
 				leader.currentJob.numTasksCompleted += 1
+				if len(leader.currentJob.workerToTaskIndices[workerNodeId]) == 0 {
+					leader.currentJob.completedWorkers[workerNodeId] = struct{}{}
+				}
 				return
 			}
 		}
@@ -672,8 +690,42 @@ func (leader *MapleJuiceLeaderService) IndicateNodeFailed(failedNode NodeID) {
 	if leader.currentJob.jobType == MAPLE_JOB {
 		leader.reassignFailedNodeMapleTasks(failedNode)
 	} else { // JUICE JOB
-
+		leader.reassignFailedNodeJuiceTasks(failedNode)
 	}
+}
+
+func (leader *MapleJuiceLeaderService) reassignFailedNodeJuiceTasks(failedNode NodeID) {
+	failedNodesAssignedKeys, exists := leader.currentJob.workerToKeys[failedNode]
+	if !exists {
+		fmt.Println("Failed node was not assigned any tasks. No need to reassign tasks")
+		return // no tasks were assigned to this node
+	}
+	_, ok1 := leader.currentJob.completedWorkers[failedNode]
+	if ok1 {
+		fmt.Println("Failed node was assigned tasks, but they all completed before the failure. No need to reassign tasks")
+		return // no tasks were assigned to this node
+	}
+
+	// remove the failed node from the list of available worker nodes
+	leader.AvailableWorkerNodes = RemoveElementFromSlice(leader.AvailableWorkerNodes, failedNode)
+
+	// pick a new node to assign the keys to
+	newWorkerNode := leader.AvailableWorkerNodes[rand.Intn(len(leader.AvailableWorkerNodes))]
+	_, ok := leader.currentJob.workerToKeys[newWorkerNode]
+	if !ok { // create the list of keys if this worker has not been assigned a task yet
+		leader.currentJob.workerToKeys[newWorkerNode] = make([]string, 0)
+	}
+	leader.currentJob.workerToKeys[newWorkerNode] = append(leader.currentJob.workerToKeys[newWorkerNode], failedNodesAssignedKeys...)
+
+	// send the task request to the new worker node
+	workerConn, conn_err := net.Dial("tcp", newWorkerNode.IpAddress+":"+newWorkerNode.MapleJuiceServerPort)
+	if conn_err != nil {
+		fmt.Println("*****(JUICE) Failed to connect to worker node when re-assigning tasks after failure!!*****")
+		fmt.Println(conn_err)
+	}
+	defer workerConn.Close()
+
+	SendJuiceTaskRequest(workerConn, leader.currentJob.exeFile, leader.currentJob.sdfsIntermediateFilenamePrefix, failedNodesAssignedKeys)
 }
 
 func (leader *MapleJuiceLeaderService) reassignFailedNodeMapleTasks(failedNode NodeID) {
@@ -700,7 +752,7 @@ func (leader *MapleJuiceLeaderService) reassignFailedNodeMapleTasks(failedNode N
 	// send the task request to the new worker node
 	workerConn, conn_err := net.Dial("tcp", newWorkerNode.IpAddress+":"+newWorkerNode.MapleJuiceServerPort)
 	if conn_err != nil {
-		fmt.Println("*****Failed to connect to worker node when re-assigning tasks after failure!!*****")
+		fmt.Println("*****(MAPLE) Failed to connect to worker node when re-assigning tasks after failure!!*****")
 		fmt.Println(conn_err)
 	}
 	defer workerConn.Close()

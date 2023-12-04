@@ -169,6 +169,7 @@ func (manager *MapleJuiceManager) startUserInputLoop() {
 	}
 }
 
+// executeUserInput returns true if the user input was to leave the cluster, therefore exiting the program
 func (manager *MapleJuiceManager) executeUserInput(userInput []string) bool {
 	if len(userInput) == 0 {
 		return false
@@ -289,7 +290,6 @@ func (manager *MapleJuiceManager) parseSqlQuery(userInput []string) {
 		// FILTER
 		manager.mapleJuiceNode.SubmitMapleJob(mapleExe, num_maples, sdfs_intermediate_filename_prefix, sdfs_src_directory)
 		manager.mapleJuiceNode.SubmitJuiceJob(juiceExe, num_juices, sdfs_intermediate_filename_prefix, sdfs_dest_filename, shouldDeleteInput, partitionScheme)
-
 	} else if num_data_sets == 2 {
 		// JOIN
 
@@ -310,7 +310,7 @@ func (manager *MapleJuiceManager) parseSqlQuery(userInput []string) {
 
 	} else {
 		//INCORRECT
-		log.Fatal("INCORRECT INPUT", userInput)
+		fmt.Println("Invalid SQL Query")
 	}
 }
 
