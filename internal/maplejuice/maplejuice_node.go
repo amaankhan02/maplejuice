@@ -794,12 +794,14 @@ func (this *MapleJuiceNode) ExecuteMapleExe(mapleExe MapleJuiceExeFile,
 	numLinesToRead int,
 	outputFile *os.File,
 ) {
-
+	var stderrBuffer bytes.Buffer
 	cmd := exec.Command(mapleExe.ExeFilePath, mapleExe.GetMapleArgs(inputFilePath, startingLine, numLinesToRead)...)
 	cmd.Stdout = outputFile
+	cmd.Stderr = &stderrBuffer
 
 	if err := cmd.Run(); err != nil {
-		log.Fatalln("Error! Failed to execute maple_exe OR exit code != 0. Error: ", err)
+		fmt.Println("STDERR from program: ", stderrBuffer.String())
+		fmt.Println("Error! Failed to execute maple_exe OR exit code != 0. Error: ", err)
 	}
 }
 
@@ -817,7 +819,7 @@ func (this *MapleJuiceNode) ExecuteJuiceExeOnKey(juiceExe MapleJuiceExeFile,
 
 	if err := cmd.Run(); err != nil {
 		fmt.Println("STDERR from program: ", stderrBuffer.String())
-		log.Fatalln("Error! Failed to execute juice_exe OR exit code != 0. Error: ", err)
+		fmt.Println("Error! Failed to execute juice_exe OR exit code != 0. Error: ", err)
 	}
 	outputChan <- stdoutBuffer.String()
 }
