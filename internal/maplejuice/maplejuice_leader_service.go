@@ -282,6 +282,9 @@ func (leader *MapleJuiceLeaderService) ReceiveMapleTaskOutput(workerConn net.Con
 
 	// if all tasks finished, process the output files and save into SDFS
 	fmt.Println("OUTSIDE")
+	fmt.Println("leader.currentJob.numTasksCompleted: ", leader.currentJob.numTasksCompleted)
+	fmt.Println("leader.currentJob.numTasks: ", leader.currentJob.numTasks)
+
 	if leader.currentJob.numTasksCompleted == leader.currentJob.numTasks {
 		fmt.Println("GOING TO FINISH CURRENT MAPLE JOB")
 		leader.finishCurrentMapleJob(sdfsService)
