@@ -270,8 +270,16 @@ func (leader *MapleJuiceLeaderService) ReceiveMapleTaskOutput(workerConn net.Con
 }
 
 func (leader *MapleJuiceLeaderService) ReceiveJuiceTaskOutput(workerConn net.Conn, taskAssignedKeys []string, filesize int64, sdfsService *SDFSNode) {
-	// TODO: add mutex locks - for current job and other things maybe
-	workerVMNumber, _ := utils.GetVMNumber(workerConn.RemoteAddr().String())
+	fmt.Println("INSIDE RECEIVE JUICE TASK OUTPUT")
+	workerIp := workerConn.RemoteAddr().String()
+	fmt.Println("workerIp: ", workerIp)
+	hostnames, err22 := net.LookupAddr(workerIp)
+	if err22 != nil {
+		fmt.Println("Error in net.LookupAddr(): ", err22)
+	}
+	fmt.Println("hostname: ", hostnames[0])
+	workerVMNumber, _ := utils.GetVMNumber(hostnames[0])
+	fmt.Println("workerVMNumber: ", workerVMNumber)
 
 	leader.mutex.Lock()
 	save_filepath := filepath.Join(leader.currentJob.juiceJobTmpDirPath, fmt.Sprintf(JUICE_WORKER_OUTPUT_FILENAME_FMT, workerVMNumber))
