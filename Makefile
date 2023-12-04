@@ -20,8 +20,6 @@ demo:
 sql:
 	go build -o bin/maple_SQL_filter ./cmd/maples/maple_SQL_filter
 	go build -o bin/juice_SQL_filter ./cmd/juices/juice_SQL_filter
-	go build -o bin/maple_SQL_join_phase_1 ./cmd/maples/maple_SQL_join_phase_1
-	go build -o bin/maple_SQL_join_phase_2 ./cmd/maples/maple_SQL_join_phase_2
 
 clean:
 	rm -rf bin
