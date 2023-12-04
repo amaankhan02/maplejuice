@@ -175,6 +175,10 @@ func (this *MapleJuiceNode) HandleTCPServerConnection(conn net.Conn) {
 				mjNetworkMessage.JuiceTaskOutputFileData,
 			)
 			alreadyClosedLeaderConn = true
+		case MAPLE_JOB_RESPONSE: // acknowledging the job is done
+			this.handleJobResponse(mjNetworkMessage.ClientJobId)
+		case JUICE_JOB_RESPONSE: // acknowledging the job is done
+			this.handleJobResponse(mjNetworkMessage.ClientJobId)
 		default:
 			fmt.Println("****ERROR: RECEIVED INCORRECT MESSAGE TYPE AS LEADER**** Type: ", mjNetworkMessage.MsgType)
 		}
@@ -221,11 +225,6 @@ an acknowledgement
 func (this *MapleJuiceNode) SubmitMapleJob(maple_exe MapleJuiceExeFile, num_maples int, sdfs_intermediate_filename_prefix string,
 	sdfs_src_directory string) {
 
-	if this.isLeader {
-		fmt.Println("Cannot submit Maple Job from leader node")
-		return
-	}
-
 	this.mutex.Lock()
 	clientJob := &ClientMapleJuiceJob{
 		ClientJobId: this.totalClientJobsSubmitted,
@@ -260,11 +259,6 @@ func (this *MapleJuiceNode) SubmitMapleJob(maple_exe MapleJuiceExeFile, num_mapl
 
 func (this *MapleJuiceNode) SubmitJuiceJob(juice_exe MapleJuiceExeFile, num_juices int, sdfs_intermediate_filename_prefix string,
 	sdfs_dest_filename string, shouldDeleteInput bool, partitionScheme JuicePartitionType) {
-
-	if this.isLeader {
-		fmt.Println("Cannot submit Juice Job from leader node")
-		return
-	}
 
 	this.mutex.Lock()
 	clientJob := &ClientMapleJuiceJob{
