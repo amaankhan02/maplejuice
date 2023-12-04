@@ -2,6 +2,7 @@ package maplejuice
 
 import (
 	"bufio"
+	"bytes"
 	"cs425_mp4/internal/datastructures"
 	"cs425_mp4/internal/tcp_net"
 	"cs425_mp4/internal/utils"
@@ -269,7 +270,8 @@ func (leader *MapleJuiceLeaderService) ReceiveMapleTaskOutput(workerConn net.Con
 	leader.mutex.Unlock()
 }
 
-func (leader *MapleJuiceLeaderService) ReceiveJuiceTaskOutput(workerConn net.Conn, taskAssignedKeys []string, filesize int64, sdfsService *SDFSNode) {
+func (leader *MapleJuiceLeaderService) ReceiveJuiceTaskOutput(workerConn net.Conn, taskAssignedKeys []string, filesize int64, sdfsService *SDFSNode,
+	juiceTaskOutputFileData []byte) {
 	fmt.Println("INSIDE RECEIVE JUICE TASK OUTPUT")
 	workerIpAndPort := workerConn.RemoteAddr().String()
 	workerIp := strings.Split(workerIpAndPort, ":")[0]
@@ -282,14 +284,15 @@ func (leader *MapleJuiceLeaderService) ReceiveJuiceTaskOutput(workerConn net.Con
 	workerVMNumber, _ := utils.GetVMNumber(hostnames[0])
 	fmt.Println("workerVMNumber: ", workerVMNumber)
 
-	leader.mutex.Lock()
-	save_filepath := filepath.Join(leader.currentJob.juiceJobTmpDirPath, fmt.Sprintf(JUICE_WORKER_OUTPUT_FILENAME_FMT, workerVMNumber))
-	leader.mutex.Unlock()
+	//leader.mutex.Lock()
+	//save_filepath := filepath.Join(leader.currentJob.juiceJobTmpDirPath, fmt.Sprintf(JUICE_WORKER_OUTPUT_FILENAME_FMT, workerVMNumber))
+	//leader.mutex.Unlock()
+	fmt.Println("Juice Task Output File Data size: ", len(juiceTaskOutputFileData))
 
-	err := tcp_net.ReadFile2(save_filepath, workerConn, filesize) // TODO: changed readfile to readfile2
-	if err != nil {
-		log.Fatalln("Failed to read juice task output file from worker node. Error: ", err)
-	}
+	//err := tcp_net.ReadFile2(save_filepath, workerConn, filesize) // TODO: changed readfile to readfile2
+	//if err != nil {
+	//	log.Fatalln("Failed to read juice task output file from worker node. Error: ", err)
+	//}
 	_ = workerConn.Close()
 
 	// open the save file path to copy the contents over to the JUICE_JOB_OUTPUT_FILEPATH file in append mode
@@ -301,14 +304,15 @@ func (leader *MapleJuiceLeaderService) ReceiveJuiceTaskOutput(workerConn net.Con
 	defer juiceJobOutputFile.Close()
 
 	// open the file we just saved from the worker node
-	juiceWorkerOutputFile, file2_err := os.OpenFile(save_filepath, os.O_RDONLY, 0444)
-	if file2_err != nil {
-		log.Fatalln("Failed to open juice worker output file. Error: ", file2_err)
-	}
-	defer juiceWorkerOutputFile.Close()
+	//juiceWorkerOutputFile, file2_err := os.OpenFile(save_filepath, os.O_RDONLY, 0444)
+	//if file2_err != nil {
+	//	log.Fatalln("Failed to open juice worker output file. Error: ", file2_err)
+	//}
+	//defer juiceWorkerOutputFile.Close()
 
 	// copy the contents over from the worker output file to the juice job output file in append mode (so we don't overwrite existing data)
-	_, copy_err := io.Copy(juiceJobOutputFile, juiceWorkerOutputFile)
+	juiceOutputReader := bytes.NewReader(juiceTaskOutputFileData)
+	_, copy_err := io.Copy(juiceJobOutputFile, juiceOutputReader)
 	if copy_err != nil {
 		log.Fatalln("Failed to copy juice worker output file to juice job output file. Error: ", copy_err)
 	}

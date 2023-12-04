@@ -172,6 +172,7 @@ func (this *MapleJuiceNode) HandleTCPServerConnection(conn net.Conn) {
 				mjNetworkMessage.Keys,
 				mjNetworkMessage.TaskOutputFileSize,
 				this.sdfsNode,
+				mjNetworkMessage.JuiceTaskOutputFileData,
 			)
 			alreadyClosedLeaderConn = true
 		default:
@@ -404,10 +405,10 @@ func (this *MapleJuiceNode) executeJuiceTask(juiceExe MapleJuiceExeFile, sdfsInt
 	if conn_err != nil {
 		log.Fatalln("Failed to dial to leader server. Error: ", conn_err)
 	}
-	this.mutex.Lock()
+	//this.mutex.Lock()
 	SendJuiceTaskResponse(leaderConn, juiceTaskOutputFile.Name(), assignedKeys) // ? any other information we gotta send back?
 	_ = leaderConn.Close()
-	this.mutex.Unlock()
+	//this.mutex.Unlock()
 
 	// close and delete the temporary files & dirs
 	//if deleteTmpDirErr := utils.DeleteDirAndAllContents(taskDirPath); deleteTmpDirErr != nil {
