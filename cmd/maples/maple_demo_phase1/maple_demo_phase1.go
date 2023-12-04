@@ -45,7 +45,7 @@ func MapleDemoPhase1(scanner *bufio.Scanner, num_lines int, starting_line int, X
 func PrintKeyValuePairs(kv_pairs map[string]int) {
 	// print out all key, val pairs
 	for key, val := range kv_pairs {
-		fmt.Printf("%s,%d\n", key, val)
+		fmt.Printf("%s\t%d\n", key, val)
 	}
 }
 

@@ -35,7 +35,7 @@ func JuiceDemoTest1(scanner *bufio.Scanner) map[string]int {
 
 func PrintKeyValuePairs(kv_pairs map[string]int) {
 	for key, val := range kv_pairs {
-		fmt.Printf("%s,%d\n", key, val)
+		fmt.Printf("%s\t%d\n", key, val)
 	}
 }
 

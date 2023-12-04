@@ -65,7 +65,7 @@ func getArgs() (*os.File, int, int) {
 func PrintKeyValuePairs(kv_pairs map[string]int) {
 	// print out all key, val pairs
 	for key, val := range kv_pairs {
-		fmt.Printf("%s,%d\n", key, val)
+		fmt.Printf("%s\t%d\n", key, val)
 	}
 }
 

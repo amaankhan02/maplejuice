@@ -73,7 +73,7 @@ func GetArgsSQLJoin() (string, int) {
 
 func PrintKeyValPairsSQLFilter(kv_pairs map[string]string) {
 	for key, val := range kv_pairs {
-		fmt.Printf("%s,%s\n", key, val)
+		fmt.Printf("%s\t%s\n", key, val)
 	}
 }
 
@@ -98,6 +98,6 @@ func MoveFilePointerToLineNumber(fileScanner *bufio.Scanner, startingLine int) {
 func PrintKeyValuePairs(kv_pairs map[string]int) {
 	// print out all key, val pairs
 	for key, val := range kv_pairs {
-		fmt.Printf("%s,%d\n", key, val)
+		fmt.Printf("%s\t%d\n", key, val)
 	}
 }

@@ -428,6 +428,7 @@ func (leader *MapleJuiceLeaderService) processMapleTaskOutputFile(task_output_fi
 		return
 	}
 	csvReader := csv.NewReader(csvFile)
+	csvReader.Comma = '\t'
 
 	fmt.Println("Starting loop of reading file")
 	icount := 0
@@ -468,7 +469,7 @@ func (leader *MapleJuiceLeaderService) processMapleTaskOutputFile(task_output_fi
 			log.Fatalln("Failed to open sdfsIntermediateFileName. Error: ", file2_err)
 		}
 		writer := bufio.NewWriter(intermediateFile)
-		n_written, interm_write_err := writer.WriteString(key + "," + value + "\n")
+		n_written, interm_write_err := writer.WriteString(key + "\t" + value + "\n")
 		if interm_write_err != nil {
 			log.Fatalln("Failed to write key value pair to intermediate file. Error: ", interm_write_err)
 		}
