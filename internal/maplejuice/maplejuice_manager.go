@@ -16,7 +16,7 @@ const SQL_FILTER_MAPLE_EXE_FILENAME = "maple_SQL_filter"
 const SQL_FILTER_JUICE_EXE_FILENAME = "juice_SQL_filter"
 const SQL_FILTER_INTERMEDIATE_FILENAME_PREFIX_FMT = "SQL_filter_intermediate_%s_%d" // fmt: (dataset, unix.Nano() time)
 const SQL_FILTER_DEST_FILENAME_FMT = "SQL_filter_output_%s"                         // fmt: (dataset)
-const SQL_FILTER_NUM_TASKS = 4                                                      // num_maples and num_juices for the SQL filter job
+const SQL_FILTER_NUM_TASKS = 2                                                      // num_maples and num_juices for the SQL filter job
 
 /*
 	INodeManager interface
