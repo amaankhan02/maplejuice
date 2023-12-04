@@ -467,7 +467,6 @@ func (leader *MapleJuiceLeaderService) processMapleTaskOutputFile(task_output_fi
 
 // Given the sdfs_intermediate_filename_prefix and the key it will put the 2 together
 func getSdfsIntermediateFilename(prefix string, key string) string {
-	// TODO: implement this to remove unnallowed characters! - do this later!
 	// List of invalid characters
 	invalidChars := []string{"/", "\x00", ":", " ", "\t", "\n", "*", "?", "\"", "'", "\\", "$", "!", "&"}
 	// Replace each invalid character with an underscore

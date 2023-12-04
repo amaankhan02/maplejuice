@@ -809,10 +809,14 @@ func (this *MapleJuiceNode) ExecuteJuiceExeOnKey(juiceExe MapleJuiceExeFile,
 ) {
 	fmt.Println("Executing JUICE EXE on inputFilepath: ", inputFilePath)
 	var stdoutBuffer bytes.Buffer
+	var stderrBuffer bytes.Buffer
+
 	cmd := exec.Command(juiceExe.ExeFilePath, inputFilePath)
 	cmd.Stdout = &stdoutBuffer
+	cmd.Stderr = &stderrBuffer
 
 	if err := cmd.Run(); err != nil {
+		fmt.Println("STDERR from program: ", stderrBuffer.String())
 		log.Fatalln("Error! Failed to execute juice_exe OR exit code != 0. Error: ", err)
 	}
 	outputChan <- stdoutBuffer.String()
