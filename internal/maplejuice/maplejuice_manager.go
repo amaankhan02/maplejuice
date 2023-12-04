@@ -276,8 +276,75 @@ func (manager *MapleJuiceManager) executeUserInput(userInput []string) bool {
 		manager.parseAndExecuteJuiceInput(userInput)
 	case "select":
 		manager.parseAndExecuteSqlQuery(userInput)
+	case "test1":
+		x := userInput[1]
+		numWorkers, _ := strconv.Atoi(userInput[2])
+		dataset := userInput[3]
+		manager.handleTest1(x, numWorkers, dataset)
 	}
 	return false
+}
+
+func (manager *MapleJuiceManager) handleTest1(x string, numWorkers int, dataset string) {
+	/*
+		maple maple_demo_phase1 3 p1 traffic
+		juice juice_demo_phase1 3 p1 p1_out delete_input=0
+
+		maple maple_demo_phase2 3 p2 p1_ou
+		juice juice_demo_phase2 3 p2 p2_out delete_input=0
+	*/
+	m1FilePath, _ := filepath.Abs(filepath.Join(config.EXE_FILES_FOLDER, "maple_demo_phase1"))
+	j1FilePath, _ := filepath.Abs(filepath.Join(config.EXE_FILES_FOLDER, "juice_demo_phase1"))
+	m2FilePath, _ := filepath.Abs(filepath.Join(config.EXE_FILES_FOLDER, "maple_demo_phase2"))
+	j2FilePath, _ := filepath.Abs(filepath.Join(config.EXE_FILES_FOLDER, "juice_demo_phase2"))
+
+	m1Exe := MapleJuiceExeFile{
+		ExeFilePath:       m1FilePath,
+		SqlAdditionalInfo: x,
+	}
+	j1Exe := MapleJuiceExeFile{
+		ExeFilePath: j1FilePath,
+	}
+	m2Exe := MapleJuiceExeFile{
+		ExeFilePath: m2FilePath,
+	}
+	j2Exe := MapleJuiceExeFile{
+		ExeFilePath: j2FilePath,
+	}
+
+	manager.mapleJuiceNode.SubmitMapleJob(
+		m1Exe,
+		numWorkers,
+		"p1",
+		dataset,
+	)
+	time.Sleep(1 * time.Second)
+	manager.mapleJuiceNode.SubmitJuiceJob(
+		j1Exe,
+		numWorkers,
+		"p1",
+		"p1_out.result",
+		false,
+		HASH_PARTITIONING,
+	)
+	time.Sleep(1 * time.Second)
+	manager.mapleJuiceNode.SubmitMapleJob(
+		m2Exe,
+		numWorkers,
+		"p2",
+		"p1_out",
+	)
+	time.Sleep(1 * time.Second)
+	manager.mapleJuiceNode.SubmitJuiceJob(
+		j2Exe,
+		numWorkers,
+		"p2",
+		"test1_result",
+		false,
+		HASH_PARTITIONING,
+	)
+
+	fmt.Println("ANSWER IN test1_result")
 }
 
 func (manager *MapleJuiceManager) parseAndExecuteSqlQuery(userInput []string) {
