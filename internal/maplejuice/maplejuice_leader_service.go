@@ -24,7 +24,6 @@ type MapleJuiceJobType int
 
 // output file format for the singular maple task output (the file they send over containing the k,v pairs)
 const MAPLE_TASK_OUTPUT_FILENAME_FMT = "male_task_output_%d.csv" // format: task index
-// TODO: do we wanna create a directory for each new maple juice job to just organize the files? (future improvement)
 
 const JUICE_JOB_TEMP_DIR_FMT = "juice_job_%d"                           // format: job id
 const JUICE_WORKER_OUTPUT_FILENAME_FMT = "juice_worker_output_%d.csv"   // format: worker node id (like the VM number or IP)
@@ -34,16 +33,9 @@ const LOCAL_JUICE_JOB_OUTPUT_FIENAME_FMT = "local_juice_job_output.csv" // forma
 const SDFS_INTERMEDIATE_FILE_EXTENSION = ".csv"
 
 const (
-	//NOT_STARTED JobTaskStatus = "NOT STARTED"
-	//RUNNING     JobTaskStatus = "RUNNING"
-	//FINISHED    JobTaskStatus = "FINISHED"
-
 	MAPLE_JOB MapleJuiceJobType = 0
 	JUICE_JOB MapleJuiceJobType = 1
 )
-
-// each worker node id has a list of integers representing the task indices they are assigned.
-// the task index is a way for the worker to know which part of the input they have to deal with to be able to split
 
 /*
 LeaderMapleJuiceJob
@@ -55,6 +47,9 @@ Whenever we recieve a task response from a worker, we assume its for the current
 
 This struct is handled on the leader side. The client cannot decide, for instance, what the job id is since
 the job id should be unique to the system, not the client. The client has its own ClientMapleJuiceJob struct
+
+Each worker node id has a list of integers representing the task indices they are assigned.
+The task index is a way for the worker to know which part of the input they have to deal with to be able to split
 */
 type LeaderMapleJuiceJob struct {
 	leaderJobId int
@@ -82,7 +77,6 @@ type LeaderMapleJuiceJob struct {
 	juiceJobTmpDirPath             string              // only for juice job
 
 	keys datastructures.HashSet[string] // map job updates this, juice job will look at this later to know what keys are there
-	// ! is it fine that I'm storing all the keys in memory? maybe we can store it in a file instead? (future improvement)
 
 	sdfsIntermediateFileMutex sync.Mutex
 	sdfsIntermediateFilenames datastructures.HashSet[string] // contains the path to the sdfsIntermediateFiles stored locally
@@ -110,7 +104,6 @@ type MapleJuiceLeaderService struct {
 	// store the maple jobs that finished, but the juice job has not started/finished yet OR the corresponding
 	// juice job didn't tell it to delete the intermediate files yet
 	finishedMapleJobs map[string]*LeaderMapleJuiceJob // key=sdfs_intermediate_filename_prefix, value=job
-	// TODO: update on map side for when the map job finishes, it should move the job to this map
 
 	jobsSubmitted int // used as the ID for a job. incremented...
 	mutex         sync.Mutex
@@ -139,7 +132,6 @@ func NewMapleJuiceLeaderService(
 }
 
 func (leader *MapleJuiceLeaderService) Start() {
-	// TODO: check if i should be making the directory here, or in NewMapleJuiceLeaderService()
 	err := os.MkdirAll(leader.leaderTempDir, 0755)
 	if err != nil {
 		log.Fatalf("Failed to create leaderTempDir (%s). Error: %s\n", leader.leaderTempDir, err)
@@ -233,20 +225,18 @@ task output files and then creating a new set of files to be saved in the SDFS f
 */
 func (leader *MapleJuiceLeaderService) ReceiveMapleTaskOutput(workerConn net.Conn, taskIndex int, filesize int64,
 	sdfsService *SDFSNode, taskOutputFileData []byte) {
-	fmt.Println("INSIDE RECEIVE MAPLE TASK OUTPUT")
 	// read the task output file from the network
 	// TODO: delete these maple task output files after we are done with the job (after we send to sdfs)
 	// but for testing purposes, don't delete it
 	leader.mutex.Lock()
 	save_filepath := filepath.Join(leader.leaderTempDir, fmt.Sprintf(MAPLE_TASK_OUTPUT_FILENAME_FMT, taskIndex))
 	leader.mutex.Unlock()
-	//fmt.Println("Saving maple task output file to: ", save_filepath)
-	//fmt.Println("Expected Filesize: ", filesize)
+	
+	
 	//err := tcp_net.ReadFile(save_filepath, workerConn, filesize)
 	//if err != nil {
-	//	log.Fatalln("Failed to read file: Error: ", err) // TODO: for now exit, figure out the best course of action later
+	//	log.Fatalln("Failed to read file: Error: ", err) 
 	//}
-	fmt.Println("Maple Task Output File Data size: ", len(taskOutputFileData))
 	_ = workerConn.Close() // close the connection with this worker since we got all the data we needed from it
 
 	// dump taskOutputFileData into the save_filepath
@@ -273,6 +263,7 @@ func (leader *MapleJuiceLeaderService) ReceiveMapleTaskOutput(workerConn net.Con
 		// file (ACTUALLY THAT MIGHT BE FINE) but i also dont know if its okay for multiple goroutines to try to create
 		// a new file? cuz one of them must create a new file, the other must just open it, but what happens if both
 		// files are opened in O_CREATE and O_APPEND at the same time?
+
 		// !! TODO: future improvement: implement buffered writes - this will allow you to have more parallelism cuz i
 		// can write to just some in-memory map of filename to data. and whenever the map reaches a certain size,
 		// i can just dump it to the files. this will be faster than writing to the files every time
@@ -281,10 +272,6 @@ func (leader *MapleJuiceLeaderService) ReceiveMapleTaskOutput(workerConn net.Con
 	}
 
 	// if all tasks finished, process the output files and save into SDFS
-	fmt.Println("OUTSIDE")
-	fmt.Println("leader.currentJob.numTasksCompleted: ", leader.currentJob.numTasksCompleted)
-	fmt.Println("leader.currentJob.numTasks: ", leader.currentJob.numTasks)
-
 	if leader.currentJob.numTasksCompleted == leader.currentJob.numTasks {
 		fmt.Println("GOING TO FINISH CURRENT MAPLE JOB")
 		leader.finishCurrentMapleJob(sdfsService)
@@ -294,24 +281,20 @@ func (leader *MapleJuiceLeaderService) ReceiveMapleTaskOutput(workerConn net.Con
 
 func (leader *MapleJuiceLeaderService) ReceiveJuiceTaskOutput(workerConn net.Conn, taskAssignedKeys []string, filesize int64, sdfsService *SDFSNode,
 	juiceTaskOutputFileData []byte) {
-	fmt.Println("INSIDE RECEIVE JUICE TASK OUTPUT")
+	
 	workerIpAndPort := workerConn.RemoteAddr().String()
 	workerIp := strings.Split(workerIpAndPort, ":")[0]
-	fmt.Println("workerIp: ", workerIp)
 	hostnames, err22 := net.LookupAddr(workerIp)
 	if err22 != nil {
 		fmt.Println("Error in net.LookupAddr(): ", err22)
 	}
-	fmt.Println("hostname: ", hostnames[0])
 	workerVMNumber, _ := utils.GetVMNumber(hostnames[0])
-	fmt.Println("workerVMNumber: ", workerVMNumber)
 
 	//leader.mutex.Lock()
 	//save_filepath := filepath.Join(leader.currentJob.juiceJobTmpDirPath, fmt.Sprintf(JUICE_WORKER_OUTPUT_FILENAME_FMT, workerVMNumber))
 	//leader.mutex.Unlock()
-	fmt.Println("Juice Task Output File Data size: ", len(juiceTaskOutputFileData))
 
-	//err := tcp_net.ReadFile2(save_filepath, workerConn, filesize) // TODO: changed readfile to readfile2
+	//err := tcp_net.ReadFile2(save_filepath, workerConn, filesize)
 	//if err != nil {
 	//	log.Fatalln("Failed to read juice task output file from worker node. Error: ", err)
 	//}
@@ -363,8 +346,6 @@ func (leader *MapleJuiceLeaderService) markJuiceWorkerAsCompleted(workerIp strin
 func (leader *MapleJuiceLeaderService) finishCurrentJuiceJob(sdfsService *SDFSNode) {
 	_ = sdfsService.PerformBlockedPuts([]string{leader.currentJob.juiceJobOutputFilepath}, []string{leader.currentJob.sdfsDestFilename})
 
-	//sdfsService.PerformPut(leader.currentJob.juiceJobOutputFilepath, leader.currentJob.sdfsDestFilename)
-
 	// delete the intermediate files if the user specified to do so
 	if leader.currentJob.delete_input {
 		for sdfsIntermediateFilename := range leader.currentJob.sdfsIntermediateFilenames {
@@ -389,17 +370,17 @@ func (leader *MapleJuiceLeaderService) finishCurrentMapleJob(sdfsService *SDFSNo
 	// write intermediate files to SDFS
 	localFileNames := make([]string, 0)
 	sdfsFileNames := make([]string, 0)
-	fmt.Println(">>>1<<<")
+
 	for sdfsIntermFilepath := range leader.currentJob.sdfsIntermediateFilenames {
 		localFileNames = append(localFileNames, filepath.Join(leader.leaderTempDir, sdfsIntermFilepath))
 		sdfsFileNames = append(sdfsFileNames, sdfsIntermFilepath)
 	}
-	fmt.Println(">>>2<<<")
+
 	err := sdfsService.PerformBlockedPuts(localFileNames, sdfsFileNames)
 	if err != nil {
 		log.Fatalln("Failed to put intermediate files to SDFS. Error: ", err)
 	}
-	fmt.Println(">>>3<<<")
+
 	// establish connection with the client and send a response indicating the job is finished
 	clientConn, conn_err := net.Dial("tcp", leader.currentJob.clientId.IpAddress+":"+leader.currentJob.clientId.MapleJuiceServerPort)
 	if conn_err != nil {
@@ -409,11 +390,10 @@ func (leader *MapleJuiceLeaderService) finishCurrentMapleJob(sdfsService *SDFSNo
 		SendMapleJobResponse(clientConn, leader.currentJob.clientJobId) // notify client that job is finished by sending a JOP RESPONSE
 	}
 	clientConn.Close()
-	fmt.Println(">>>4<<<")
+
 	// add the job to the finished maple jobs map so that juice jobs can access it later
 	leader.finishedMapleJobs[leader.currentJob.sdfsIntermediateFilenamePrefix] = leader.currentJob
 	leader.currentJob = nil
-	fmt.Println(">>>5<<<")
 }
 
 /*

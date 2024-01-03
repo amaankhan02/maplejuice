@@ -29,7 +29,7 @@ const (
 	FANOUT            int           = 4               // number of maplejuice targets to send heartbeat to per maplejuice period
 )
 
-// MP3 Configuration Variables
+// Simple Distributed File System Configuration Variables
 const (
 	SDFS_TCP_PORT_FORMAT        = "82%02d" // 8201, 8202, ... 8210 - based on the hostname number
 	SDFS_ROOT_DIR        string = "sdfs_data"
@@ -43,7 +43,7 @@ const (
 	MAX_NUM_CONSECUTIVE_OPERATIONS               = 4
 )
 
-// MP4 Configuration Variables
+// Maple Juice Configuration Variables
 const (
 	MAPLE_JUICE_PORT_FORMAT        = "83%02d" // 8301, 8302, ... 8310 - based on the hostname number
 	LINES_PER_MAPLE_EXE     int    = 60
