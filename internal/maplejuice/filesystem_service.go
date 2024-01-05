@@ -123,7 +123,7 @@ stored on this machine.
 func (fss *FileSystemService) GetAllSDFSFilenames() []string {
 	keys := make([]string, 0)
 	fss.ShardMetaDataLock.Lock()
-	for filename, _ := range fss.ShardMetadatas {
+	for filename := range fss.ShardMetadatas {
 		keys = append(keys, filename)
 	}
 	fss.ShardMetaDataLock.Unlock()

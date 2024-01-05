@@ -273,9 +273,10 @@ func (node *SDFSNode) performReReplicate(leaderConn net.Conn, rr_req *ReReplicat
 		if ack_resp.WasSuccessful { // TODO: change these to logging
 			currentNewReplicasAccomplished += 1
 			newFinalReplicas = append(newFinalReplicas, nodeToContact)
-		} else {
-			//logMessageHelper(node.logFile, "Received ACK from replica - failed to put! Will try another node...")
-		}
+		} 
+		// else {
+		//   logMessageHelper(node.logFile, "Received ACK from replica - failed to put! Will try another node...")
+		// }
 
 		_ = nodeConn.Close()
 		if currentNewReplicasAccomplished == rr_req.NumNewReplicasRequired {

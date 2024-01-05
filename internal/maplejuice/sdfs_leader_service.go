@@ -217,7 +217,7 @@ func (leader *SDFSLeaderService) notifyExistingReplicasToReReplicate(sdfs_filena
 	// choose how many ever extra nodes you need and choose those
 	for _, nodeId := range leader.ActiveNodes {
 		// make sure its not one of the existing replicas - we want a new unique replica
-		if leader.nodeExistsInNodeIDSlice(existingReplicasToAsk, nodeId) == false {
+		if !leader.nodeExistsInNodeIDSlice(existingReplicasToAsk, nodeId) {
 			newPossibleReplicas = append(newPossibleReplicas, nodeId)
 		}
 	}

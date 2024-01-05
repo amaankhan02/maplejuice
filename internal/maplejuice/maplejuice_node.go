@@ -364,7 +364,7 @@ func (mjNode *MapleJuiceNode) executeJuiceTask(juiceExe MapleJuiceExeFile, sdfsI
 	//juiceExeOutputsChan := make(chan string, len(assignedKeys)) // buffered channel so that we don't block on the go routines
 	juiceExeOutputsChan := make(chan string)
 	// start a goroutine to execute each juice exe
-	for i, _ := range assignedKeys {
+	for i := range assignedKeys {
 		//wg.Add(1)
 		//go func(idx int) {
 		//	defer wg.Done()
@@ -772,23 +772,23 @@ Parameters:
 //
 //}
 
-func (mjNode *MapleJuiceNode) writeFileContentsToBytesBuffer(inputFile *os.File, numLines int64) *bytes.Buffer {
-	var buffer bytes.Buffer
-	scanner := bufio.NewScanner(inputFile)
+// func (mjNode *MapleJuiceNode) writeFileContentsToBytesBuffer(inputFile *os.File, numLines int64) *bytes.Buffer {
+// 	var buffer bytes.Buffer
+// 	scanner := bufio.NewScanner(inputFile)
 
-	for i := int64(0); i < numLines; i++ {
-		if scanner.Scan() {
-			buffer.WriteString(scanner.Text() + "\n")
-		} else {
-			if err := scanner.Err(); err != nil {
-				log.Fatalln("Error in scanner: ", err)
-			}
-			// end of file reached before we read numLines
-			break
-		}
-	}
-	return &buffer
-}
+// 	for i := int64(0); i < numLines; i++ {
+// 		if scanner.Scan() {
+// 			buffer.WriteString(scanner.Text() + "\n")
+// 		} else {
+// 			if err := scanner.Err(); err != nil {
+// 				log.Fatalln("Error in scanner: ", err)
+// 			}
+// 			// end of file reached before we read numLines
+// 			break
+// 		}
+// 	}
+// 	return &buffer
+// }
 
 func (mjNode *MapleJuiceNode) ExecuteMapleExe(mapleExe MapleJuiceExeFile,
 	inputFilePath string,
