@@ -21,8 +21,12 @@ sql:
 	go build -o bin/maple_SQL_filter ./cmd/maples/maple_SQL_filter
 	go build -o bin/juice_SQL_filter ./cmd/juices/juice_SQL_filter
 
-clean:
+clean-linux:
 	rm -rf bin
 	rm -f app
+
+clean-win:
+	rm bin -r -force
+	rm app -force
 
 .PHONY: all clean $(EXECS)

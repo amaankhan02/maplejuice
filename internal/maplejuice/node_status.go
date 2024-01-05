@@ -5,7 +5,6 @@ import "log"
 type NodeStatus int
 
 // NodeStatus values
-// TODO: ask amaan should this be moved ot config?
 const (
 	ACTIVE     NodeStatus = 0
 	FAILED     NodeStatus = 1

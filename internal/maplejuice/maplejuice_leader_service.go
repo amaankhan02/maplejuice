@@ -284,15 +284,15 @@ func (leader *MapleJuiceLeaderService) ReceiveJuiceTaskOutput(workerConn net.Con
 	
 	workerIpAndPort := workerConn.RemoteAddr().String()
 	workerIp := strings.Split(workerIpAndPort, ":")[0]
-	hostnames, err22 := net.LookupAddr(workerIp)
-	if err22 != nil {
-		fmt.Println("Error in net.LookupAddr(): ", err22)
-	}
-	workerVMNumber, _ := utils.GetVMNumber(hostnames[0])
+	// hostnames, err22 := net.LookupAddr(workerIp)
+	// if err22 != nil {
+		// fmt.Println("Error in net.LookupAddr(): ", err22)
+	// }
+	// workerVMNumber, _ := utils.GetVMNumber(hostnames[0])
 
-	//leader.mutex.Lock()
-	//save_filepath := filepath.Join(leader.currentJob.juiceJobTmpDirPath, fmt.Sprintf(JUICE_WORKER_OUTPUT_FILENAME_FMT, workerVMNumber))
-	//leader.mutex.Unlock()
+	// leader.mutex.Lock()
+	// save_filepath := filepath.Join(leader.currentJob.juiceJobTmpDirPath, fmt.Sprintf(JUICE_WORKER_OUTPUT_FILENAME_FMT, workerVMNumber))
+	// leader.mutex.Unlock()
 
 	//err := tcp_net.ReadFile2(save_filepath, workerConn, filesize)
 	//if err != nil {
@@ -336,7 +336,7 @@ func (leader *MapleJuiceLeaderService) markJuiceWorkerAsCompleted(workerIp strin
 	// find the nodeid in the workerToKeys map that matches the workerIp
 	// then insert that node into leader.currentJob.completedWorkers
 
-	for workerNodeId, _ := range leader.currentJob.workerToKeys {
+	for workerNodeId := range leader.currentJob.workerToKeys {
 		if workerNodeId.IpAddress == workerIp {
 			leader.currentJob.completedWorkers[workerNodeId] = struct{}{}
 		}

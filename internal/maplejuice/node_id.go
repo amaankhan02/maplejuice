@@ -54,28 +54,6 @@ func (nodeid *NodeID) ToStringMP3() string {
 	return fmt.Sprintf(fmtString, vm_num, nodeid.Hostname, nodeid.IpAddress)
 }
 
-//func NodeIdFromString(strNodeId string) *NodeID {
-//	nodeIdParams := strings.Split(strNodeId, DELIMINATOR)
-//
-//	Timestamp, err := strconv.ParseInt(nodeIdParams[2], 10, 64)
-//	if err != nil {
-//		fmt.Println("Error in getting the Timestamp when converting to NodeFailureJoinService Id from string")
-//	}
-//
-//	if len(nodeIdParams) > 3 {
-//		fmt.Println("Error in converting to NodeFailureJoinService Id from String")
-//	}
-//
-//	nodeId := NodeID{
-//		nodeIdParams[0],
-//		nodeIdParams[1],
-//		Timestamp,
-//		nodeIdParams[3],
-//	}
-//
-//	return &nodeId
-//}
-
 func NodesAreEqual(nodeId1 *NodeID, nodeId2 *NodeID) bool {
 	if nodeId1.IpAddress == nodeId2.IpAddress &&
 		nodeId1.GossipPort == nodeId2.GossipPort &&
