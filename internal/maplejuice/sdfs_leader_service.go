@@ -123,9 +123,9 @@ func NewSDFSLeaderService(dispatcherWaitTime time.Duration, maxNumConcurrentRead
 	return nn
 }
 
-func (this *SDFSLeaderService) Start() {
-	this.IsRunning = true
-	go this.dispatcher()
+func (leader *SDFSLeaderService) Start() {
+	leader.IsRunning = true
+	go leader.dispatcher()
 }
 
 /*
@@ -139,10 +139,10 @@ loop through all SDFS files
 	currently running var or whatever down 1 or make to nil or something, so that dispatcher will know that it
 	is free to execute a new command
 */
-func (this *SDFSLeaderService) dispatcher() {
-	for this.IsRunning {
-		this.MutexLock.Lock()
-		for _, fileOpMD := range this.FileOperations { // loop through all files
+func (leader *SDFSLeaderService) dispatcher() {
+	for leader.IsRunning {
+		leader.MutexLock.Lock()
+		for _, fileOpMD := range leader.FileOperations { // loop through all files
 
 			// get number of current write/read operations being executed & num waiting operations
 			numCurrentWrites := len(fileOpMD.CurrentWriteOps)
@@ -151,7 +151,7 @@ func (this *SDFSLeaderService) dispatcher() {
 			areWritesWaiting := len(fileOpMD.WriteBuffer) > 0
 			var newTask *FileOperationTask
 
-			if fileOpMD.NeedsReReplication && fileOpMD.StartedReReplicationProcedure == false { // not allowed to perform a write op during re-replication, but can read
+			if fileOpMD.NeedsReReplication && !fileOpMD.StartedReReplicationProcedure { // not allowed to perform a write op during re-replication, but can read
 				// empty the buffer of affected nodes into the list of currently being processed for re-replication nodes
 				// and then notify one of the alive replicas to directly transfer its sdfs_file to the other node we tell it
 				// if we get an ACK back then we are good, otherwise it means that node we contacted must've also failed or whatever,
@@ -161,13 +161,13 @@ func (this *SDFSLeaderService) dispatcher() {
 				copy(fileOpMD.CurrentlyProcessingFailedReplicasList, fileOpMD.FailedReplicasBuffer)
 				fileOpMD.FailedReplicasBuffer = make([]core.NodeID, 0) // empty the buffer
 
-				this.notifyExistingReplicasToReReplicate(fileOpMD.SdfsFilename, fileOpMD.CurrentlyProcessingFailedReplicasList)
+				leader.notifyExistingReplicasToReReplicate(fileOpMD.SdfsFilename, fileOpMD.CurrentlyProcessingFailedReplicasList)
 				// TODO: future improvement: for all the files we are re-replicating, we should mark that file in the write state so that we don't have a client trying to write/read from that file until its finished
 				// ^ but currently the demo doesn't test this so we don't need to implement this
 			}
 
-			if fileOpMD.NeedsReReplication == false && numCurrentWrites < this.MaxNumConcurrentWrites &&
-				numCurrentReads == 0 && areWritesWaiting && fileOpMD.NumConsecutiveWritesWithWaitingReads < this.MaxNumConsecutiveOpsWithOtherWait { // schedule WRITE
+			if !fileOpMD.NeedsReReplication && numCurrentWrites < leader.MaxNumConcurrentWrites &&
+				numCurrentReads == 0 && areWritesWaiting && fileOpMD.NumConsecutiveWritesWithWaitingReads < leader.MaxNumConsecutiveOpsWithOtherWait { // schedule WRITE
 
 				// pop using FIFO policy from the Buffer to the list of current operations
 				newTask, fileOpMD.WriteBuffer = fileOpMD.WriteBuffer[0], fileOpMD.WriteBuffer[1:]
@@ -181,9 +181,9 @@ func (this *SDFSLeaderService) dispatcher() {
 					fileOpMD.NumConsecutiveWritesWithWaitingReads = 0
 				}
 
-				this.notifyClientToExecuteTask(newTask)
-			} else if numCurrentReads < this.MaxNumConcurrentReads && numCurrentWrites == 0 && areReadsWaiting &&
-				fileOpMD.NumConsecutiveReadsWithWaitingWrites < this.MaxNumConsecutiveOpsWithOtherWait { // schedule READ
+				leader.notifyClientToExecuteTask(newTask)
+			} else if numCurrentReads < leader.MaxNumConcurrentReads && numCurrentWrites == 0 && areReadsWaiting &&
+				fileOpMD.NumConsecutiveReadsWithWaitingWrites < leader.MaxNumConsecutiveOpsWithOtherWait { // schedule READ
 
 				// move from buffer to current read operation queue to indicate its currently running - using FIFO
 				newTask, fileOpMD.ReadBuffer = fileOpMD.ReadBuffer[0], fileOpMD.ReadBuffer[1:]
@@ -197,27 +197,27 @@ func (this *SDFSLeaderService) dispatcher() {
 					fileOpMD.NumConsecutiveReadsWithWaitingWrites = 0
 				}
 
-				this.notifyClientToExecuteTask(newTask)
+				leader.notifyClientToExecuteTask(newTask)
 			}
 		}
-		this.MutexLock.Unlock()
+		leader.MutexLock.Unlock()
 
-		time.Sleep(this.DispatcherWaitTime)
+		time.Sleep(leader.DispatcherWaitTime)
 	}
 }
 
-func (this *SDFSLeaderService) notifyExistingReplicasToReReplicate(sdfs_filename string, currentlyFailedReplicas []core.NodeID) {
+func (leader *SDFSLeaderService) notifyExistingReplicasToReReplicate(sdfs_filename string, currentlyFailedReplicas []core.NodeID) {
 	numNewReplicasRequired := len(currentlyFailedReplicas)
 	//fmt.Printf("Num New Replicas Required: %d\n", numNewReplicasRequired)
 
 	// get list of existing replicas that we can ask to perform the re-replication
-	existingReplicasToAsk := this.FileToNodes[sdfs_filename][0]
+	existingReplicasToAsk := leader.FileToNodes[sdfs_filename][0]
 	newPossibleReplicas := make([]core.NodeID, 0) // stores all possible - we just wanna send all and let the client decide
 
 	// choose how many ever extra nodes you need and choose those
-	for _, nodeId := range this.ActiveNodes {
+	for _, nodeId := range leader.ActiveNodes {
 		// make sure its not one of the existing replicas - we want a new unique replica
-		if this.nodeExistsInNodeIDSlice(existingReplicasToAsk, nodeId) == false {
+		if leader.nodeExistsInNodeIDSlice(existingReplicasToAsk, nodeId) == false {
 			newPossibleReplicas = append(newPossibleReplicas, nodeId)
 		}
 	}
@@ -225,7 +225,7 @@ func (this *SDFSLeaderService) notifyExistingReplicasToReReplicate(sdfs_filename
 	// now contact the existingReplicasToAsk one at a time asking them if they can re-replicate
 	// to newReplicas. If they return with a successful ACK, then we chillin, otherwise, we need to ask another
 	// existingReplicaToAsk
-	//this.FileOperations[sdfs_filename].ReplicationStartTime = time.Now().UnixNano()
+	//leader.FileOperations[sdfs_filename].ReplicationStartTime = time.Now().UnixNano()
 	startTime := time.Now().UnixNano()
 
 	for _, exisitngReplica := range existingReplicasToAsk {
@@ -237,25 +237,22 @@ func (this *SDFSLeaderService) notifyExistingReplicasToReReplicate(sdfs_filename
 			continue
 		}
 
-		//logMessageHelper(this.logFile, "Sending ReReplicate request")
+		//logMessageHelper(leader.logFile, "Sending ReReplicate request")
 		SendReReplicateRequest(replicaConn, sdfs_filename, newPossibleReplicas, numNewReplicasRequired)
 		response, response_err := ReceiveReReplicateResponse(replicaReader, true)
 		if response_err != nil {
 			_ = replicaConn.Close()
 			continue
 		} else {
-			if response.WasSuccessful == true {
+			if response.WasSuccessful {
 				// so now update our namenode metadata information with the new nodes it has
 				// the response should have the new nodes that it saved the file to - the new replicas
-
-				for _, newChosenReplica := range response.NewReplicas {
-					this.FileToNodes[sdfs_filename][0] = append(this.FileToNodes[sdfs_filename][0], newChosenReplica)
+				leader.FileToNodes[sdfs_filename][0] = append(leader.FileToNodes[sdfs_filename][0], response.NewReplicas...)
+				leader.FileOperations[sdfs_filename].CurrentlyProcessingFailedReplicasList = make([]core.NodeID, 0)
+				if len(leader.FileOperations[sdfs_filename].FailedReplicasBuffer) == 0 {
+					leader.FileOperations[sdfs_filename].NeedsReReplication = false
 				}
-				this.FileOperations[sdfs_filename].CurrentlyProcessingFailedReplicasList = make([]core.NodeID, 0)
-				if len(this.FileOperations[sdfs_filename].FailedReplicasBuffer) == 0 {
-					this.FileOperations[sdfs_filename].NeedsReReplication = false
-				}
-				this.FileOperations[sdfs_filename].StartedReReplicationProcedure = false // move back to false so another procedure can begin
+				leader.FileOperations[sdfs_filename].StartedReReplicationProcedure = false // move back to false so another procedure can begin
 
 				_ = replicaConn.Close()
 
@@ -273,7 +270,7 @@ func (this *SDFSLeaderService) notifyExistingReplicasToReReplicate(sdfs_filename
 
 }
 
-func (this *SDFSLeaderService) nodeExistsInNodeIDSlice(s []core.NodeID, elem core.NodeID) bool {
+func (leader *SDFSLeaderService) nodeExistsInNodeIDSlice(s []core.NodeID, elem core.NodeID) bool {
 	for _, curr := range s {
 		if curr == elem {
 			return true
@@ -293,7 +290,7 @@ depending on the file operation type (all this information is stored in the File
 
 This function does not lock any mutex locks. the caller is expected to lock
 */
-func (this *SDFSLeaderService) notifyClientToExecuteTask(task *FileOperationTask) {
+func (leader *SDFSLeaderService) notifyClientToExecuteTask(task *FileOperationTask) {
 	conn, err1 := net.Dial("tcp", task.ClientNode.IpAddress+":"+task.ClientNode.SDFSServerPort)
 	if err1 != nil {
 		fmt.Printf("Failed to Dial() client node: %s", err1)
@@ -302,21 +299,21 @@ func (this *SDFSLeaderService) notifyClientToExecuteTask(task *FileOperationTask
 
 	switch task.FileOpType {
 	case GET_OP: // tell client which nodes the client should contact to get the data
-		nodesToContact := this.getNodesStoringFile(task.SdfsFilename)
+		nodesToContact := leader.getNodesStoringFile(task.SdfsFilename)
 		SendGetInfoResponse(conn, nodesToContact, task.SdfsFilename, task.ClientLocalFilename)
 
 	case PUT_OP: // tell client which replica nodes to store the shards in
 		var replicaNodes map[int][]core.NodeID
 		var ok bool
 		// if ok, then we already know which replicas have that file we wanna write to, otherwise we wanna choose new ones
-		if replicaNodes, ok = this.FileToNodes[task.SdfsFilename]; !ok {
-			replicaNodes = this.chooseReplicaNodesRandomly()
-			this.FileToNodes[task.SdfsFilename] = replicaNodes
+		if replicaNodes, ok = leader.FileToNodes[task.SdfsFilename]; !ok {
+			replicaNodes = leader.chooseReplicaNodesRandomly()
+			leader.FileToNodes[task.SdfsFilename] = replicaNodes
 		}
 		SendPutInfoResponse(conn, replicaNodes, task.SdfsFilename, task.ClientLocalFilename)
 
 	case DELETE_OP:
-		nodesToContact := this.getNodesStoringFile(task.SdfsFilename)
+		nodesToContact := leader.getNodesStoringFile(task.SdfsFilename)
 		SendDeleteInfoResponse(conn, nodesToContact, task.SdfsFilename)
 	}
 
@@ -343,30 +340,30 @@ then we need to take in that as a parameter
 
 NOTE: This function does not LOCK any mutex lock. It assumes that the caller of the function must lock anything necessary
 */
-func (this *SDFSLeaderService) chooseReplicaNodesRandomly() map[int][]core.NodeID {
-	this.shuffleActiveNodes()
+func (leader *SDFSLeaderService) chooseReplicaNodesRandomly() map[int][]core.NodeID {
+	leader.shuffleActiveNodes()
 
 	shardIdxToReplicas := make(map[int][]core.NodeID)
 	replicaAmt := config.REPLICA_COUNT
-	if len(this.ActiveNodes) < replicaAmt {
-		replicaAmt = len(this.ActiveNodes)
+	if len(leader.ActiveNodes) < replicaAmt {
+		replicaAmt = len(leader.ActiveNodes)
 	}
 	replicaNodes := make([]core.NodeID, replicaAmt)
-	copy(replicaNodes, this.ActiveNodes[:replicaAmt])
+	copy(replicaNodes, leader.ActiveNodes[:replicaAmt])
 
 	shardIdxToReplicas[0] = replicaNodes
 	return shardIdxToReplicas
 }
 
-func (this *SDFSLeaderService) shuffleActiveNodes() {
+func (leader *SDFSLeaderService) shuffleActiveNodes() {
 	// Fisher-Yates shuffle (https://yourbasic.org/golang/shuffle-slice-array/)
-	for i := len(this.ActiveNodes) - 1; i > 0; i-- {
+	for i := len(leader.ActiveNodes) - 1; i > 0; i-- {
 		j := rand.Intn(i + 1)
-		this.ActiveNodes[i], this.ActiveNodes[j] = this.ActiveNodes[j], this.ActiveNodes[i]
+		leader.ActiveNodes[i], leader.ActiveNodes[j] = leader.ActiveNodes[j], leader.ActiveNodes[i]
 	}
 }
 
-func (this *SDFSLeaderService) createStringOfNodesForPutAck(nodes []core.NodeID) string {
+func (leader *SDFSLeaderService) createStringOfNodesForPutAck(nodes []core.NodeID) string {
 	ret := "Put Stored in Replica Nodes:\n"
 	for _, node := range nodes {
 		ret += node.ToStringMP3() + "\n"
@@ -380,11 +377,11 @@ Mark a task that was executing as completed
 Returns true if it successfully found the task and finished it, otherwise it returns false
 returns (bool, msg, additional info) to create an ack response
 */
-func (this *SDFSLeaderService) MarkTaskCompleted(clientId core.NodeID, sdfs_filename string) (bool, string, string, int64) {
-	this.MutexLock.Lock()
-	md, ok := this.FileOperations[sdfs_filename]
+func (leader *SDFSLeaderService) MarkTaskCompleted(clientId core.NodeID, sdfs_filename string) (bool, string, string, int64) {
+	leader.MutexLock.Lock()
+	md, ok := leader.FileOperations[sdfs_filename]
 	if !ok {
-		this.MutexLock.Unlock()
+		leader.MutexLock.Unlock()
 		fmt.Println("Invalid sdfs_filename sent - could not mark task as completed")
 		return false, "Invalid SDFS filename - does not exist", "", 0
 	}
@@ -400,15 +397,15 @@ func (this *SDFSLeaderService) MarkTaskCompleted(clientId core.NodeID, sdfs_file
 
 			// get additional info for put
 			if writeTask.FileOpType == PUT_OP {
-				repNodes := this.FileToNodes[writeTask.SdfsFilename][0]
-				addInfo = this.createStringOfNodesForPutAck(repNodes)
+				repNodes := leader.FileToNodes[writeTask.SdfsFilename][0]
+				addInfo = leader.createStringOfNodesForPutAck(repNodes)
 			}
 
 			// delete index i when slice consists of pointers (https://github.com/golang/go/wiki/SliceTricks#delete-without-preserving-order)
 			md.CurrentWriteOps[i] = md.CurrentWriteOps[len(md.CurrentWriteOps)-1]
 			md.CurrentWriteOps[len(md.CurrentWriteOps)-1] = nil
 			md.CurrentWriteOps = md.CurrentWriteOps[:len(md.CurrentWriteOps)-1]
-			this.MutexLock.Unlock()
+			leader.MutexLock.Unlock()
 
 			return true, retString, addInfo, startTime
 		}
@@ -424,32 +421,32 @@ func (this *SDFSLeaderService) MarkTaskCompleted(clientId core.NodeID, sdfs_file
 			md.CurrentReadOps[i] = md.CurrentReadOps[len(md.CurrentReadOps)-1]
 			md.CurrentReadOps[len(md.CurrentReadOps)-1] = nil
 			md.CurrentReadOps = md.CurrentReadOps[:len(md.CurrentReadOps)-1]
-			this.MutexLock.Unlock()
+			leader.MutexLock.Unlock()
 			return true, retString, "", startTime
 		}
 	}
-	this.MutexLock.Unlock()
+	leader.MutexLock.Unlock()
 	return false, "Leader did not find operation to mark as completed", "", 0
 }
 
 /*
 Given a file operation, it will add it to its correct buffer so that the dispatcher can then schedule it
 */
-func (this *SDFSLeaderService) AddTask(fp *FileOperationTask) {
-	this.MutexLock.Lock()
+func (leader *SDFSLeaderService) AddTask(fp *FileOperationTask) {
+	leader.MutexLock.Lock()
 
-	md, ok := this.FileOperations[fp.SdfsFilename] // get file operation metadata of this file
+	md, ok := leader.FileOperations[fp.SdfsFilename] // get file operation metadata of this file
 	if !ok {
 		// the sdfs_filename does not exist...
 		if fp.FileOpType == GET_OP || fp.FileOpType == DELETE_OP {
 			// TODO: handle error where the file does not exist...?
 			// ^ ideally, we should send back a Negative ACK to the client - make this like a function to call
 			fmt.Println("Invalid file does not exist")
-			this.MutexLock.Unlock()
+			leader.MutexLock.Unlock()
 			return
 		} else if fp.FileOpType == PUT_OP {
-			this.addNewSDFSFile(fp.SdfsFilename)
-			md = this.FileOperations[fp.SdfsFilename]
+			leader.addNewSDFSFile(fp.SdfsFilename)
+			md = leader.FileOperations[fp.SdfsFilename]
 		}
 	}
 
@@ -460,14 +457,14 @@ func (this *SDFSLeaderService) AddTask(fp *FileOperationTask) {
 		md.WriteBuffer = append(md.WriteBuffer, fp)
 	}
 
-	this.MutexLock.Unlock()
+	leader.MutexLock.Unlock()
 }
 
 /*
 This function does not lock any mutex locks. Caller is expected to lock any mutex locks
 */
-func (this *SDFSLeaderService) addNewSDFSFile(sdfs_filename string) {
-	this.FileOperations[sdfs_filename] = &FileOperationsMetadata{
+func (leader *SDFSLeaderService) addNewSDFSFile(sdfs_filename string) {
+	leader.FileOperations[sdfs_filename] = &FileOperationsMetadata{
 		SdfsFilename:                          sdfs_filename,
 		NeedsReReplication:                    false,
 		StartedReReplicationProcedure:         false,
@@ -485,8 +482,8 @@ func (this *SDFSLeaderService) addNewSDFSFile(sdfs_filename string) {
 /*
 Returns a list of NodeIDs of nodes that store a shard(s) of sdfs_filename
 */
-func (this *SDFSLeaderService) getNodesStoringFile(sdfs_filename string) []core.NodeID {
-	nodes, ok := this.FileToNodes[sdfs_filename]
+func (leader *SDFSLeaderService) getNodesStoringFile(sdfs_filename string) []core.NodeID {
+	nodes, ok := leader.FileToNodes[sdfs_filename]
 	if !ok {
 		log.Fatalln("Invalid sdfs_filename! Does not exist in SDFS")
 	}
@@ -497,19 +494,19 @@ func (this *SDFSLeaderService) getNodesStoringFile(sdfs_filename string) []core.
 /*
 Returns the result for a LS operation
 */
-func (this *SDFSLeaderService) LsOperation(sdfs_filename string) []core.NodeID {
-	this.MutexLock.Lock()
-	defer this.MutexLock.Unlock()
-	return this.getNodesStoringFile(sdfs_filename)
+func (leader *SDFSLeaderService) LsOperation(sdfs_filename string) []core.NodeID {
+	leader.MutexLock.Lock()
+	defer leader.MutexLock.Unlock()
+	return leader.getNodesStoringFile(sdfs_filename)
 }
 
-func (this *SDFSLeaderService) PrefixMatchOperation(prefix string) []string {
-	this.MutexLock.Lock()
-	defer this.MutexLock.Unlock()
+func (leader *SDFSLeaderService) PrefixMatchOperation(prefix string) []string {
+	leader.MutexLock.Lock()
+	defer leader.MutexLock.Unlock()
 
 	matchingFilenames := make([]string, 0)
 
-	for filename := range this.FileToNodes { // iterate through all files in the distributed file system
+	for filename := range leader.FileToNodes { // iterate through all files in the distributed file system
 		if strings.HasPrefix(filename, prefix) {
 			matchingFilenames = append(matchingFilenames, filename)
 		}
@@ -518,7 +515,7 @@ func (this *SDFSLeaderService) PrefixMatchOperation(prefix string) []string {
 	return matchingFilenames
 }
 
-//func (this *SDFSLeaderService) AddFileToSDFS(sdfs_filename string, filesize int64) {
+//func (leader *SDFSLeaderService) AddFileToSDFS(sdfs_filename string, filesize int64) {
 //	/* based on the filesize and the shard size, it will
 //		1. Figure out how many shards will be required
 //		2. For each shard, it will choose the R replica nodes that it should be assigned to
@@ -548,10 +545,10 @@ func (this *SDFSLeaderService) PrefixMatchOperation(prefix string) []string {
 /*
 When a node joins our group, add the node to the list of active nodes.
 */
-func (this *SDFSLeaderService) AddNewActiveNode(nodeId core.NodeID) {
-	this.MutexLock.Lock()
-	this.ActiveNodes = append(this.ActiveNodes, nodeId)
-	this.MutexLock.Unlock()
+func (leader *SDFSLeaderService) AddNewActiveNode(nodeId core.NodeID) {
+	leader.MutexLock.Lock()
+	leader.ActiveNodes = append(leader.ActiveNodes, nodeId)
+	leader.MutexLock.Unlock()
 }
 
 /*
@@ -561,42 +558,42 @@ Find which SDFS files were residing in that node and mark those SDFS files as ne
 in the file operations meta data. The dispatcher thread will then take care of actually initiating the
 re-replicating process
 */
-func (this *SDFSLeaderService) IndicateNodeFailed(failed_nodeId core.NodeID) {
-	this.MutexLock.Lock()
+func (leader *SDFSLeaderService) IndicateNodeFailed(failed_nodeId core.NodeID) {
+	leader.MutexLock.Lock()
 	// double check that it actually removes...
-	//fmt.Printf("Len(AvailableWorkerNodes) before Deletion = %d\n", len(this.AvailableWorkerNodes))
-	_ = this.deleteActiveNode(failed_nodeId)
-	//fmt.Printf("Len(AvailableWorkerNodes) after Deletion = %d\nAnd didDelete = %d\n", len(this.AvailableWorkerNodes), didDelete)
+	//fmt.Printf("Len(AvailableWorkerNodes) before Deletion = %d\n", len(leader.AvailableWorkerNodes))
+	_ = leader.deleteActiveNode(failed_nodeId)
+	//fmt.Printf("Len(AvailableWorkerNodes) after Deletion = %d\nAnd didDelete = %d\n", len(leader.AvailableWorkerNodes), didDelete)
 
 	// find which SDFS files were affected by this node crash and
-	for sdfs_filename, shardsToNodes := range this.FileToNodes {
+	for sdfs_filename, shardsToNodes := range leader.FileToNodes {
 		for i, replicaNode := range shardsToNodes[0] { // TODO: only going through shard 1 because we assuming only 1 shard
 			if replicaNode == failed_nodeId {
 				// delete replicaNode from the list of replica nodes that this sdfs_filename has
-				this.FileToNodes[sdfs_filename][0][i] = this.FileToNodes[sdfs_filename][0][len(this.FileToNodes[sdfs_filename][0])-1]
-				this.FileToNodes[sdfs_filename][0] = this.FileToNodes[sdfs_filename][0][:len(this.FileToNodes[sdfs_filename][0])-1]
+				leader.FileToNodes[sdfs_filename][0][i] = leader.FileToNodes[sdfs_filename][0][len(leader.FileToNodes[sdfs_filename][0])-1]
+				leader.FileToNodes[sdfs_filename][0] = leader.FileToNodes[sdfs_filename][0][:len(leader.FileToNodes[sdfs_filename][0])-1]
 
 				// mark this file as needing re-replication
-				this.FileOperations[sdfs_filename].NeedsReReplication = true
-				this.FileOperations[sdfs_filename].FailedReplicasBuffer = append(this.FileOperations[sdfs_filename].FailedReplicasBuffer, failed_nodeId)
+				leader.FileOperations[sdfs_filename].NeedsReReplication = true
+				leader.FileOperations[sdfs_filename].FailedReplicasBuffer = append(leader.FileOperations[sdfs_filename].FailedReplicasBuffer, failed_nodeId)
 				//msg := fmt.Sprintf("Marked %s file as needing re-replication for failed node replica (%s)", sdfs_filename, failed_nodeId.ToStringMP3())
-				//logMessageHelper(this.logFile, msg)
+				//logMessageHelper(leader.logFile, msg)
 
-				//fmt.Printf("Len(this.FileOperations[sdfs_filename].FailedReplicasBuffer) = %d\n", len(this.FileOperations[sdfs_filename].FailedReplicasBuffer))
+				//fmt.Printf("Len(leader.FileOperations[sdfs_filename].FailedReplicasBuffer) = %d\n", len(leader.FileOperations[sdfs_filename].FailedReplicasBuffer))
 			}
 		}
 	}
 
-	this.MutexLock.Unlock()
+	leader.MutexLock.Unlock()
 }
 
-func (this *SDFSLeaderService) deleteActiveNode(nodeToDelete core.NodeID) bool {
+func (leader *SDFSLeaderService) deleteActiveNode(nodeToDelete core.NodeID) bool {
 	// first find it's index
 	var i int
 	var currNode core.NodeID
 	finalI := -1
 
-	for i, currNode = range this.ActiveNodes {
+	for i, currNode = range leader.ActiveNodes {
 		if currNode == nodeToDelete {
 			finalI = i
 			break
@@ -604,8 +601,8 @@ func (this *SDFSLeaderService) deleteActiveNode(nodeToDelete core.NodeID) bool {
 	}
 
 	if finalI != -1 { // found
-		this.ActiveNodes[finalI] = this.ActiveNodes[len(this.ActiveNodes)-1]
-		this.ActiveNodes = this.ActiveNodes[:len(this.ActiveNodes)-1]
+		leader.ActiveNodes[finalI] = leader.ActiveNodes[len(leader.ActiveNodes)-1]
+		leader.ActiveNodes = leader.ActiveNodes[:len(leader.ActiveNodes)-1]
 		return true
 	} else {
 		return false

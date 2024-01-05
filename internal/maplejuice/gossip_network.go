@@ -20,7 +20,7 @@ func CreateGossipUDPPacket(gossipMode GossipMode, membershipList *MembershipList
 	packet := GossipUDPPacket{gossipMode, membershipList.MemList}
 	ret, err := SerializeGossipUDPPacket(&packet)
 	if err != nil {
-		return make([]byte, 0), errors.New("Failed to serialize packet")
+		return make([]byte, 0), errors.New("failed to serialize packet")
 	}
 
 	return ret, nil

@@ -38,10 +38,10 @@ TODO: so that it returns a list of the metadatas instead and the caller should j
 TODO: immediately send it in the stream, and then delete the object, and then repeat. And the message size
 TODO: in the TCP message should be calcualted before hand. so there's a bit of work to change for that - DO THIS LATER!
 */
-func (this *FileSystemService) GetShards(sdfs_filename string) []Shard {
-	this.ShardMetaDataLock.Lock()
-	metadatas, ok := this.ShardMetadatas[sdfs_filename]
-	this.ShardMetaDataLock.Unlock()
+func (fss *FileSystemService) GetShards(sdfs_filename string) []Shard {
+	fss.ShardMetaDataLock.Lock()
+	metadatas, ok := fss.ShardMetadatas[sdfs_filename]
+	fss.ShardMetaDataLock.Unlock()
 	if !ok {
 		log.Fatalln("GetShards(): Invalid sdfs_filename requested! Does not exist!")
 	}
@@ -49,7 +49,7 @@ func (this *FileSystemService) GetShards(sdfs_filename string) []Shard {
 
 	for _, md := range metadatas {
 		// read the file into a Shard and append it to a list
-		shards = append(shards, this.ReadShard(md))
+		shards = append(shards, fss.ReadShard(md))
 	}
 	return shards
 }
@@ -58,13 +58,13 @@ func (this *FileSystemService) GetShards(sdfs_filename string) []Shard {
 Delete all Shards associated with the sdfs_filename from the disk and remove
 it from the FileSystemService map of shard meta datas
 */
-func (this *FileSystemService) DeleteAllShards(sdfs_filename string) {
-	this.ShardMetaDataLock.Lock()
-	defer this.ShardMetaDataLock.Unlock()
+func (fss *FileSystemService) DeleteAllShards(sdfs_filename string) {
+	fss.ShardMetaDataLock.Lock()
+	defer fss.ShardMetaDataLock.Unlock()
 	// delete from disk
 	// TODO: should i return an error instead of doing log.fatal
 	// delete sdfs_filename from the map
-	metadatas, ok := this.ShardMetadatas[sdfs_filename]
+	metadatas, ok := fss.ShardMetadatas[sdfs_filename]
 	if !ok {
 		log.Fatalln("Invalid maplejuice Filename - does not exist")
 	}
@@ -76,14 +76,14 @@ func (this *FileSystemService) DeleteAllShards(sdfs_filename string) {
 		}
 	}
 
-	delete(this.ShardMetadatas, sdfs_filename)
+	delete(fss.ShardMetadatas, sdfs_filename)
 }
 
 /*
 Given the metadata of a shard, it finds it in the disk and reads it into memory
 */
-func (this *FileSystemService) ReadShard(shardMetadata ShardMetaData) Shard {
-	fullPath := filepath.Join(this.RootDirPath, shardMetadata.ShardFilename)
+func (fss *FileSystemService) ReadShard(shardMetadata ShardMetaData) Shard {
+	fullPath := filepath.Join(fss.RootDirPath, shardMetadata.ShardFilename)
 	data, err := os.ReadFile(fullPath) // TODO:
 	if err != nil {
 		log.Fatalln("Error reading file!")
@@ -101,31 +101,31 @@ In a PUT_DATA_REQUEST, the receiver will receive a Shard object, which includes 
 so this function can be used to write the shard to our maplejuice directory locally and keep track of it
 as well
 */
-func (this *FileSystemService) WriteShard(shard Shard) {
+func (fss *FileSystemService) WriteShard(shard Shard) {
 	// write shard to disk
-	writePath := filepath.Join(this.RootDirPath, shard.Metadata.ShardFilename)
+	writePath := filepath.Join(fss.RootDirPath, shard.Metadata.ShardFilename)
 	err := os.WriteFile(writePath, shard.Data, os.ModePerm) // write file with Read and Write permissions
 	if err != nil {
 		log.Fatalln("WriteShard(): failed to write file to disk...")
 	}
 
 	// record the shard in our FileSystemService
-	this.ShardMetaDataLock.Lock()
-	this.ShardMetadatas[shard.Metadata.SdfsFilename] = append(
-		this.ShardMetadatas[shard.Metadata.SdfsFilename], shard.Metadata)
-	this.ShardMetaDataLock.Unlock()
+	fss.ShardMetaDataLock.Lock()
+	fss.ShardMetadatas[shard.Metadata.SdfsFilename] = append(
+		fss.ShardMetadatas[shard.Metadata.SdfsFilename], shard.Metadata)
+	fss.ShardMetaDataLock.Unlock()
 }
 
 /*
 Return a list of files (filenames) that are currently being
 stored on this machine.
 */
-func (this *FileSystemService) GetAllSDFSFilenames() []string {
+func (fss *FileSystemService) GetAllSDFSFilenames() []string {
 	keys := make([]string, 0)
-	this.ShardMetaDataLock.Lock()
-	for filename, _ := range this.ShardMetadatas {
+	fss.ShardMetaDataLock.Lock()
+	for filename, _ := range fss.ShardMetadatas {
 		keys = append(keys, filename)
 	}
-	this.ShardMetaDataLock.Unlock()
+	fss.ShardMetaDataLock.Unlock()
 	return keys
 }

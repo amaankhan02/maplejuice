@@ -206,7 +206,7 @@ func ReceiveReReplicateResponse(reader *bufio.Reader, shouldReadMessageType bool
 			//log.Fatalln("(ReceiveReReplicateRequest()): Failed to read message type")
 		}
 		if msgType != REREPLICATE_RESPONSE {
-			return nil, errors.New("Received message type != RE-REPLICATE RESPONSE")
+			return nil, errors.New("received message type != RE-REPLICATE RESPONSE")
 			//log.Fatalln("msgType != REREPLICATE_REQUEST!")
 		}
 	}

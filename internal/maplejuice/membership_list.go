@@ -32,7 +32,7 @@ type MembershipList struct {
 	RoundRobinPtr   int      // index
 	ThisNodeId      core.NodeID   // for the current machine this nodeId is for
 	NodeIdsList     []core.NodeID // list of nodes you can send message to -- used for round-robin messaging
-	gossipMode      GossipMode
+	// gossipMode      GossipMode
 	FalseNodeCount  int64 // used for testing - for false positive rate calculation
 	CallbackHandler INodeManager
 	IsTestMode      bool
@@ -52,7 +52,7 @@ Args:
 func NewMembershipList(thisNodeId core.NodeID, callbackHandler INodeManager, isTestMode bool) *MembershipList {
 
 	// intialize membership list
-	this := &MembershipList{
+	memList := &MembershipList{
 		MemList:         make(map[core.NodeID]MembershipListEntry),
 		RoundRobinPtr:   0,
 		ThisNodeId:      thisNodeId,
@@ -62,20 +62,20 @@ func NewMembershipList(thisNodeId core.NodeID, callbackHandler INodeManager, isT
 	}
 
 	// Initialize the map (actual membership list)
-	this.MemList[thisNodeId] = MembershipListEntry{
+	memList.MemList[thisNodeId] = MembershipListEntry{
 		HeartBeatCount:  0,
 		LastUpdatedTime: time.Now().UnixNano(),
 		Status:          core.ACTIVE,
 	}
-	this.FalseNodeCount = 0
-	return this
+	memList.FalseNodeCount = 0
+	return memList
 }
 
 // Returns the MembershipList in the form of a string
-func (this *MembershipList) String() string {
+func (memList *MembershipList) String() string {
 	var sb strings.Builder
 	fmtString := "%s\t|  %s\n"
-	for nodeId, membershipListRow := range this.MemList {
+	for nodeId, membershipListRow := range memList.MemList {
 		sb.WriteString(fmt.Sprintf(fmtString, nodeId.ToStringForGossipLogger(), membershipListRow.String()))
 	}
 	return sb.String()
@@ -88,10 +88,10 @@ thisNodeID is not necessary. It just takes up unnecessary tcp_net bandwidth
 
 TODO: see if ^^ that is necessary, or if we should just serialize the entire thing
 */
-func (this *MembershipList) SerializeMembershipList() ([]byte, error) {
+func (memList *MembershipList) SerializeMembershipList() ([]byte, error) {
 	binaryBuff := new(bytes.Buffer)
 	encoder := gob.NewEncoder(binaryBuff)
-	err := encoder.Encode(this.MemList)
+	err := encoder.Encode(memList.MemList)
 
 	if err != nil {
 		return nil, err
@@ -102,9 +102,9 @@ func (this *MembershipList) SerializeMembershipList() ([]byte, error) {
 
 /*
 Deserializees the passed in byte array representing the membershipList map
-and then sets the this.MemList to that.
+and then sets the memList.MemList to that.
 */
-func (this *MembershipList) DeserializeMembershipListMap(membershipListData []byte) error {
+func (memList *MembershipList) DeserializeMembershipListMap(membershipListData []byte) error {
 	var membershipList map[core.NodeID]MembershipListEntry
 
 	byteBuffer := bytes.NewBuffer(membershipListData)
@@ -115,7 +115,7 @@ func (this *MembershipList) DeserializeMembershipListMap(membershipListData []by
 		return err
 	}
 
-	this.MemList = membershipList
+	memList.MemList = membershipList
 	return nil
 }
 
@@ -285,8 +285,8 @@ It also updates the last updated time to be the new current local time since the
 If newHeartbeatCount == -1, then it won't update the heartbeat
 If newStatus == -1, then it won't update the status
 */
-func (this *MembershipList) UpdateEntry(nodeId *core.NodeID, newHeartbeatCount int, newStatus core.NodeStatus, logStream *os.File) {
-	oldRow, exists := this.MemList[*nodeId]
+func (memList *MembershipList) UpdateEntry(nodeId *core.NodeID, newHeartbeatCount int, newStatus core.NodeStatus, logStream *os.File) {
+	oldRow, exists := memList.MemList[*nodeId]
 
 	if !exists {
 		log.Fatal("UpdateEntry(): nodeId does not exist in the map!")
@@ -300,14 +300,14 @@ func (this *MembershipList) UpdateEntry(nodeId *core.NodeID, newHeartbeatCount i
 	}
 
 	if oldRow.Status != core.FAILED && newStatus == core.FAILED {
-		this.FalseNodeCount++
+		memList.FalseNodeCount++
 		// if changed to failed, it will also remove the nodeId from the nodeIdsList
-		this.NodeIdsList = RemoveElementFromSlice(this.NodeIdsList, *nodeId)
+		memList.NodeIdsList = RemoveElementFromSlice(memList.NodeIdsList, *nodeId)
 
 		// log the detection time here
 		if logStream != nil {
 			detectionTimeMs := float64(time.Now().UnixNano()-oldRow.LastUpdatedTime) / 1e6 // convert to ms
-			if this.IsTestMode {
+			if memList.IsTestMode {
 				core.LogMessageln(logStream, fmt.Sprintf("[DETECTION TIME] %.2f", detectionTimeMs))
 				core.LogMessageln(os.Stdout, fmt.Sprintf("[DETECTION TIME] %.2f", detectionTimeMs))
 			}
@@ -315,7 +315,7 @@ func (this *MembershipList) UpdateEntry(nodeId *core.NodeID, newHeartbeatCount i
 		}
 	}
 
-	this.MemList[*nodeId] = MembershipListEntry{
+	memList.MemList[*nodeId] = MembershipListEntry{
 		newHeartbeatCount,
 		time.Now().UnixNano(),
 		newStatus,
@@ -330,44 +330,44 @@ time with the current time.
 
 It addtionally adds the new node id to the list of nodeids
 */
-func (this *MembershipList) AddEntry(nodeId *core.NodeID, heartBeatCount int, status core.NodeStatus) {
+func (memList *MembershipList) AddEntry(nodeId *core.NodeID, heartBeatCount int, status core.NodeStatus) {
 	// making sure id does not already exist in the map, if it does, return error
-	_, exists := this.MemList[*nodeId]
+	_, exists := memList.MemList[*nodeId]
 	if exists {
 		//return errors.New("AddEntry(): ID already exists in map")
 		log.Fatal("AddEntry(): ID already exists in the map - cannot add new entry!")
 	}
 
-	this.MemList[*nodeId] = MembershipListEntry{
+	memList.MemList[*nodeId] = MembershipListEntry{
 		HeartBeatCount:  heartBeatCount,
 		LastUpdatedTime: time.Now().UnixNano(),
 		Status:          status,
 	}
-	this.NodeIdsList = append(this.NodeIdsList, *nodeId)
+	memList.NodeIdsList = append(memList.NodeIdsList, *nodeId)
 }
 
 /*
 Adds an entry to the membershiplist with key=nodeId, and the entry values as default values, which
 are heartbeatcount = 0, and status = ALIVE, and the current time right now as the last updated time
 */
-func (this *MembershipList) AddDefaultEntry(nodeId *core.NodeID) {
-	this.AddEntry(nodeId, 0, core.ACTIVE)
+func (memList *MembershipList) AddDefaultEntry(nodeId *core.NodeID) {
+	memList.AddEntry(nodeId, 0, core.ACTIVE)
 }
 
 /*
 Deletes an entry from the membership list
 */
-func (this *MembershipList) DeleteEntry(nodeId *core.NodeID) error {
-	entry, exists := this.MemList[*nodeId]
+func (memList *MembershipList) DeleteEntry(nodeId *core.NodeID) error {
+	entry, exists := memList.MemList[*nodeId]
 	if !exists {
 		err := errors.New("DeleteEntry(): ID does not exist in map")
 		return err
 	}
 	if entry.Status == core.FAILED {
-		delete(this.MemList, *nodeId) // if its failed, then it was already removed from the nodeIdsList
+		delete(memList.MemList, *nodeId) // if its failed, then it was already removed from the nodeIdsList
 	} else {
-		delete(this.MemList, *nodeId)
-		this.NodeIdsList = RemoveElementFromSlice(this.NodeIdsList, *nodeId)
+		delete(memList.MemList, *nodeId)
+		memList.NodeIdsList = RemoveElementFromSlice(memList.NodeIdsList, *nodeId)
 	}
 
 	return nil
@@ -405,18 +405,18 @@ func RemoveElementFromSlice(mySlice []core.NodeID, element core.NodeID) []core.N
 Increments the heartbeat count by 1 for the nodeId entry in the membership list
 Additionally updates the Last-Updated-Time in the entry to the current time
 */
-func (this *MembershipList) IncrementHeartbeatCount(id *core.NodeID) {
-	memlistRow, exists := this.MemList[*id]
+func (memList *MembershipList) IncrementHeartbeatCount(id *core.NodeID) {
+	memlistRow, exists := memList.MemList[*id]
 	if !exists {
 		log.Fatal("IncrementHeartbeatCount() - invalid id - does not exist in the map")
 	}
-	this.UpdateEntry(id, memlistRow.HeartBeatCount+1, -1, nil)
+	memList.UpdateEntry(id, memlistRow.HeartBeatCount+1, -1, nil)
 }
 
-func (this *MembershipList) ChooseRandomTargets(b int, thisNodeId core.NodeID) []core.NodeID {
+func (memList *MembershipList) ChooseRandomTargets(b int, thisNodeId core.NodeID) []core.NodeID {
 	var targets []core.NodeID
 
-	for nodeId, entry := range this.MemList {
+	for nodeId, entry := range memList.MemList {
 		if nodeId == thisNodeId {
 			continue
 		}
@@ -477,8 +477,8 @@ func AreMemListsEqual(list1 map[core.NodeID]MembershipListEntry, list2 map[core.
 }
 
 // getter for membership list
-func (this *MembershipList) GetMembershipList() *MembershipList {
-	return this
+func (memList *MembershipList) GetMembershipList() *MembershipList {
+	return memList
 }
 
 func LogMembershipList(stream *os.File, memList *MembershipList) {

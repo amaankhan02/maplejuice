@@ -49,7 +49,7 @@ type MapleJuiceManager struct {
 	mapleJuiceNode     *MapleJuiceNode
 	sdfsNode           *SDFSNode
 	failureJoinService *NodeFailureJoinService
-	logFile            *os.File
+	// logFile            *os.File
 }
 
 /*
@@ -426,18 +426,6 @@ func parseSqlFilterQuery(userInput []string) (string, string) {
 		regex = regex[1 : len(regex)-1]
 	}
 	return dataset, regex
-}
-
-func stringToBool(s string) (bool, error) {
-	lowercase := strings.ToLower(s)
-	switch lowercase {
-	case "true":
-		return true, nil
-	case "false":
-		return false, nil
-	default:
-		return false, fmt.Errorf("invalid boolean representation: %s", s)
-	}
 }
 
 func GetNumDatasets(userInput []string) int {

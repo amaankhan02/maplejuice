@@ -79,7 +79,7 @@ type LeaderMapleJuiceJob struct {
 
 	keys datastructures.HashSet[string] // map job updates this, juice job will look at this later to know what keys are there
 
-	sdfsIntermediateFileMutex sync.Mutex
+	// sdfsIntermediateFileMutex sync.Mutex
 	sdfsIntermediateFilenames datastructures.HashSet[string] // contains the path to the sdfsIntermediateFiles stored locally
 }
 
