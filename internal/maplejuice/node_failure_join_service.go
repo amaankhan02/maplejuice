@@ -328,13 +328,11 @@ func (this *NodeFailureJoinService) TryUpdateGossipMode(newGossipMode GossipMode
 
 /*
 Handles the received client message
-
-TODO: figure out what the actual function parameters for this should be later
 */
 func (this *NodeFailureJoinService) handleClientMessage(recvMembList *MembershipList) {
 	this.MemListMutexLock.Lock()
 	this.MembershipList.Merge(recvMembList, this.LogFile, this.CurrentGossipMode.Mode) // merge this membership list with the received membership list
-	core.LogMembershipList(this.LogFile, this.MembershipList)
+	LogMembershipList(this.LogFile, this.MembershipList)
 	this.MemListMutexLock.Unlock()
 }
 
@@ -374,7 +372,7 @@ func (this *NodeFailureJoinService) sendLeaveHeartbeats() {
 
 	this.MemListMutexLock.Lock()
 	// update membership list to have this node as LEAVE status
-	this.MembershipList.UpdateEntry(&this.Id, -1, LEAVE, this.LogFile)
+	this.MembershipList.UpdateEntry(&this.Id, -1, core.LEAVE, this.LogFile)
 	this.MembershipList.IncrementHeartbeatCount(&this.Id) // increment hb count of own node
 
 	var leaveWg sync.WaitGroup
