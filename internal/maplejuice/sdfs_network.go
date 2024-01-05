@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"cs425_mp4/internal/tcp_net"
 	"cs425_mp4/internal/utils"
+	"cs425_mp4/internal/core"
 	"encoding/gob"
 	"errors"
 	"fmt"
@@ -68,14 +69,14 @@ const (
 
 type ReReplicateRequest struct {
 	SdfsFilename            string
-	NewPossibleReplicaNodes []NodeID
+	NewPossibleReplicaNodes []core.NodeID
 	NumNewReplicasRequired  int
 }
 
 type ReReplicateResponse struct {
 	SdfsFilename  string
 	WasSuccessful bool
-	NewReplicas   []NodeID // list of the new replicas that it successfully saved the sdfs_file to
+	NewReplicas   []core.NodeID // list of the new replicas that it successfully saved the sdfs_file to
 }
 
 type MultiReadRequest struct {
@@ -90,7 +91,7 @@ type LsRequest struct {
 
 type LsResponse struct {
 	SdfsFilename string
-	Replicas     []NodeID
+	Replicas     []core.NodeID
 }
 
 // --------------------------- PREFIX MATCH STRUCTS ----------------------------------------
@@ -108,11 +109,11 @@ type PutInfoRequest struct {
 	ClientLocalFilename string // the local filename from the sender
 	Filesize            int64
 	Timestamp           int64
-	ClientID            NodeID
+	ClientID            core.NodeID
 }
 
 type PutInfoResponse struct {
-	Shard_num_to_machines_list map[int][]NodeID
+	Shard_num_to_machines_list map[int][]core.NodeID
 	SdfsFilename               string
 	ClientLocalFilename        string // the local filename from the sender
 }
@@ -127,13 +128,13 @@ type GetInfoRequest struct {
 	SdfsFilename  string // the file in SDFS that we want
 	LocalFilename string // the local filename in the client in which we want the file to be saved
 	Timestamp     int64  // timestamp of the request
-	ClientID      NodeID // ID of the client that made this request - so that we know who to send the response back to
+	ClientID      core.NodeID // ID of the client that made this request - so that we know who to send the response back to
 }
 
 type GetInfoResponse struct {
 	SdfsFilename        string // the maplejuice filename of the file requested from the maplejuice file system
 	ClientLocalFilename string // filename to save to in the client's local machine
-	NodeIds             []NodeID
+	NodeIds             []core.NodeID
 }
 
 type GetDataRequest struct {
@@ -150,11 +151,11 @@ type GetDataResponse struct {
 type DeleteInfoRequest struct {
 	SdfsFilename string
 	Timestamp    int64
-	ClientID     NodeID
+	ClientID     core.NodeID
 }
 
 type DeleteInfoResponse struct {
-	Replicas     []NodeID
+	Replicas     []core.NodeID
 	SdfsFilename string
 }
 
@@ -165,9 +166,9 @@ type DeleteDataRequest struct {
 // ---------------------------------- ACK STRUCT -----------------------------------------
 
 type Ack struct {
-	// we can differentiate based on the NodeID since we will assume that when a client makes some file operation
+	// we can differentiate based on the core.NodeID since we will assume that when a client makes some file operation
 	// request, they will not make another one until they receive an ACK that it was successful
-	SenderNodeId   NodeID // optional
+	SenderNodeId   core.NodeID // optional
 	Message        string // optional
 	WasSuccessful  bool   // to indicate if the operation was successful or not
 	AdditionalInfo string // any additional info to store. File Operation ACKs will store the SDFS-FILENAME here
@@ -175,7 +176,7 @@ type Ack struct {
 }
 
 // --------------------------------------------- ReReplicate ROUTING -------------------------------------------------
-func SendReReplicateResponse(conn net.Conn, sdfsFilename string, newReplicas []NodeID, wasSuccessful bool) {
+func SendReReplicateResponse(conn net.Conn, sdfsFilename string, newReplicas []core.NodeID, wasSuccessful bool) {
 	info := ReReplicateResponse{
 		SdfsFilename:  sdfsFilename,
 		NewReplicas:   newReplicas,
@@ -225,7 +226,7 @@ func ReceiveReReplicateResponse(reader *bufio.Reader, shouldReadMessageType bool
 	return info_struct, nil
 }
 
-func SendReReplicateRequest(conn net.Conn, sdfsFilename string, newPossibleReplicas []NodeID, numNewReplicasRequired int) {
+func SendReReplicateRequest(conn net.Conn, sdfsFilename string, newPossibleReplicas []core.NodeID, numNewReplicasRequired int) {
 	info := ReReplicateRequest{
 		SdfsFilename:            sdfsFilename,
 		NewPossibleReplicaNodes: newPossibleReplicas,
@@ -358,7 +359,7 @@ func ReceiveLsRequest(reader *bufio.Reader, shouldReadMessageType bool) *LsReque
 	return info_struct
 }
 
-func SendLsResponse(conn net.Conn, sdfsfilename string, replicas []NodeID) {
+func SendLsResponse(conn net.Conn, sdfsfilename string, replicas []core.NodeID) {
 	info := LsResponse{SdfsFilename: sdfsfilename, Replicas: replicas}
 
 	serialized_data, err := utils.SerializeData(info)
@@ -499,7 +500,7 @@ Data to Send:
   - filesize
   - Timestamp
 */
-func SendPutInfoRequest(conn net.Conn, sdfsfilename string, localfilename string, filesize int64, clientId NodeID) {
+func SendPutInfoRequest(conn net.Conn, sdfsfilename string, localfilename string, filesize int64, clientId core.NodeID) {
 	// send time over as well as the parameters
 	current_time := time.Now().UnixNano()
 
@@ -559,7 +560,7 @@ Data to Send:
   - Key = shard number
   - val = list of machines to send shard to
 */
-func SendPutInfoResponse(conn net.Conn, shard_num_to_machines_list map[int][]NodeID, sdfs_filename string, clientLocalFilename string) {
+func SendPutInfoResponse(conn net.Conn, shard_num_to_machines_list map[int][]core.NodeID, sdfs_filename string, clientLocalFilename string) {
 	put_info_response := PutInfoResponse{
 		Shard_num_to_machines_list: shard_num_to_machines_list,
 		SdfsFilename:               sdfs_filename,
@@ -670,7 +671,7 @@ Data to Send:
   - Filename
   - Timestamp
 */
-func SendGetInfoRequest(conn net.Conn, sdfsFilename string, localFilename string, clientId NodeID) {
+func SendGetInfoRequest(conn net.Conn, sdfsFilename string, localFilename string, clientId core.NodeID) {
 	// send time over as well as the parameters
 	current_time := time.Now().UnixNano()
 
@@ -727,7 +728,7 @@ Send: shard & request to datanode to store shard
 Data to Send:
   - list of NodeIds
 */
-func SendGetInfoResponse(conn net.Conn, machines_to_get_data []NodeID, sdfsfilename string, clientLocalfilename string) {
+func SendGetInfoResponse(conn net.Conn, machines_to_get_data []core.NodeID, sdfsfilename string, clientLocalfilename string) {
 	get_info_response := GetInfoResponse{
 		sdfsfilename,
 		clientLocalfilename,
@@ -870,7 +871,7 @@ Data to Send:
   - Filename
   - Timestamp
 */
-func SendDeleteInfoRequest(conn net.Conn, sdfsfilename string, clientId NodeID) {
+func SendDeleteInfoRequest(conn net.Conn, sdfsfilename string, clientId core.NodeID) {
 	// send time over as well as the parameters
 	current_time := time.Now().UnixNano()
 
@@ -924,7 +925,7 @@ Called by leader
 Data to Send:
   - nodeids to find Shards and delete at
 */
-func SendDeleteInfoResponse(conn net.Conn, shard_num_to_machines_list []NodeID, sdfs_filename string) {
+func SendDeleteInfoResponse(conn net.Conn, shard_num_to_machines_list []core.NodeID, sdfs_filename string) {
 	delete_info_response := DeleteInfoResponse{
 		shard_num_to_machines_list, sdfs_filename,
 	}
@@ -1002,7 +1003,7 @@ when doing ANY operation where you need to send ACK:
 Called by a datanode or client
 Send: acknowledgment saying you are done
 */
-func SendAckResponse(conn net.Conn, senderId NodeID, isSuccess bool, message string, additionalInfo string, startTime int64) {
+func SendAckResponse(conn net.Conn, senderId core.NodeID, isSuccess bool, message string, additionalInfo string, startTime int64) {
 	ack := Ack{
 		Message:        message,
 		SenderNodeId:   senderId,

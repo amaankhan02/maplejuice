@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"cs425_mp4/internal/config"
 	"cs425_mp4/internal/tcp_net"
+	"cs425_mp4/internal/core"
 	"cs425_mp4/internal/utils"
 	"errors"
 	"fmt"
@@ -28,8 +29,8 @@ Currently implementing the following interfaces
   - tcp_net.TCPServerConnectionHandler
 */
 type SDFSNode struct {
-	id       NodeID
-	leaderID NodeID
+	id       core.NodeID
+	leaderID core.NodeID
 	isLeader bool
 	sdfsDir  string
 	logFile  *os.File
@@ -47,7 +48,7 @@ type SDFSNode struct {
 	clientAcks []LocalAck // store all Acks received to this client
 }
 
-func NewSDFSNode(thisId NodeID, introducerLeaderId NodeID, isIntroducerLeader bool, logFile *os.File, sdfsRootDir string) *SDFSNode {
+func NewSDFSNode(thisId core.NodeID, introducerLeaderId core.NodeID, isIntroducerLeader bool, logFile *os.File, sdfsRootDir string) *SDFSNode {
 	sdfsNode := &SDFSNode{
 		id:                thisId,
 		leaderID:          introducerLeaderId,
@@ -88,8 +89,8 @@ func (this *SDFSNode) Start() {
 	if this.leaderService != nil {
 		this.leaderService.Start()
 	}
-	LogMessageln(os.Stdout, "SDFS Node has started")
-	LogMessageln(this.logFile, "SDFS Node has started")
+	core.LogMessageln(os.Stdout, "SDFS Node has started")
+	core.LogMessageln(this.logFile, "SDFS Node has started")
 }
 
 //func (this *SDFSNode) HandleNodeFailure(info FailureDetectionInfo) {
@@ -389,7 +390,7 @@ func (this *SDFSNode) performReReplicate(leaderConn net.Conn, rr_req *ReReplicat
 	// contact the replica nodes with a PUT_DATA_REQUEST operation on the SDFS_FILENAME
 	// based on the success/failure, we notify leaderConn with a ReReplicateReponse
 	currentNewReplicasAccomplished := 0
-	newFinalReplicas := make([]NodeID, 0)
+	newFinalReplicas := make([]core.NodeID, 0)
 
 	for _, nodeToContact := range rr_req.NewPossibleReplicaNodes {
 		nodeConn, err2 := net.Dial("tcp", nodeToContact.IpAddress+":"+nodeToContact.SDFSServerPort)
@@ -840,7 +841,7 @@ func (this *SDFSNode) PerformStore() {
 }
 
 func (this *SDFSNode) PerformMultiRead(sdfsFilename string, localFilename string, VMs []string) {
-	targetNodes := make([]NodeID, 0)
+	targetNodes := make([]core.NodeID, 0)
 	for _, vmStr := range VMs {
 		vm_num, err := strconv.ParseInt(vmStr[2:], 10, 64)
 		if err != nil {
@@ -850,7 +851,7 @@ func (this *SDFSNode) PerformMultiRead(sdfsFilename string, localFilename string
 		hostname := utils.GetHostname(int(vm_num))
 		ip := utils.GetIP(hostname)
 		sdfs_port := utils.GetSDFSPort(int(vm_num))
-		targetNodes = append(targetNodes, NodeID{
+		targetNodes = append(targetNodes, core.NodeID{
 			IpAddress:      ip,
 			GossipPort:     "",
 			SDFSServerPort: sdfs_port,
@@ -889,7 +890,7 @@ Given:
 Return
   - map, key = shard num, val = shard struct
 */
-func SplitShards(sdfsfilename string, shard_num_to_machines_list map[int][]NodeID, total_file_size int64) map[int]Shard {
+func SplitShards(sdfsfilename string, shard_num_to_machines_list map[int][]core.NodeID, total_file_size int64) map[int]Shard {
 
 	shard_num_to_shard_struct := make(map[int]Shard)
 
@@ -1023,7 +1024,7 @@ func (this *SDFSNode) createSingleShardFromFile(localfilename string, sdfsFilena
 //     -
 //
 // */
-// func (this *SDFSNode) PickMachinesToSendDataBlock(file_size byte) []NodeID {
+// func (this *SDFSNode) PickMachinesToSendDataBlock(file_size byte) []core.NodeID {
 //
 //		// find all other machines to choose from
 //		membership_list := this.ThisGossipNode.MembershipList.MemList
@@ -1032,13 +1033,13 @@ func (this *SDFSNode) createSingleShardFromFile(localfilename string, sdfsFilena
 //		// keep track of which position in membership list you are at
 //		round_robin_index := 0
 //
-//		machines_to_send_datablocks := make(map[int][]NodeID)
+//		machines_to_send_datablocks := make(map[int][]core.NodeID)
 //		num_shards := int(file_size / SHARD_SIZE) + 1
 //
 //		// for each shard num, assign some machines
 //		for shard_num := 1; shard_num <= num_shards; shard_num++ {
 //
-//			//machines := make([]NodeID, 0)
+//			//machines := make([]core.NodeID, 0)
 //
 //			if round_robin_index+NUM_REPLICAS > len(membership_list) {
 //
@@ -1074,8 +1075,8 @@ func (this *SDFSNode) createSingleShardFromFile(localfilename string, sdfsFilena
 //		return machines_to_send_datablocks
 //	}
 func logMessageHelper(logStream *os.File, message string) {
-	LogMessageln(os.Stdout, message)
+	core.LogMessageln(os.Stdout, message)
 	if logStream != nil {
-		LogMessageln(logStream, message)
+		core.LogMessageln(logStream, message)
 	}
 }

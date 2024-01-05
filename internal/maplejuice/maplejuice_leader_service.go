@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"cs425_mp4/internal/datastructures"
 	"cs425_mp4/internal/utils"
+	"cs425_mp4/internal/core"
 	"encoding/csv"
 	"fmt"
 	"hash/fnv"
@@ -58,16 +59,16 @@ type LeaderMapleJuiceJob struct {
 	// id of the job as seen by the client. This is used when sending a response back to
 	// the client to tell it which job is finished (cuz client may send multiple jobs)
 	clientJobId int
-	clientId    NodeID // id of the client that requested this job
+	clientId    core.NodeID // id of the client that requested this job
 
-	// for each nodeID, it holds the task indices that it is responsible for. Once the task is completed, it will be removed from this list
-	workerToTaskIndices            map[NodeID][]int    // only for maple job
-	workerToKeys                   map[NodeID][]string // only for juice job
+	// for each core.NodeID, it holds the task indices that it is responsible for. Once the task is completed, it will be removed from this list
+	workerToTaskIndices            map[core.NodeID][]int    // only for maple job
+	workerToKeys                   map[core.NodeID][]string // only for juice job
 	numTasks                       int
 	exeFile                        MapleJuiceExeFile
 	sdfsIntermediateFilenamePrefix string
 	numTasksCompleted              int
-	completedWorkers               map[NodeID]struct{} // used during reassigning of tasks after node failure
+	completedWorkers               map[core.NodeID]struct{} // used during reassigning of tasks after node failure
 	numJuiceWorkerNodesCompleted   int                 // used ony by juice job (since all juice tasks in a worker are put together in one request)
 	sdfsSrcDirectory               string              // only for maple job
 	sdfsDestFilename               string              // only for juice job
@@ -92,9 +93,9 @@ We assume that there is only ever 1 job currently being executed. The others wil
 and only executed once the current job finishes.
 */
 type MapleJuiceLeaderService struct {
-	leaderNodeId         NodeID
+	leaderNodeId         core.NodeID
 	DispatcherWaitTime   time.Duration
-	AvailableWorkerNodes []NodeID // leader cannot be a worker node
+	AvailableWorkerNodes []core.NodeID // leader cannot be a worker node
 	IsRunning            bool
 	logFile              *os.File
 	waitQueue            []*LeaderMapleJuiceJob
@@ -110,7 +111,7 @@ type MapleJuiceLeaderService struct {
 }
 
 func NewMapleJuiceLeaderService(
-	leaderId NodeID,
+	leaderId core.NodeID,
 	dispatcherWaitTime time.Duration,
 	logFile *os.File,
 	leaderTempDir string,
@@ -118,7 +119,7 @@ func NewMapleJuiceLeaderService(
 	leader := &MapleJuiceLeaderService{
 		leaderNodeId:         leaderId,
 		DispatcherWaitTime:   dispatcherWaitTime,
-		AvailableWorkerNodes: make([]NodeID, 0),
+		AvailableWorkerNodes: make([]core.NodeID, 0),
 		IsRunning:            false,
 		logFile:              logFile,
 		waitQueue:            make([]*LeaderMapleJuiceJob, 0),
@@ -147,7 +148,7 @@ Used to add a new NodeID as a worker node.
 
 NOTE: this function locks the mutex for the leader service.
 */
-func (leader *MapleJuiceLeaderService) AddNewAvailableWorkerNode(newNode NodeID) {
+func (leader *MapleJuiceLeaderService) AddNewAvailableWorkerNode(newNode core.NodeID) {
 	leader.mutex.Lock()
 	if newNode != leader.leaderNodeId {
 		leader.AvailableWorkerNodes = append(leader.AvailableWorkerNodes, newNode)
@@ -157,7 +158,7 @@ func (leader *MapleJuiceLeaderService) AddNewAvailableWorkerNode(newNode NodeID)
 
 // SubmitMapleJob Submit a maple job to the wait queue. Dispatcher thread will execute it when its ready
 func (leader *MapleJuiceLeaderService) SubmitMapleJob(mapleExe MapleJuiceExeFile, numMaples int,
-	sdfsIntermediateFilenamePrefix string, sdfsSrcDir string, clientJobId int, clientId NodeID) {
+	sdfsIntermediateFilenamePrefix string, sdfsSrcDir string, clientJobId int, clientId core.NodeID) {
 
 	leader.mutex.Lock()
 	job := LeaderMapleJuiceJob{
@@ -165,8 +166,8 @@ func (leader *MapleJuiceLeaderService) SubmitMapleJob(mapleExe MapleJuiceExeFile
 		jobType:                        MAPLE_JOB,
 		exeFile:                        mapleExe,
 		numTasks:                       numMaples,
-		workerToTaskIndices:            make(map[NodeID][]int),
-		completedWorkers:               make(map[NodeID]struct{}),
+		workerToTaskIndices:            make(map[core.NodeID][]int),
+		completedWorkers:               make(map[core.NodeID]struct{}),
 		sdfsIntermediateFilenamePrefix: sdfsIntermediateFilenamePrefix,
 		sdfsSrcDirectory:               sdfsSrcDir,
 		numTasksCompleted:              0,
@@ -174,7 +175,7 @@ func (leader *MapleJuiceLeaderService) SubmitMapleJob(mapleExe MapleJuiceExeFile
 		clientJobId:                    clientJobId,
 		clientId:                       clientId,
 		keys:                           make(datastructures.HashSet[string]),
-		workerToKeys:                   make(map[NodeID][]string),
+		workerToKeys:                   make(map[core.NodeID][]string),
 	}
 
 	fmt.Println("Adding maple job to queue in leader!")
@@ -185,16 +186,16 @@ func (leader *MapleJuiceLeaderService) SubmitMapleJob(mapleExe MapleJuiceExeFile
 
 func (leader *MapleJuiceLeaderService) SubmitJuiceJob(juice_exe MapleJuiceExeFile, num_juices int,
 	sdfs_intermediate_filename_prefix string, sdfs_dest_filename string, delete_input bool,
-	juicePartitionScheme JuicePartitionType, clientJobId int, clientId NodeID) {
+	juicePartitionScheme JuicePartitionType, clientJobId int, clientId core.NodeID) {
 
 	leader.mutex.Lock()
 	job := LeaderMapleJuiceJob{
 		leaderJobId:                    leader.jobsSubmitted,
 		jobType:                        JUICE_JOB,
-		workerToTaskIndices:            make(map[NodeID][]int),
+		workerToTaskIndices:            make(map[core.NodeID][]int),
 		numTasks:                       num_juices,
 		exeFile:                        juice_exe,
-		completedWorkers:               make(map[NodeID]struct{}),
+		completedWorkers:               make(map[core.NodeID]struct{}),
 		sdfsIntermediateFilenamePrefix: sdfs_intermediate_filename_prefix,
 		sdfsDestFilename:               sdfs_dest_filename,
 		delete_input:                   delete_input,
@@ -204,7 +205,7 @@ func (leader *MapleJuiceLeaderService) SubmitJuiceJob(juice_exe MapleJuiceExeFil
 		clientJobId:                    clientJobId,
 		clientId:                       clientId,
 		keys:                           make(datastructures.HashSet[string]),
-		workerToKeys:                   make(map[NodeID][]string),
+		workerToKeys:                   make(map[core.NodeID][]string),
 	}
 	//job.keys = leader.finishedMapleJobs[sdfs_intermediate_filename_prefix].keys // get the keys from the maple job that finished
 	leader.waitQueue = append(leader.waitQueue, &job)
@@ -691,7 +692,7 @@ func (leader *MapleJuiceLeaderService) sendMapleTasksToWorkerNodes(job *LeaderMa
 	}
 }
 
-func (leader *MapleJuiceLeaderService) IndicateNodeFailed(failedNode NodeID) {
+func (leader *MapleJuiceLeaderService) IndicateNodeFailed(failedNode core.NodeID) {
 	// check if from the current job, if the failed node was assigned any tasks. If it was,
 	// then we need to reassign those tasks to another node and send the task request to that node
 	// and then also remove it from the AvailableWorkerNodes list.
@@ -711,7 +712,7 @@ func (leader *MapleJuiceLeaderService) IndicateNodeFailed(failedNode NodeID) {
 	}
 }
 
-func (leader *MapleJuiceLeaderService) reassignFailedNodeJuiceTasks(failedNode NodeID) {
+func (leader *MapleJuiceLeaderService) reassignFailedNodeJuiceTasks(failedNode core.NodeID) {
 	failedNodesAssignedKeys, exists := leader.currentJob.workerToKeys[failedNode]
 	if !exists {
 		fmt.Println("Failed node was not assigned any tasks. No need to reassign tasks")
@@ -745,7 +746,7 @@ func (leader *MapleJuiceLeaderService) reassignFailedNodeJuiceTasks(failedNode N
 	SendJuiceTaskRequest(workerConn, leader.currentJob.exeFile, leader.currentJob.sdfsIntermediateFilenamePrefix, failedNodesAssignedKeys)
 }
 
-func (leader *MapleJuiceLeaderService) reassignFailedNodeMapleTasks(failedNode NodeID) {
+func (leader *MapleJuiceLeaderService) reassignFailedNodeMapleTasks(failedNode core.NodeID) {
 	taskIndices, exists := leader.currentJob.workerToTaskIndices[failedNode]
 	if !exists {
 		fmt.Println("Failed node was not assigned any tasks. No need to reassign tasks")

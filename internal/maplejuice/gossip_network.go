@@ -3,12 +3,13 @@ package maplejuice
 import (
 	"bytes"
 	"encoding/gob"
+	"cs425_mp4/internal/core"
 	"errors"
 )
 
 type GossipUDPPacket struct {
 	MyGossipMode        GossipMode
-	MyMembershipListMap map[NodeID]MembershipListEntry
+	MyMembershipListMap map[core.NodeID]MembershipListEntry
 }
 
 /*

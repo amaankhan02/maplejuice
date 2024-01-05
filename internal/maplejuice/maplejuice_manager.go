@@ -3,6 +3,7 @@ package maplejuice
 import (
 	"cs425_mp4/internal/config"
 	"cs425_mp4/internal/utils"
+	"cs425_mp4/internal/core"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -44,7 +45,7 @@ for maple juice to run. It also has a parser that parses the command line
 input and executes the respective MapleJuiceNode functions.
 */
 type MapleJuiceManager struct {
-	id                 NodeID
+	id                 core.NodeID
 	mapleJuiceNode     *MapleJuiceNode
 	sdfsNode           *SDFSNode
 	failureJoinService *NodeFailureJoinService
@@ -123,18 +124,18 @@ func (manager *MapleJuiceManager) Start() {
 	manager.startUserInputLoop()
 }
 
-func (manager *MapleJuiceManager) createLocalAndLeaderNodeID(introducerLeaderVmNum int) (*NodeID, *NodeID, bool) {
-	var introducerLeaderId *NodeID
+func (manager *MapleJuiceManager) createLocalAndLeaderNodeID(introducerLeaderVmNum int) (*core.NodeID, *core.NodeID, bool) {
+	var introducerLeaderId *core.NodeID
 	var isIntroducerLeader bool
 	vmNum, hostname := utils.GetLocalVMInfo()
 
 	if vmNum == introducerLeaderVmNum { // this node is the leader, so don't need to create separate node ID for leader
 		isIntroducerLeader = true
-		introducerLeaderId = &NodeID{}
+		introducerLeaderId = &core.NodeID{}
 	} else { // not the leader, so create the node ID for the leader node
 		isIntroducerLeader = false
 		introducerHostname := utils.GetHostname(introducerLeaderVmNum)
-		introducerLeaderId = NewNodeID(
+		introducerLeaderId = core.NewNodeID(
 			utils.GetIP(introducerHostname),
 			utils.GetGossipPort(introducerLeaderVmNum),
 			utils.GetSDFSPort(introducerLeaderVmNum),
@@ -143,7 +144,7 @@ func (manager *MapleJuiceManager) createLocalAndLeaderNodeID(introducerLeaderVmN
 			introducerHostname,
 		)
 	}
-	localNodeId := NewNodeID(
+	localNodeId := core.NewNodeID(
 		utils.GetIP(hostname),
 		utils.GetGossipPort(vmNum),
 		utils.GetSDFSPort(vmNum),

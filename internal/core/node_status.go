@@ -1,4 +1,4 @@
-package maplejuice
+package core
 
 import "log"
 

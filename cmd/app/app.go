@@ -3,6 +3,7 @@ package main
 import (
 	"cs425_mp4/internal/config"
 	"cs425_mp4/internal/maplejuice"
+	"cs425_mp4/internal/core"
 	"encoding/gob"
 	"flag"
 	"fmt"
@@ -55,7 +56,7 @@ func RegisterStructsForSerialization() {
 	gob.Register(&maplejuice.MembershipList{})
 	gob.Register(&maplejuice.MembershipListEntry{})
 	gob.Register(&maplejuice.ShardMetaData{})
-	gob.Register(&maplejuice.NodeID{})
+	gob.Register(&core.NodeID{})
 	gob.Register(&maplejuice.Shard{})
 	gob.Register(&maplejuice.GetInfoRequest{})
 	gob.Register(&maplejuice.GetInfoResponse{})

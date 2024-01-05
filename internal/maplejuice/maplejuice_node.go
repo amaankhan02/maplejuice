@@ -6,6 +6,7 @@ import (
 	"cs425_mp4/internal/config"
 	"cs425_mp4/internal/tcp_net"
 	"cs425_mp4/internal/utils"
+	"cs425_mp4/internal/core"
 	"fmt"
 	"log"
 	"net"
@@ -26,8 +27,8 @@ type ClientMapleJuiceJob struct {
 }
 
 type MapleJuiceNode struct {
-	id            NodeID
-	leaderID      NodeID
+	id            core.NodeID
+	leaderID      core.NodeID
 	isLeader      bool
 	leaderService *MapleJuiceLeaderService
 	tcpServer     *tcp_net.TCPServer
@@ -80,7 +81,7 @@ const JUICE_TASK_OUTPUT_FILENAME = "juice_task_output.csv"
 const LOCAL_SDFS_DATASET_FILENAME_FMT = "local-%s" // when you GET the sdfs_filename, this is the localfilename you want to save it as
 const JOB_DONE_MSG_FMT = "%s Job with ClientJobID %d has completed!\n"
 
-func NewMapleJuiceNode(thisId NodeID, leaderId NodeID, loggingFile *os.File, sdfsNode *SDFSNode,
+func NewMapleJuiceNode(thisId core.NodeID, leaderId core.NodeID, loggingFile *os.File, sdfsNode *SDFSNode,
 	mapleJuiceTmpDir string, leaderServiceDispatcherWaitTime time.Duration) *MapleJuiceNode {
 	mj := &MapleJuiceNode{
 		id:                       thisId,
@@ -314,8 +315,8 @@ func (this *MapleJuiceNode) handleJobResponse(clientJobId int) {
 }
 
 func (this *MapleJuiceNode) logBoth(msg string) {
-	LogMessageln(os.Stdout, msg)
-	LogMessageln(this.logFile, msg)
+	core.LogMessageln(os.Stdout, msg)
+	core.LogMessageln(this.logFile, msg)
 }
 
 /*

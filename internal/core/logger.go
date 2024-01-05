@@ -1,4 +1,4 @@
-package maplejuice
+package core
 
 import (
 	"cs425_mp4/internal/utils"
@@ -59,12 +59,6 @@ func LogNodeStatusChange(stream *os.File, nodeId *NodeID, oldStatus NodeStatus, 
 	LogMessageln(stream, msg)
 }
 
-func LogMembershipList(stream *os.File, memList *MembershipList) {
-	_, err := stream.WriteString(fmt.Sprintf(MEMBERSHIP_LIST_FMT, utils.GetCurrentTime(), memList.String()))
-	if err != nil {
-		log.Fatal("LogMembershipList(): Failed to WriteString() to the stream")
-	}
-}
 
 func LogDeletedNodeFromMembershipList(stream *os.File, nodeId *NodeID) {
 	logHelper(stream, nodeId, DELETED_MSG)
