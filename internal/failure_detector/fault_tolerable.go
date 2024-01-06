@@ -15,11 +15,8 @@ type NodeJoinInfo struct {
 /*
 	FaultTolerable interface
 
-Defines a generic interface where the HandleFailure() message must
+Defines a generic interface where the HandleNodeFailure() message must
 be implemented and HandleNodeJoin()
-
-Current structs that implement FaultTolerable interface:
-  - maplejuice.MapleJuiceNodeManager
 */
 type FaultTolerable interface {
 	HandleNodeFailure(info FailureDetectionInfo)
