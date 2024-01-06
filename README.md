@@ -1,8 +1,8 @@
 # MapleJuice
 MapleJuice is a parallel cloud computing framework written in Go, bearing similarities to Hadoop MapReduce. Features of the project include:
-* A Gossip-style heartbeating failure detector to ensure fault tolerance to up to 3 simultaneous failures. 
+* **Gossip-style heartbeating failure detector** to ensure fault tolerance to up to 3 simultaneous failures. 
   * In addition to gossip-style heartbeating, we've implemented Gossip-style heartbeating with _Suspicion_ (similar to the suspicion mechanism in [SWIM](https://www.cs.cornell.edu/projects/Quicksilver/public_pdfs/SWIM.pdf), but without any pinging) 
-* A Simple Distributed File System (SDFS) similar to Hadoop Distributed File System (HDFS)
+* **Simple Distributed File System (SDFS)** similar to Hadoop Distributed File System (HDFS)
     * SDFS is a flat-file system
     * Allowed file operations include 
       * `put local_filename sdfs_filename`
@@ -11,8 +11,12 @@ MapleJuice is a parallel cloud computing framework written in Go, bearing simila
       * `ls sdfs_filename` - list all machine addresses where `sdfs_filename` is stored
       * `store` - list all files currently being stored at the current machine
     * Allows at most one client to write a file at a time, but allows up to 2 clients to read a file simultaneously. It does not allow a writer and reader simultaneously. 
+* **MapleJuice** similar to MapReduce. 
+  * MapleJuice is built on top of the failure detector and SDFS. 
+  * Maple is similar to the Map phase and Juice is similar to the Reduce phase. Given Maple & Juice executables written in Go, the framework will execute the job(s) parallely among the machines in the cluster and save it's outputs to SDFS.
+* **SQL Engine** - A SQL Engine with implementation for Filter and Join queries that can run on CSV datasets. Implemented using MapleJuice under the hood. 
 
-More information on the architecture for MapleJuice, SDFS, and the failure detector can be found below after the program details.
+More information on the architecture for [MapleJuice](https://github.com/amaankhan02/maplejuice/tree/main?tab=readme-ov-file#maplejuice-architecture), [SDFS](https://github.com/amaankhan02/maplejuice/tree/main?tab=readme-ov-file#maplejuice-architecture), [Failure Detector](https://github.com/amaankhan02/maplejuice/tree/main?tab=readme-ov-file#maplejuice-architecture), and [SQL Engine](https://github.com/amaankhan02/maplejuice/tree/main?tab=readme-ov-file#sql-engine-architecture) can be found below after the program details.
 
 ## Program Details
 ### Build Instruction
@@ -87,11 +91,16 @@ for all the maple, juice, and hadoop map/reduce executables in the `bin` folder.
   variables for MP3 like `SHARD_SIZE`, `REPLICA_COUNT`, `SDFS_ROOT_DIR` etc. 
 * Files in the SDFS file system will be stored in the `config.SDFS_ROOT_DIR` folder
 
-## Failure Detector Architecture Details
-Coming soon...
+## Architecture Details
 
-## SDFS Architecture Details
-Coming soon...
+### Failure Detector Architecture
+_Coming soon..._
 
-## MapleJuice Architecture Details
-Coming soon...
+### SDFS Architecture
+_Coming soon..._
+
+### MapleJuice Architecture
+_Coming soon..._
+
+### SQL Engine Architecture
+Coming_ soon...
