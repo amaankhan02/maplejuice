@@ -2,7 +2,7 @@ package main
 
 import (
 	"bufio"
-	"cs425_mp4/internal/maplejuice_exe"
+	"cs425_mp4/internal/utils"
 	"fmt"
 )
 
@@ -10,7 +10,7 @@ func MapleDemoPhase2(scanner *bufio.Scanner, starting_line int, num_lines int) m
 	// create map for each "null" -> line
 
 	// startingLine is 1-indexed. Move file pointer to startingLine
-	maplejuice_exe.MoveFilePointerToLineNumber(scanner, starting_line)
+	utils.MoveFilePointerToLineNumber(scanner, starting_line)
 
 	null_to_line := make(map[string][]string)
 	for i := 0; i < num_lines && scanner.Scan(); i++ {
@@ -24,7 +24,7 @@ func MapleDemoPhase2(scanner *bufio.Scanner, starting_line int, num_lines int) m
 
 // actual executable
 func main() {
-	inputFile, starting_line, num_lines, _ := maplejuice_exe.GetArgsMaple()
+	inputFile, starting_line, num_lines, _ := utils.GetArgsMaple()
 	defer inputFile.Close()
 
 	MapleDemoPhase2(bufio.NewScanner(inputFile), starting_line, num_lines)

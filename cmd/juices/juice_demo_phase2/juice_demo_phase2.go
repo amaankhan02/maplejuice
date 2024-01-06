@@ -2,7 +2,7 @@ package main
 
 import (
 	"bufio"
-	"cs425_mp4/internal/maplejuice_exe"
+	"cs425_mp4/internal/utils"
 	"fmt"
 	"strconv"
 	"strings"
@@ -47,7 +47,7 @@ func parse(scanner *bufio.Scanner) (map[string]int, float32) {
 }
 
 func main() {
-	inputFile := maplejuice_exe.GetArgsJuice()
+	inputFile := utils.GetArgsJuice()
 	defer inputFile.Close()
 	JuicePhase2(bufio.NewScanner(inputFile))
 }

@@ -2,7 +2,7 @@ package main
 
 import (
 	"bufio"
-	"cs425_mp4/internal/maplejuice_exe"
+	"cs425_mp4/internal/utils"
 	"fmt"
 	"log"
 	"os"
@@ -19,7 +19,7 @@ func MapleWordCount(scanner *bufio.Scanner, startingLine int, num_lines int) map
 	// loop through all lines from stdin
 
 	// startingLine is 1-indexed. Move file pointer to startingLine
-	maplejuice_exe.MoveFilePointerToLineNumber(scanner, startingLine)
+	utils.MoveFilePointerToLineNumber(scanner, startingLine)
 
 	for i := 0; i < num_lines && scanner.Scan(); i++ {
 		// get each line

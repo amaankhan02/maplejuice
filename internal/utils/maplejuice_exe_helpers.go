@@ -1,4 +1,4 @@
-package maplejuice_exe
+package utils
 
 import (
 	"bufio"

@@ -2,7 +2,7 @@ package main
 
 import (
 	"bufio"
-	"cs425_mp4/internal/maplejuice_exe"
+	"cs425_mp4/internal/utils"
 	"fmt"
 	"strings"
 )
@@ -11,7 +11,7 @@ func MapleDemoPhase1(scanner *bufio.Scanner, num_lines int, starting_line int, X
 	// create map for each word -> word_count
 
 	// startingLine is 1-indexed. Move file pointer to startingLine
-	maplejuice_exe.MoveFilePointerToLineNumber(scanner, starting_line)
+	utils.MoveFilePointerToLineNumber(scanner, starting_line)
 
 	detection_val_to_count := make(map[string]int)
 	column_index_interconne := 10
@@ -51,7 +51,7 @@ func PrintKeyValuePairs(kv_pairs map[string]int) {
 
 // actual executable
 func main() {
-	inputFile, starting_line, num_lines, X := maplejuice_exe.GetArgsMaple()
+	inputFile, starting_line, num_lines, X := utils.GetArgsMaple()
 	defer inputFile.Close()
 
 	detection_val_to_count := MapleDemoPhase1(bufio.NewScanner(inputFile), num_lines, starting_line, X)

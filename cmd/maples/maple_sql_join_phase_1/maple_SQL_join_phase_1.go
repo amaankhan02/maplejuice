@@ -2,7 +2,7 @@ package main
 
 import (
 	"bufio"
-	mj "cs425_mp4/internal/maplejuice_exe"
+	mj "cs425_mp4/internal/utils"
 	"os"
 	"strings"
 )

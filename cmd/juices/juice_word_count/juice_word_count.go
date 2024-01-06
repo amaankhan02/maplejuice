@@ -2,7 +2,7 @@ package main
 
 import (
 	"bufio"
-	"cs425_mp4/internal/maplejuice_exe"
+	"cs425_mp4/internal/utils"
 	"log"
 	"os"
 	"strconv"
@@ -62,5 +62,5 @@ func main() {
 	//fmt.Println(inputFilepath)
 
 	wordToWordCount := JuiceWordCount(bufio.NewScanner(inputFile))
-	maplejuice_exe.PrintKeyValuePairs(wordToWordCount)
+	utils.PrintKeyValuePairs(wordToWordCount)
 }

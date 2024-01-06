@@ -2,7 +2,7 @@ package main
 
 import (
 	"bufio"
-	"cs425_mp4/internal/maplejuice_exe"
+	"cs425_mp4/internal/utils"
 	"fmt"
 )
 
@@ -18,7 +18,7 @@ func JuiceSQL(scanner *bufio.Scanner) {
 }
 
 func main() {
-	inputFile := maplejuice_exe.GetArgsJuice()
+	inputFile := utils.GetArgsJuice()
 	defer inputFile.Close()
 	JuiceSQL(bufio.NewScanner(inputFile))
 }

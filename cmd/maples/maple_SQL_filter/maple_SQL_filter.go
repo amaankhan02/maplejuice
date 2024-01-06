@@ -2,7 +2,7 @@ package main
 
 import (
 	"bufio"
-	"cs425_mp4/internal/maplejuice_exe"
+	"cs425_mp4/internal/utils"
 	"fmt"
 	"log"
 	"os"
@@ -15,7 +15,7 @@ func MapleSQLFilter(scanner *bufio.Scanner, starting_line_number int, num_lines 
 	id_to_row := make(map[string]string)
 
 	// startingLine is 1-indexed. Move file pointer to startingLine
-	maplejuice_exe.MoveFilePointerToLineNumber(scanner, starting_line_number)
+	utils.MoveFilePointerToLineNumber(scanner, starting_line_number)
 
 	//compile regex expression
 	regex, err := regexp.Compile(regex_string)
@@ -37,12 +37,12 @@ func MapleSQLFilter(scanner *bufio.Scanner, starting_line_number int, num_lines 
 }
 
 func main() {
-	input_file, starting_line_number, num_lines, regex := maplejuice_exe.GetArgsMaple()
+	input_file, starting_line_number, num_lines, regex := utils.GetArgsMaple()
 	defer input_file.Close()
 
 	scanner := bufio.NewScanner(input_file)
 	id_to_row := MapleSQLFilter(scanner, starting_line_number, num_lines, regex)
 	_, _ = fmt.Fprintf(os.Stderr, "id_to_row: %v\n", id_to_row)
 
-	maplejuice_exe.PrintKeyValPairsSQLFilter(id_to_row)
+	utils.PrintKeyValPairsSQLFilter(id_to_row)
 }
