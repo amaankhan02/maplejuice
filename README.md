@@ -28,10 +28,12 @@ for all the maple, juice, and hadoop map/reduce executables in the `bin` folder.
 
 
 ### Command Line Arguments for `./app` 
-* `-f` **[REQUIRED]**
+* `./app` is the main executable that will run the MapleJuice program with the failure detector, Simple Distributed File System, and SQL Engine. `./app` has the following command line arguments: 
+  * `-f` **[REQUIRED]**
     * Pass the name of the log file after `-f`. If the file does not exist, it will create it. If
       if it already exists, it will truncate the file and overwrite it
-* `-g`
+    * The program will log information to this log file, which can be used for debugging any issues.
+  * `-g`
     * **default value:** `config.T_GOSSIP`. That is, if not provided, the default value is whatever the variable
     `T_GOSSIP` is set to in `internal/config/config.go`
     * Represents `T_GOSSIP` (the gossip period, i.e., the number of seconds between gossip heartbeats).
@@ -39,7 +41,7 @@ for all the maple, juice, and hadoop map/reduce executables in the `bin` folder.
     * type: integer
 
 ### Commands
-* You can run the following commands in the program command line from any node once the program has started:
+* You can run the following commands from any machine once the program has started:
     * `list_mem`
         * Lists the membership list
     * `list_self`
