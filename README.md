@@ -1,14 +1,29 @@
-# cs425_mp4
+# MapleJuice
+MapleJuice is a parallel cloud computing framework written in Go, bearing similarities to Hadoop MapReduce. Features of the project include:
+* A Gossip-style heartbeating failure detector to ensure fault tolerance to up to 3 simultaneous failures. 
+  * In addition to gossip-style heartbeating, we've implemented Gossip-style heartbeating with _Suspicion_ (similar to the suspicion mechanism in [SWIM](https://www.cs.cornell.edu/projects/Quicksilver/public_pdfs/SWIM.pdf), but without any pinging) 
+* A Simple Distributed File System (SDFS) similar to Hadoop Distributed File System (HDFS)
+    * SDFS is a flat-file system
+    * Allowed file operations include 
+      * `put local_filename sdfs_filename`
+      * `get sdfs_filename local_filename`
+      * `delete sdfs_filename`
+      * `ls sdfs_filename` - list all machine addresses where `sdfs_filename` is stored
+      * `store` - list all files currently being stored at the current machine
+    * Allows at most one client to write a file at a time, but allows up to 2 clients to read a file simultaneously. It does not allow a writer and reader simultaneously. 
 
-## Build Instruction
-* Program is written in Go, so make sure you have go installed
+More information on the architecture for MapleJuice, SDFS, and the failure detector can be found below after the program details.
+
+## Program Details
+### Build Instruction
+* Ensure Go is installed as the program is written in Go
 * Once installed, from the root directory of this project, run `make`
   which will create an executable `app` in the root directory of the project. This is the main
 executable that will be ran on each VM. `make` will also create binary executables
 for all the maple, juice, and hadoop map/reduce executables in the `bin` folder.
 
 
-## Command Line Arguments for `./app` 
+### Command Line Arguments for `./app` 
 * `-f` **[REQUIRED]**
     * Pass the name of the log file after `-f`. If the file does not exist, it will create it. If
       if it already exists, it will truncate the file and overwrite it
@@ -19,16 +34,7 @@ for all the maple, juice, and hadoop map/reduce executables in the `bin` folder.
     * Represented in milliseconds
     * type: integer
 
-## Details
-* The introducer & leader is always VM1. However, this can be changed in the `config.go` by changing the `INTRODUCER_LEADER_VM` variable
-* The introducer/leader must always be ran first to allow other nodes to connect to it and join the group.
-* Once the `main` program starts, the non-introducer nodes automatically `join` the network
-  by contacting the introducer since its membership list will only contain the introducer and itself.
-  You do not need to explicitly type `join` - it automatically joins once program starts.
-* You can edit other configuration variables inside `config/config.go`, such as `T_FAIL`,
-  `T_CLEANUP`, `FANOUT`, for the gossip failure detection, and you can also edit the newer configuration
-  variables for MP3 like `SHARD_SIZE`, `REPLICA_COUNT`, `SDFS_ROOT_DIR` etc. 
-* Files in the SDFS file system will be stored in the `config.SDFS_ROOT_DIR` folder
+### Commands
 * You can run the following commands in the program command line from any node once the program has started:
     * `list_mem`
         * Lists the membership list
@@ -69,3 +75,23 @@ for all the maple, juice, and hadoop map/reduce executables in the `bin` folder.
     * `SELECT ALL FROM D1, D2 WHERE <CONDITION>`
       * launches a SQL JOIN query on the D1 and D2 datasets (must be stored in SDFS) by running
         maple and juice jobs
+
+### Further Details
+* The introducer & leader is always VM1. However, this can be changed in the `config.go` by changing the `INTRODUCER_LEADER_VM` variable
+* The introducer/leader must always be ran first to allow other nodes to connect to it and join the group.
+* Once the `main` program starts, the non-introducer nodes automatically `join` the network
+  by contacting the introducer since its membership list will only contain the introducer and itself.
+  You do not need to explicitly type `join` - it automatically joins once program starts.
+* You can edit other configuration variables inside `config/config.go`, such as `T_FAIL`,
+  `T_CLEANUP`, `FANOUT`, for the gossip failure detection, and you can also edit the newer configuration
+  variables for MP3 like `SHARD_SIZE`, `REPLICA_COUNT`, `SDFS_ROOT_DIR` etc. 
+* Files in the SDFS file system will be stored in the `config.SDFS_ROOT_DIR` folder
+
+## Failure Detector Architecture Details
+Coming soon...
+
+## SDFS Architecture Details
+Coming soon...
+
+## MapleJuice Architecture Details
+Coming soon...
