@@ -1,11 +1,11 @@
-package maplejuice
+package sdfs
 
 import (
 	"bufio"
 	"bytes"
+	"cs425_mp4/internal/core"
 	"cs425_mp4/internal/tcp_net"
 	"cs425_mp4/internal/utils"
-	"cs425_mp4/internal/core"
 	"encoding/gob"
 	"errors"
 	"fmt"
@@ -125,9 +125,9 @@ type PutDataRequest struct {
 // ------------------------- GET STRUCTS ------------------------------------
 
 type GetInfoRequest struct {
-	SdfsFilename  string // the file in SDFS that we want
-	LocalFilename string // the local filename in the client in which we want the file to be saved
-	Timestamp     int64  // timestamp of the request
+	SdfsFilename  string      // the file in SDFS that we want
+	LocalFilename string      // the local filename in the client in which we want the file to be saved
+	Timestamp     int64       // timestamp of the request
 	ClientID      core.NodeID // ID of the client that made this request - so that we know who to send the response back to
 }
 
@@ -169,10 +169,10 @@ type Ack struct {
 	// we can differentiate based on the core.NodeID since we will assume that when a client makes some file operation
 	// request, they will not make another one until they receive an ACK that it was successful
 	SenderNodeId   core.NodeID // optional
-	Message        string // optional
-	WasSuccessful  bool   // to indicate if the operation was successful or not
-	AdditionalInfo string // any additional info to store. File Operation ACKs will store the SDFS-FILENAME here
-	StartTime      int64  // time the request was initially made
+	Message        string      // optional
+	WasSuccessful  bool        // to indicate if the operation was successful or not
+	AdditionalInfo string      // any additional info to store. File Operation ACKs will store the SDFS-FILENAME here
+	StartTime      int64       // time the request was initially made
 }
 
 // --------------------------------------------- ReReplicate ROUTING -------------------------------------------------

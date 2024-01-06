@@ -1,10 +1,10 @@
-package maplejuice
+package sdfs
 
 import (
 	"bufio"
 	"cs425_mp4/internal/config"
-	"cs425_mp4/internal/tcp_net"
 	"cs425_mp4/internal/core"
+	"cs425_mp4/internal/tcp_net"
 	"cs425_mp4/internal/utils"
 	"errors"
 	"fmt"
@@ -25,19 +25,19 @@ type LocalAck struct {
 
 /*
 Currently implementing the following interfaces
-  - INodeManager
+  - FaultTolerable
   - tcp_net.TCPServerConnectionHandler
 */
 type SDFSNode struct {
 	id       core.NodeID
 	leaderID core.NodeID
-	isLeader bool
-	sdfsDir  string
+	IsLeader bool
+	SdfsDir  string
 	logFile  *os.File
 
 	tcpServer         *tcp_net.TCPServer
 	fileSystemService *FileSystemService
-	leaderService     *SDFSLeaderService
+	LeaderService     *SDFSLeaderService
 
 	// store a map of key = sdfs_filename+local_filename concatenated - just a unique way to ID a get operation
 	// value is the wait group that we need to do a wg.Done() to ONLY IF IT EXISTS. if it DOES NOT EXIST, then no need to do it!
@@ -52,12 +52,12 @@ func NewSDFSNode(thisId core.NodeID, introducerLeaderId core.NodeID, isIntroduce
 	sdfsNode := &SDFSNode{
 		id:                thisId,
 		leaderID:          introducerLeaderId,
-		isLeader:          isIntroducerLeader,
+		IsLeader:          isIntroducerLeader,
 		logFile:           logFile,
-		sdfsDir:           sdfsRootDir,
+		SdfsDir:           sdfsRootDir,
 		tcpServer:         nil,
 		fileSystemService: nil,
-		leaderService:     nil, // leaderService is nil if this node is not the leader
+		LeaderService:     nil, // leaderService is nil if this node is not the leader
 		clientAcks:        make([]LocalAck, 0),
 		blockedClientGets: make(map[string]*sync.WaitGroup),
 		blockedClientPuts: make(map[string]*sync.WaitGroup),
@@ -66,13 +66,13 @@ func NewSDFSNode(thisId core.NodeID, introducerLeaderId core.NodeID, isIntroduce
 
 	if isIntroducerLeader {
 		fmt.Println("Initialized SDFSLeaderService")
-		sdfsNode.leaderService = NewSDFSLeaderService(config.T_DISPATCHER_WAIT,
+		sdfsNode.LeaderService = NewSDFSLeaderService(config.T_DISPATCHER_WAIT,
 			config.MAX_NUM_CONCURRENT_READS,
 			config.MAX_NUM_CONCURRENT_WRITES,
 			config.MAX_NUM_CONSECUTIVE_OPERATIONS,
 			logFile,
 		)
-		sdfsNode.leaderService.AddNewActiveNode(thisId) // add itself into the list of active nodes
+		sdfsNode.LeaderService.AddNewActiveNode(thisId) // add itself into the list of active nodes
 	} else {
 		fmt.Println("Initialized SDFSLeaderService to be NULL")
 	}
@@ -86,8 +86,8 @@ Starts the node, which includes
 */
 func (node *SDFSNode) Start() {
 	node.tcpServer.StartServer()
-	if node.leaderService != nil {
-		node.leaderService.Start()
+	if node.LeaderService != nil {
+		node.LeaderService.Start()
 	}
 	core.LogMessageln(os.Stdout, "SDFS Node has started")
 	core.LogMessageln(node.logFile, "SDFS Node has started")
@@ -135,7 +135,7 @@ func (node *SDFSNode) HandleTCPServerConnection(conn net.Conn) {
 
 	switch msgType {
 	case GET_INFO_REQUEST:
-		if !node.isLeader {
+		if !node.IsLeader {
 			log.Fatalln("Non-leader received GET_INFO_REQUEST - Not allowed!!")
 		}
 		getInfoReq := ReceiveGetInfoRequest(reader)
@@ -147,10 +147,10 @@ func (node *SDFSNode) HandleTCPServerConnection(conn net.Conn) {
 			NewFileSize:         0, // set to 0 cuz GET operation doesn't use this value
 			RequestedTime:       getInfoReq.Timestamp,
 		}
-		node.leaderService.AddTask(fp)
+		node.LeaderService.AddTask(fp)
 
 	case PUT_INFO_REQUEST:
-		if !node.isLeader {
+		if !node.IsLeader {
 			log.Fatalln("Non-leader received PUT_INFO_REQUEST - Not allowed!!")
 		}
 		putInfoReq := ReceivePutInfoRequest(reader)
@@ -162,10 +162,10 @@ func (node *SDFSNode) HandleTCPServerConnection(conn net.Conn) {
 			NewFileSize:         putInfoReq.Filesize,
 			RequestedTime:       putInfoReq.Timestamp,
 		}
-		node.leaderService.AddTask(fp)
+		node.LeaderService.AddTask(fp)
 
 	case DELETE_INFO_REQUEST:
-		if !node.isLeader {
+		if !node.IsLeader {
 			log.Fatalln("Non-leader received DELETE_INFO_REQUEST - Not allowed!!")
 		}
 
@@ -176,31 +176,31 @@ func (node *SDFSNode) HandleTCPServerConnection(conn net.Conn) {
 			ClientNode:    delInfoReq.ClientID,
 			RequestedTime: delInfoReq.Timestamp,
 		}
-		node.leaderService.AddTask(fp)
+		node.LeaderService.AddTask(fp)
 
 	case LS_REQUEST:
-		if !node.isLeader {
+		if !node.IsLeader {
 			log.Fatalln("Non-leader received LS_REQUEST - Not allowed!!")
 		}
 
 		lsReq := ReceiveLsRequest(reader, false)
-		replicas := node.leaderService.LsOperation(lsReq.SdfsFilename)
+		replicas := node.LeaderService.LsOperation(lsReq.SdfsFilename)
 		SendLsResponse(conn, lsReq.SdfsFilename, replicas)
 
 	case PREFIX_MATCH_REQUEST:
-		if !node.isLeader {
+		if !node.IsLeader {
 			log.Fatalln("Non-leader received PREFIX_MATCH_REQUEST - Not allowed!!")
 		}
 		req := ReceivePrefixMatchRequest(reader, false)
-		filenames := node.leaderService.PrefixMatchOperation(req.SdfsFilenamePrefix)
+		filenames := node.LeaderService.PrefixMatchOperation(req.SdfsFilenamePrefix)
 		SendPrefixMatchResponse(conn, filenames)
 
 	case ACK_RESPONSE: // leader receiving an ACK means a file operation was completed
-		if !node.isLeader {
+		if !node.IsLeader {
 			log.Fatalln("Non-leader received ACK_RESPONSE - Not allowed!\n Client will get ACK in an existing TCP connection not here")
 		}
 		ack_struct := ReceiveOnlyAckResponseData(reader)
-		didFindTask, msg, addInfo, startTime := node.leaderService.MarkTaskCompleted(ack_struct.SenderNodeId, ack_struct.AdditionalInfo)
+		didFindTask, msg, addInfo, startTime := node.LeaderService.MarkTaskCompleted(ack_struct.SenderNodeId, ack_struct.AdditionalInfo)
 		SendAckResponse(conn, node.id, didFindTask, msg, addInfo, startTime)
 
 	case GET_DATA_REQUEST:
@@ -265,7 +265,7 @@ func (node *SDFSNode) performReReplicate(leaderConn net.Conn, rr_req *ReReplicat
 			fmt.Println("Failed to Dial to potential replica node server. Going to try another node")
 			continue
 		}
-		localFilename := filepath.Join(node.sdfsDir, rr_req.SdfsFilename)
+		localFilename := filepath.Join(node.SdfsDir, rr_req.SdfsFilename)
 		shard := node.createSingleShardFromFile(localFilename, rr_req.SdfsFilename)
 		SendPutDataRequest(nodeConn, shard)
 		ack_resp := ReceiveFullAckResponse(nodeConnReader) // TODO: if this fails it log.Fatals() - might be potential bug! instead return an err
@@ -273,7 +273,7 @@ func (node *SDFSNode) performReReplicate(leaderConn net.Conn, rr_req *ReReplicat
 		if ack_resp.WasSuccessful { // TODO: change these to logging
 			currentNewReplicasAccomplished += 1
 			newFinalReplicas = append(newFinalReplicas, nodeToContact)
-		} 
+		}
 		// else {
 		//   logMessageHelper(node.logFile, "Received ACK from replica - failed to put! Will try another node...")
 		// }

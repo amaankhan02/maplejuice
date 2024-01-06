@@ -1,10 +1,10 @@
-package maplejuice
+package failure_detector
 
 import (
 	"bytes"
-	"encoding/gob"
 	"cs425_mp4/internal/core"
 	"cs425_mp4/internal/utils"
+	"encoding/gob"
 	"errors"
 	"fmt"
 	"log"
@@ -28,13 +28,13 @@ func (m MembershipListEntry) String() string {
 }
 
 type MembershipList struct {
-	MemList         map[core.NodeID]MembershipListEntry
-	RoundRobinPtr   int      // index
-	ThisNodeId      core.NodeID   // for the current machine this nodeId is for
-	NodeIdsList     []core.NodeID // list of nodes you can send message to -- used for round-robin messaging
+	MemList       map[core.NodeID]MembershipListEntry
+	RoundRobinPtr int           // index
+	ThisNodeId    core.NodeID   // for the current machine this nodeId is for
+	NodeIdsList   []core.NodeID // list of nodes you can send message to -- used for round-robin messaging
 	// gossipMode      GossipMode
 	FalseNodeCount  int64 // used for testing - for false positive rate calculation
-	CallbackHandler INodeManager
+	CallbackHandler FaultTolerable
 	IsTestMode      bool
 }
 
@@ -49,7 +49,7 @@ Args:
 
 	ThisNodeId (core.NodeID): core.NodeID of this current node of this machine
 */
-func NewMembershipList(thisNodeId core.NodeID, callbackHandler INodeManager, isTestMode bool) *MembershipList {
+func NewMembershipList(thisNodeId core.NodeID, callbackHandler FaultTolerable, isTestMode bool) *MembershipList {
 
 	// intialize membership list
 	memList := &MembershipList{

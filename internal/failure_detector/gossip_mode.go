@@ -1,4 +1,4 @@
-package maplejuice
+package failure_detector
 
 type GossipModeValue int
 

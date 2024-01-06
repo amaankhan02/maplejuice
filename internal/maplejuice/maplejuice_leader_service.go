@@ -3,9 +3,11 @@ package maplejuice
 import (
 	"bufio"
 	"bytes"
-	"cs425_mp4/internal/datastructures"
-	"cs425_mp4/internal/utils"
 	"cs425_mp4/internal/core"
+	"cs425_mp4/internal/datastructures"
+	"cs425_mp4/internal/failure_detector"
+	"cs425_mp4/internal/sdfs"
+	"cs425_mp4/internal/utils"
 	"encoding/csv"
 	"fmt"
 	"hash/fnv"
@@ -69,13 +71,13 @@ type LeaderMapleJuiceJob struct {
 	sdfsIntermediateFilenamePrefix string
 	numTasksCompleted              int
 	completedWorkers               map[core.NodeID]struct{} // used during reassigning of tasks after node failure
-	numJuiceWorkerNodesCompleted   int                 // used ony by juice job (since all juice tasks in a worker are put together in one request)
-	sdfsSrcDirectory               string              // only for maple job
-	sdfsDestFilename               string              // only for juice job
-	delete_input                   bool                // only for juice job
-	juicePartitionScheme           JuicePartitionType  // only for juice job
-	juiceJobOutputFilepath         string              // only for juice job
-	juiceJobTmpDirPath             string              // only for juice job
+	numJuiceWorkerNodesCompleted   int                      // used ony by juice job (since all juice tasks in a worker are put together in one request)
+	sdfsSrcDirectory               string                   // only for maple job
+	sdfsDestFilename               string                   // only for juice job
+	delete_input                   bool                     // only for juice job
+	juicePartitionScheme           JuicePartitionType       // only for juice job
+	juiceJobOutputFilepath         string                   // only for juice job
+	juiceJobTmpDirPath             string                   // only for juice job
 
 	keys datastructures.HashSet[string] // map job updates this, juice job will look at this later to know what keys are there
 
@@ -225,18 +227,17 @@ task output files and then creating a new set of files to be saved in the SDFS f
 * NOTE: this function reads the file from the connection object, and then closes the connection
 */
 func (leader *MapleJuiceLeaderService) ReceiveMapleTaskOutput(workerConn net.Conn, taskIndex int, filesize int64,
-	sdfsService *SDFSNode, taskOutputFileData []byte) {
+	sdfsService *sdfs.SDFSNode, taskOutputFileData []byte) {
 	// read the task output file from the network
 	// TODO: delete these maple task output files after we are done with the job (after we send to sdfs)
 	// but for testing purposes, don't delete it
 	leader.mutex.Lock()
 	save_filepath := filepath.Join(leader.leaderTempDir, fmt.Sprintf(MAPLE_TASK_OUTPUT_FILENAME_FMT, taskIndex))
 	leader.mutex.Unlock()
-	
-	
+
 	//err := tcp_net.ReadFile(save_filepath, workerConn, filesize)
 	//if err != nil {
-	//	log.Fatalln("Failed to read file: Error: ", err) 
+	//	log.Fatalln("Failed to read file: Error: ", err)
 	//}
 	_ = workerConn.Close() // close the connection with this worker since we got all the data we needed from it
 
@@ -280,14 +281,14 @@ func (leader *MapleJuiceLeaderService) ReceiveMapleTaskOutput(workerConn net.Con
 	leader.mutex.Unlock()
 }
 
-func (leader *MapleJuiceLeaderService) ReceiveJuiceTaskOutput(workerConn net.Conn, taskAssignedKeys []string, filesize int64, sdfsService *SDFSNode,
+func (leader *MapleJuiceLeaderService) ReceiveJuiceTaskOutput(workerConn net.Conn, taskAssignedKeys []string, filesize int64, sdfsService *sdfs.SDFSNode,
 	juiceTaskOutputFileData []byte) {
-	
+
 	workerIpAndPort := workerConn.RemoteAddr().String()
 	workerIp := strings.Split(workerIpAndPort, ":")[0]
 	// hostnames, err22 := net.LookupAddr(workerIp)
 	// if err22 != nil {
-		// fmt.Println("Error in net.LookupAddr(): ", err22)
+	// fmt.Println("Error in net.LookupAddr(): ", err22)
 	// }
 	// workerVMNumber, _ := utils.GetVMNumber(hostnames[0])
 
@@ -344,7 +345,7 @@ func (leader *MapleJuiceLeaderService) markJuiceWorkerAsCompleted(workerIp strin
 	}
 }
 
-func (leader *MapleJuiceLeaderService) finishCurrentJuiceJob(sdfsService *SDFSNode) {
+func (leader *MapleJuiceLeaderService) finishCurrentJuiceJob(sdfsService *sdfs.SDFSNode) {
 	_ = sdfsService.PerformBlockedPuts([]string{leader.currentJob.juiceJobOutputFilepath}, []string{leader.currentJob.sdfsDestFilename})
 
 	// delete the intermediate files if the user specified to do so
@@ -367,7 +368,7 @@ func (leader *MapleJuiceLeaderService) finishCurrentJuiceJob(sdfsService *SDFSNo
 	leader.currentJob = nil
 }
 
-func (leader *MapleJuiceLeaderService) finishCurrentMapleJob(sdfsService *SDFSNode) {
+func (leader *MapleJuiceLeaderService) finishCurrentMapleJob(sdfsService *sdfs.SDFSNode) {
 	// write intermediate files to SDFS
 	localFileNames := make([]string, 0)
 	sdfsFileNames := make([]string, 0)
@@ -725,7 +726,7 @@ func (leader *MapleJuiceLeaderService) reassignFailedNodeJuiceTasks(failedNode c
 	}
 
 	// remove the failed node from the list of available worker nodes
-	leader.AvailableWorkerNodes = RemoveElementFromSlice(leader.AvailableWorkerNodes, failedNode)
+	leader.AvailableWorkerNodes = failure_detector.RemoveElementFromSlice(leader.AvailableWorkerNodes, failedNode)
 
 	// pick a new node to assign the keys to
 	newWorkerNode := leader.AvailableWorkerNodes[rand.Intn(len(leader.AvailableWorkerNodes))]
@@ -757,7 +758,7 @@ func (leader *MapleJuiceLeaderService) reassignFailedNodeMapleTasks(failedNode c
 	}
 
 	// remove the failed node from the list of available worker nodes
-	leader.AvailableWorkerNodes = RemoveElementFromSlice(leader.AvailableWorkerNodes, failedNode)
+	leader.AvailableWorkerNodes = failure_detector.RemoveElementFromSlice(leader.AvailableWorkerNodes, failedNode)
 
 	// pick a new node to assign the tasks to
 	newWorkerNode := leader.AvailableWorkerNodes[rand.Intn(len(leader.AvailableWorkerNodes))]

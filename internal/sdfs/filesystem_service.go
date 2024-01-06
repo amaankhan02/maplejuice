@@ -1,4 +1,4 @@
-package maplejuice
+package sdfs
 
 import (
 	"log"

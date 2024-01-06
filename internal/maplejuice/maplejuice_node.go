@@ -4,9 +4,10 @@ import (
 	"bufio"
 	"bytes"
 	"cs425_mp4/internal/config"
+	"cs425_mp4/internal/core"
+	"cs425_mp4/internal/sdfs"
 	"cs425_mp4/internal/tcp_net"
 	"cs425_mp4/internal/utils"
-	"cs425_mp4/internal/core"
 	"fmt"
 	"log"
 	"net"
@@ -33,7 +34,7 @@ type MapleJuiceNode struct {
 	leaderService *MapleJuiceLeaderService
 	tcpServer     *tcp_net.TCPServer
 	logFile       *os.File
-	sdfsNode      *SDFSNode
+	sdfsNode      *sdfs.SDFSNode
 	mjRootDir     string // temporary directory used by this node to store temporary files for maple/juice tasks & leader service
 
 	// map of clientJobId to ClientMapleJuiceJob representing current jobs that have been submitted from this client and waiting to be finished
@@ -81,7 +82,7 @@ const JUICE_TASK_OUTPUT_FILENAME = "juice_task_output.csv"
 const LOCAL_SDFS_DATASET_FILENAME_FMT = "local-%s" // when you GET the sdfs_filename, this is the localfilename you want to save it as
 const JOB_DONE_MSG_FMT = "%s Job with ClientJobID %d has completed!\n"
 
-func NewMapleJuiceNode(thisId core.NodeID, leaderId core.NodeID, loggingFile *os.File, sdfsNode *SDFSNode,
+func NewMapleJuiceNode(thisId core.NodeID, leaderId core.NodeID, loggingFile *os.File, sdfsNode *sdfs.SDFSNode,
 	mapleJuiceTmpDir string, leaderServiceDispatcherWaitTime time.Duration) *MapleJuiceNode {
 	mj := &MapleJuiceNode{
 		id:                       thisId,

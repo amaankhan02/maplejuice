@@ -1,9 +1,9 @@
-package maplejuice
+package failure_detector
 
 import (
 	"bytes"
-	"encoding/gob"
 	"cs425_mp4/internal/core"
+	"encoding/gob"
 	"errors"
 )
 

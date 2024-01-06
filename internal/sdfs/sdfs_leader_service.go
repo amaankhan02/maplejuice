@@ -1,4 +1,4 @@
-package maplejuice
+package sdfs
 
 import (
 	"bufio"
@@ -30,8 +30,8 @@ type FileOperationTask struct {
 	SdfsFilename        string
 	ClientLocalFilename string
 	ClientNode          core.NodeID // client node that requested the operation
-	NewFileSize         int64  // only used for PUT operation when PUT-ing a new file, we need to know the new filesize
-	RequestedTime       int64  // unix Nano time of the requested time
+	NewFileSize         int64       // only used for PUT operation when PUT-ing a new file, we need to know the new filesize
+	RequestedTime       int64       // unix Nano time of the requested time
 }
 
 func (task *FileOperationTask) ToString() string {

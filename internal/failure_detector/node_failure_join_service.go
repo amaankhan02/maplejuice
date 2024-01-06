@@ -1,4 +1,4 @@
-package maplejuice
+package failure_detector
 
 import (
 	"cs425_mp4/internal/config"
@@ -11,16 +11,6 @@ import (
 	"sync"
 	"time"
 )
-
-type FailureDetectionInfo struct {
-	ThisNodeID   core.NodeID
-	FailedNodeId core.NodeID
-}
-
-type NodeJoinInfo struct {
-	ThisNodeID   core.NodeID
-	JoinedNodeId core.NodeID
-}
 
 const (
 	BUFFER_SIZE = 4096
@@ -48,7 +38,7 @@ type NodeFailureJoinService struct {
 	TGossip           int64 // in nanoseconds
 
 	// Add communication medium to the other node types for notifying if we detect a failure
-	GossipCallbackHandler INodeManager
+	GossipCallbackHandler FaultTolerable
 }
 
 /*
@@ -59,7 +49,7 @@ If IsIntroducer = true, then IntroducerId is not set to anything
 If IsIntroducer = false, then IntroducerId is set to the passed in parameter
 */
 func NewNodeFailureJoinService(nodeId core.NodeID, b int, isIntroducer bool, introducerId core.NodeID, logFile *os.File, gossipModeValue GossipModeValue,
-	isTestMode bool, msgDropRate int, tGossip int64, callbackHandler INodeManager) *NodeFailureJoinService {
+	isTestMode bool, msgDropRate int, tGossip int64, callbackHandler FaultTolerable) *NodeFailureJoinService {
 
 	// init the membership list
 	thisNode := NodeFailureJoinService{}
