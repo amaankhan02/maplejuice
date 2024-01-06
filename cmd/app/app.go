@@ -2,7 +2,10 @@ package main
 
 import (
 	"cs425_mp4/internal/config"
+	"cs425_mp4/internal/core"
+	"cs425_mp4/internal/failure_detector"
 	"cs425_mp4/internal/maplejuice"
+	"cs425_mp4/internal/sdfs"
 	"encoding/gob"
 	"flag"
 	"fmt"
@@ -29,7 +32,7 @@ func main() {
 		config.SDFS_ROOT_DIR,
 		config.MAPLE_JUICE_ROOT_DIR,
 		config.FANOUT,
-		maplejuice.GOSSIP_NORMAL,
+		failure_detector.GOSSIP_NORMAL,
 		finalTGossip,
 	)
 
@@ -52,22 +55,22 @@ func ParseArguments() {
 }
 
 func RegisterStructsForSerialization() {
-	gob.Register(&maplejuice.MembershipList{})
-	gob.Register(&maplejuice.MembershipListEntry{})
-	gob.Register(&maplejuice.ShardMetaData{})
-	gob.Register(&maplejuice.NodeID{})
-	gob.Register(&maplejuice.Shard{})
-	gob.Register(&maplejuice.GetInfoRequest{})
-	gob.Register(&maplejuice.GetInfoResponse{})
-	gob.Register(&maplejuice.PutInfoResponse{})
-	gob.Register(&maplejuice.PutInfoRequest{})
-	gob.Register(&maplejuice.GetDataRequest{})
-	gob.Register(&maplejuice.GetDataResponse{})
-	gob.Register(&maplejuice.PutDataRequest{})
-	gob.Register(&maplejuice.Ack{})
-	gob.Register(&maplejuice.DeleteInfoRequest{})
-	gob.Register(&maplejuice.DeleteInfoResponse{})
-	gob.Register(&maplejuice.DeleteDataRequest{})
-	gob.Register(&maplejuice.DeleteDataRequest{})
+	gob.Register(&failure_detector.MembershipList{})
+	gob.Register(&failure_detector.MembershipListEntry{})
+	gob.Register(&sdfs.ShardMetaData{})
+	gob.Register(&core.NodeID{})
+	gob.Register(&sdfs.Shard{})
+	gob.Register(&sdfs.GetInfoRequest{})
+	gob.Register(&sdfs.GetInfoResponse{})
+	gob.Register(&sdfs.PutInfoResponse{})
+	gob.Register(&sdfs.PutInfoRequest{})
+	gob.Register(&sdfs.GetDataRequest{})
+	gob.Register(&sdfs.GetDataResponse{})
+	gob.Register(&sdfs.PutDataRequest{})
+	gob.Register(&sdfs.Ack{})
+	gob.Register(&sdfs.DeleteInfoRequest{})
+	gob.Register(&sdfs.DeleteInfoResponse{})
+	gob.Register(&sdfs.DeleteDataRequest{})
+	gob.Register(&sdfs.DeleteDataRequest{})
 	gob.Register(&maplejuice.MapleJuiceNetworkMessage{})
 }

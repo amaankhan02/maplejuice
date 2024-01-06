@@ -1,4 +1,4 @@
-package maplejuice
+package core
 
 import (
 	"cs425_mp4/internal/utils"

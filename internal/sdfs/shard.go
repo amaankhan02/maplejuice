@@ -1,4 +1,4 @@
-package maplejuice
+package sdfs
 
 /*
 Stores the metadata regarding the shard associated with 'SdfsFilename'.

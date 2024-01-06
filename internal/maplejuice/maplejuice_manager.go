@@ -2,6 +2,9 @@ package maplejuice
 
 import (
 	"cs425_mp4/internal/config"
+	"cs425_mp4/internal/core"
+	"cs425_mp4/internal/failure_detector"
+	"cs425_mp4/internal/sdfs"
 	"cs425_mp4/internal/utils"
 	"fmt"
 	"os"
@@ -19,24 +22,10 @@ const SQL_FILTER_DEST_FILENAME_FMT = "SQL_filter_output_%s"                     
 const SQL_FILTER_NUM_TASKS = 6                                                      // num_maples and num_juices for the SQL filter job
 
 /*
-	INodeManager interface
-
-Defines a generic interface where the HandleFailure() message must
-be implemented and HandleNodeJoin()
-
-Current structs that implement INodeManager interface:
-  - MJNodeManager
-*/
-type INodeManager interface {
-	HandleNodeFailure(info FailureDetectionInfo)
-	HandleNodeJoin(info NodeJoinInfo)
-}
-
-/*
 	MapleJuiceManager
 
 Manager of various nodes regarding the maple juice program to run.
-Implements INodeManager interface
+Implements FaultTolerable interface
 
 Handles the entire maple juice program. It is the manager of the
 SDFSNode, NodeFailureJoinService, and MapleJuiceNode, which are all necessary
@@ -44,11 +33,11 @@ for maple juice to run. It also has a parser that parses the command line
 input and executes the respective MapleJuiceNode functions.
 */
 type MapleJuiceManager struct {
-	id                 NodeID
+	id                 core.NodeID
 	mapleJuiceNode     *MapleJuiceNode
-	sdfsNode           *SDFSNode
-	failureJoinService *NodeFailureJoinService
-	logFile            *os.File
+	sdfsNode           *sdfs.SDFSNode
+	failureJoinService *failure_detector.NodeFailureJoinService
+	// logFile            *os.File
 }
 
 /*
@@ -62,7 +51,7 @@ func NewMapleJuiceManager(
 	sdfsRootDir string,
 	mapleJuiceNodeRootDir string,
 	gossipFanout int,
-	gossipModeValue GossipModeValue,
+	gossipModeValue failure_detector.GossipModeValue,
 	tGossip int64,
 ) *MapleJuiceManager {
 	const GOSSIP_IS_TEST_MODE = false // always false for now, set it true later or remove this if we wanna test it out
@@ -70,14 +59,14 @@ func NewMapleJuiceManager(
 	manager := &MapleJuiceManager{}
 	localNodeId, introducerLeaderId, isIntroducerLeader := manager.createLocalAndLeaderNodeID(introducerLeaderVmNum)
 
-	sdfsNode := NewSDFSNode(
+	sdfsNode := sdfs.NewSDFSNode(
 		*localNodeId,
 		*introducerLeaderId,
 		isIntroducerLeader,
 		logFile,
 		sdfsRootDir,
 	)
-	failureJoinService := NewNodeFailureJoinService(
+	failureJoinService := failure_detector.NewNodeFailureJoinService(
 		*localNodeId,
 		gossipFanout,
 		isIntroducerLeader,
@@ -111,8 +100,8 @@ func (manager *MapleJuiceManager) Start() {
 	_ = utils.DeleteDirAndAllContents(manager.mapleJuiceNode.mjRootDir)
 	_ = os.Mkdir(manager.mapleJuiceNode.mjRootDir, 0755)
 	// create SDFS root directory (delete it first if it already existed)
-	_ = os.RemoveAll(manager.sdfsNode.sdfsDir + "/") // remove and clear the directory if it already exists
-	_ = os.Mkdir(manager.sdfsNode.sdfsDir, 0755)
+	_ = os.RemoveAll(manager.sdfsNode.SdfsDir + "/") // remove and clear the directory if it already exists
+	_ = os.Mkdir(manager.sdfsNode.SdfsDir, 0755)
 
 	manager.sdfsNode.Start()
 	manager.failureJoinService.JoinGroup()
@@ -123,18 +112,18 @@ func (manager *MapleJuiceManager) Start() {
 	manager.startUserInputLoop()
 }
 
-func (manager *MapleJuiceManager) createLocalAndLeaderNodeID(introducerLeaderVmNum int) (*NodeID, *NodeID, bool) {
-	var introducerLeaderId *NodeID
+func (manager *MapleJuiceManager) createLocalAndLeaderNodeID(introducerLeaderVmNum int) (*core.NodeID, *core.NodeID, bool) {
+	var introducerLeaderId *core.NodeID
 	var isIntroducerLeader bool
 	vmNum, hostname := utils.GetLocalVMInfo()
 
 	if vmNum == introducerLeaderVmNum { // this node is the leader, so don't need to create separate node ID for leader
 		isIntroducerLeader = true
-		introducerLeaderId = &NodeID{}
+		introducerLeaderId = &core.NodeID{}
 	} else { // not the leader, so create the node ID for the leader node
 		isIntroducerLeader = false
 		introducerHostname := utils.GetHostname(introducerLeaderVmNum)
-		introducerLeaderId = NewNodeID(
+		introducerLeaderId = core.NewNodeID(
 			utils.GetIP(introducerHostname),
 			utils.GetGossipPort(introducerLeaderVmNum),
 			utils.GetSDFSPort(introducerLeaderVmNum),
@@ -143,7 +132,7 @@ func (manager *MapleJuiceManager) createLocalAndLeaderNodeID(introducerLeaderVmN
 			introducerHostname,
 		)
 	}
-	localNodeId := NewNodeID(
+	localNodeId := core.NewNodeID(
 		utils.GetIP(hostname),
 		utils.GetGossipPort(vmNum),
 		utils.GetSDFSPort(vmNum),
@@ -186,8 +175,8 @@ func (manager *MapleJuiceManager) executeUserInput(userInput []string) bool {
 			return false
 		}
 		if strings.ToLower(userInput[1]) == "suspicion" {
-			ok := manager.failureJoinService.TryUpdateGossipMode(GossipMode{
-				Mode:          GOSSIP_SUSPICION,
+			ok := manager.failureJoinService.TryUpdateGossipMode(failure_detector.GossipMode{
+				Mode:          failure_detector.GOSSIP_SUSPICION,
 				VersionNumber: manager.failureJoinService.CurrentGossipMode.VersionNumber + 1},
 			)
 			if !ok {
@@ -203,8 +192,8 @@ func (manager *MapleJuiceManager) executeUserInput(userInput []string) bool {
 			return false
 		}
 		if strings.ToLower(userInput[1]) == "suspicion" {
-			ok := manager.failureJoinService.TryUpdateGossipMode(GossipMode{
-				Mode:          GOSSIP_NORMAL,
+			ok := manager.failureJoinService.TryUpdateGossipMode(failure_detector.GossipMode{
+				Mode:          failure_detector.GOSSIP_NORMAL,
 				VersionNumber: manager.failureJoinService.CurrentGossipMode.VersionNumber + 1},
 			)
 			if !ok {
@@ -217,7 +206,7 @@ func (manager *MapleJuiceManager) executeUserInput(userInput []string) bool {
 	case "mode":
 		fmt.Printf("Current maplejuice mode: %s\n\n", manager.failureJoinService.CurrentGossipMode.Mode.String())
 	case "list_mem":
-		LogMembershipList(os.Stdout, manager.failureJoinService.MembershipList)
+		failure_detector.LogMembershipList(os.Stdout, manager.failureJoinService.MembershipList)
 	case "list_self":
 		fmt.Println(manager.failureJoinService.Id.ToStringForGossipLogger())
 	case "leave":
@@ -427,18 +416,6 @@ func parseSqlFilterQuery(userInput []string) (string, string) {
 	return dataset, regex
 }
 
-func stringToBool(s string) (bool, error) {
-	lowercase := strings.ToLower(s)
-	switch lowercase {
-	case "true":
-		return true, nil
-	case "false":
-		return false, nil
-	default:
-		return false, fmt.Errorf("invalid boolean representation: %s", s)
-	}
-}
-
 func GetNumDatasets(userInput []string) int {
 	num_data_sets := 0
 	start_counting := false
@@ -629,20 +606,20 @@ func (manager *MapleJuiceManager) executeSqlJoin(d1 string, d2 string, f1 string
 	fmt.Println("ANSWER IN ", sdfsDestFileName)
 }
 
-func (manager *MapleJuiceManager) HandleNodeFailure(info FailureDetectionInfo) {
+func (manager *MapleJuiceManager) HandleNodeFailure(info failure_detector.FailureDetectionInfo) {
 	// only handle if we are the leader. cuz otherwise the gossip will eventually send it to the leader
-	if manager.sdfsNode.isLeader {
-		manager.sdfsNode.leaderService.IndicateNodeFailed(info.FailedNodeId)
+	if manager.sdfsNode.IsLeader {
+		manager.sdfsNode.LeaderService.IndicateNodeFailed(info.FailedNodeId)
 	}
 	if manager.mapleJuiceNode.isLeader {
 		manager.mapleJuiceNode.leaderService.IndicateNodeFailed(info.FailedNodeId)
 	}
 }
 
-func (manager *MapleJuiceManager) HandleNodeJoin(info NodeJoinInfo) {
+func (manager *MapleJuiceManager) HandleNodeJoin(info failure_detector.NodeJoinInfo) {
 	// if a node joined our membership list, i need to reflect that in leaderService.AvailableWorkerNodes
-	if manager.sdfsNode.isLeader {
-		manager.sdfsNode.leaderService.AddNewActiveNode(info.JoinedNodeId)
+	if manager.sdfsNode.IsLeader {
+		manager.sdfsNode.LeaderService.AddNewActiveNode(info.JoinedNodeId)
 	}
 	if manager.mapleJuiceNode.isLeader {
 		manager.mapleJuiceNode.leaderService.AddNewAvailableWorkerNode(info.JoinedNodeId)

@@ -1,14 +1,15 @@
-package maplejuice
+package failure_detector
 
 import (
 	"bytes"
+	"cs425_mp4/internal/core"
 	"encoding/gob"
 	"errors"
 )
 
 type GossipUDPPacket struct {
 	MyGossipMode        GossipMode
-	MyMembershipListMap map[NodeID]MembershipListEntry
+	MyMembershipListMap map[core.NodeID]MembershipListEntry
 }
 
 /*
@@ -19,7 +20,7 @@ func CreateGossipUDPPacket(gossipMode GossipMode, membershipList *MembershipList
 	packet := GossipUDPPacket{gossipMode, membershipList.MemList}
 	ret, err := SerializeGossipUDPPacket(&packet)
 	if err != nil {
-		return make([]byte, 0), errors.New("Failed to serialize packet")
+		return make([]byte, 0), errors.New("failed to serialize packet")
 	}
 
 	return ret, nil

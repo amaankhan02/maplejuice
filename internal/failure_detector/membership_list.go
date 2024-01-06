@@ -1,18 +1,9 @@
-Samaah Khan 22,Khan D1
-Amaan Khan 21,Khan D1
-Manraj Kumar 21,Kumar D1
-Sameer Khan 5000,Khan D2
-Lauren Cerbin 2100,Cerbin D2
-Jennifer Bingham 1800,Bingham D2
-This is a sample test file.
-It contains some text for testing purposes.
-This file is used to demonstrate file splitting.
-The size of this file is approximately asdfasdf
-
-package maplejuice
+package failure_detector
 
 import (
 	"bytes"
+	"cs425_mp4/internal/core"
+	"cs425_mp4/internal/utils"
 	"encoding/gob"
 	"errors"
 	"fmt"
@@ -28,7 +19,7 @@ import (
 type MembershipListEntry struct {
 	HeartBeatCount  int
 	LastUpdatedTime int64 // time in which an entry in this local membershiplist was last updated (based on local clock)
-	Status          NodeStatus
+	Status          core.NodeStatus
 }
 
 func (m MembershipListEntry) String() string {
@@ -37,13 +28,13 @@ func (m MembershipListEntry) String() string {
 }
 
 type MembershipList struct {
-	MemList         map[NodeID]MembershipListEntry
-	RoundRobinPtr   int      // index
-	ThisNodeId      NodeID   // for the current machine this nodeId is for
-	NodeIdsList     []NodeID // list of nodes you can send message to -- used for round-robin messaging
-	gossipMode      GossipMode
+	MemList       map[core.NodeID]MembershipListEntry
+	RoundRobinPtr int           // index
+	ThisNodeId    core.NodeID   // for the current machine this nodeId is for
+	NodeIdsList   []core.NodeID // list of nodes you can send message to -- used for round-robin messaging
+	// gossipMode      GossipMode
 	FalseNodeCount  int64 // used for testing - for false positive rate calculation
-	CallbackHandler INodeManager
+	CallbackHandler FaultTolerable
 	IsTestMode      bool
 }
 
@@ -56,35 +47,35 @@ returns a pointer to the object
 
 Args:
 
-	ThisNodeId (NodeID): NodeID of this current node of this machine
+	ThisNodeId (core.NodeID): core.NodeID of this current node of this machine
 */
-func NewMembershipList(thisNodeId NodeID, callbackHandler INodeManager, isTestMode bool) *MembershipList {
+func NewMembershipList(thisNodeId core.NodeID, callbackHandler FaultTolerable, isTestMode bool) *MembershipList {
 
 	// intialize membership list
-	this := &MembershipList{
-		MemList:         make(map[NodeID]MembershipListEntry),
+	memList := &MembershipList{
+		MemList:         make(map[core.NodeID]MembershipListEntry),
 		RoundRobinPtr:   0,
 		ThisNodeId:      thisNodeId,
-		NodeIdsList:     []NodeID{thisNodeId},
+		NodeIdsList:     []core.NodeID{thisNodeId},
 		CallbackHandler: callbackHandler,
 		IsTestMode:      isTestMode,
 	}
 
 	// Initialize the map (actual membership list)
-	this.MemList[thisNodeId] = MembershipListEntry{
+	memList.MemList[thisNodeId] = MembershipListEntry{
 		HeartBeatCount:  0,
 		LastUpdatedTime: time.Now().UnixNano(),
-		Status:          ACTIVE,
+		Status:          core.ACTIVE,
 	}
-	this.FalseNodeCount = 0
-	return this
+	memList.FalseNodeCount = 0
+	return memList
 }
 
 // Returns the MembershipList in the form of a string
-func (this *MembershipList) String() string {
+func (memList *MembershipList) String() string {
 	var sb strings.Builder
 	fmtString := "%s\t|  %s\n"
-	for nodeId, membershipListRow := range this.MemList {
+	for nodeId, membershipListRow := range memList.MemList {
 		sb.WriteString(fmt.Sprintf(fmtString, nodeId.ToStringForGossipLogger(), membershipListRow.String()))
 	}
 	return sb.String()
@@ -97,10 +88,10 @@ thisNodeID is not necessary. It just takes up unnecessary tcp_net bandwidth
 
 TODO: see if ^^ that is necessary, or if we should just serialize the entire thing
 */
-func (this *MembershipList) SerializeMembershipList() ([]byte, error) {
+func (memList *MembershipList) SerializeMembershipList() ([]byte, error) {
 	binaryBuff := new(bytes.Buffer)
 	encoder := gob.NewEncoder(binaryBuff)
-	err := encoder.Encode(this.MemList)
+	err := encoder.Encode(memList.MemList)
 
 	if err != nil {
 		return nil, err
@@ -111,10 +102,10 @@ func (this *MembershipList) SerializeMembershipList() ([]byte, error) {
 
 /*
 Deserializees the passed in byte array representing the membershipList map
-and then sets the this.MemList to that.
+and then sets the memList.MemList to that.
 */
-func (this *MembershipList) DeserializeMembershipListMap(membershipListData []byte) error {
-	var membershipList map[NodeID]MembershipListEntry
+func (memList *MembershipList) DeserializeMembershipListMap(membershipListData []byte) error {
+	var membershipList map[core.NodeID]MembershipListEntry
 
 	byteBuffer := bytes.NewBuffer(membershipListData)
 	decoder := gob.NewDecoder(byteBuffer)
@@ -124,7 +115,7 @@ func (this *MembershipList) DeserializeMembershipListMap(membershipListData []by
 		return err
 	}
 
-	this.MemList = membershipList
+	memList.MemList = membershipList
 	return nil
 }
 
@@ -138,9 +129,9 @@ func (thisList *MembershipList) MergeNormal(otherList *MembershipList, logStream
 		thisMemListRow, exists := thisList.MemList[nodeId] // get corresponding key-value pair in this memlist
 
 		if !exists { // found new Node Joined
-			if incomingMemlistRow.Status == ACTIVE { // the new node is not failed, so lets add it as a join
-				logJoinHelper(logStream, &nodeId, ACTIVE)
-				thisList.AddEntry(&nodeId, incomingMemlistRow.HeartBeatCount, ACTIVE)
+			if incomingMemlistRow.Status == core.ACTIVE { // the new node is not failed, so lets add it as a join
+				logJoinHelper(logStream, &nodeId, core.ACTIVE)
+				thisList.AddEntry(&nodeId, incomingMemlistRow.HeartBeatCount, core.ACTIVE)
 
 				thisList.CallbackHandler.HandleNodeJoin(NodeJoinInfo{
 					ThisNodeID:   thisList.ThisNodeId,
@@ -151,20 +142,20 @@ func (thisList *MembershipList) MergeNormal(otherList *MembershipList, logStream
 				continue // since this node was never introduced to that node in the membership list, so we don't know abt it
 			}
 		} else { // node exists in our local membership list
-			if incomingMemlistRow.Status == LEAVE {
-				if thisMemListRow.Status != LEAVE && incomingMemlistRow.Status > thisMemListRow.Status {
-					LogNodeLeft(os.Stdout, &nodeId)
-					LogNodeLeft(logStream, &nodeId)
-					thisList.UpdateEntry(&nodeId, -1, LEAVE, logStream) // indicate LEAVE to eventually delete after T_CLEANUP
+			if incomingMemlistRow.Status == core.LEAVE {
+				if thisMemListRow.Status != core.LEAVE && incomingMemlistRow.Status > thisMemListRow.Status {
+					core.LogNodeLeft(os.Stdout, &nodeId)
+					core.LogNodeLeft(logStream, &nodeId)
+					thisList.UpdateEntry(&nodeId, -1, core.LEAVE, logStream) // indicate core.LEAVE to eventually delete after T_CLEANUP
 				}
-			} else if thisMemListRow.Status == FAILED {
+			} else if thisMemListRow.Status == core.FAILED {
 				continue // implementing FAIL-STOP Model - so don't do anything if it's already marked failed
-			} else { // this entry = ACTIVE
-				if incomingMemlistRow.Status == FAILED { // this=active, incoming=failed
+			} else { // this entry = core.ACTIVE
+				if incomingMemlistRow.Status == core.FAILED { // this=active, incoming=failed
 					if incomingMemlistRow.HeartBeatCount > thisMemListRow.HeartBeatCount {
 						// listen to the incoming --> make ours failed as well
 						logFailHelper(logStream, &nodeId)
-						thisList.UpdateEntry(&nodeId, -1, FAILED, logStream)
+						thisList.UpdateEntry(&nodeId, -1, core.FAILED, logStream)
 
 						thisList.CallbackHandler.HandleNodeFailure(FailureDetectionInfo{
 							ThisNodeID:   thisList.ThisNodeId,
@@ -195,65 +186,65 @@ func (thisList *MembershipList) MergeSuspicion(otherList *MembershipList, logStr
 		thisMemListRow, exists := thisList.MemList[nodeId]
 
 		if !exists { // New Node Joined
-			if incomingMemlistRow.Status == ACTIVE {
-				logJoinHelper(logStream, &nodeId, ACTIVE)
-				thisList.AddEntry(&nodeId, incomingMemlistRow.HeartBeatCount, ACTIVE)
+			if incomingMemlistRow.Status == core.ACTIVE {
+				logJoinHelper(logStream, &nodeId, core.ACTIVE)
+				thisList.AddEntry(&nodeId, incomingMemlistRow.HeartBeatCount, core.ACTIVE)
 
 				thisList.CallbackHandler.HandleNodeJoin(NodeJoinInfo{
 					ThisNodeID:   thisList.ThisNodeId,
 					JoinedNodeId: nodeId,
 				})
-			} else if incomingMemlistRow.Status == SUSPICIOUS {
-				logJoinHelper(logStream, &nodeId, SUSPICIOUS)
-				thisList.AddEntry(&nodeId, incomingMemlistRow.HeartBeatCount, SUSPICIOUS)
+			} else if incomingMemlistRow.Status == core.SUSPICIOUS {
+				logJoinHelper(logStream, &nodeId, core.SUSPICIOUS)
+				thisList.AddEntry(&nodeId, incomingMemlistRow.HeartBeatCount, core.SUSPICIOUS)
 
 				thisList.CallbackHandler.HandleNodeJoin(NodeJoinInfo{
 					ThisNodeID:   thisList.ThisNodeId,
 					JoinedNodeId: nodeId,
 				})
-			} else { // incoming = FAILED
+			} else { // incoming = core.FAILED
 				continue // does not exist locally, but incoming says its failed. so we have nothing to do
 			}
 		} else if incomingMemlistRow.HeartBeatCount > thisMemListRow.HeartBeatCount { // nodeId exists locally
 			// we only wanna update w/ incoming if its HB count is greater. Otherwise we don't change and keep ours
-			if incomingMemlistRow.Status == LEAVE { // node exists locally and incoming = LEAVE
-				if thisMemListRow.Status == LEAVE { // if its already marked leave here, then don't do anything
+			if incomingMemlistRow.Status == core.LEAVE { // node exists locally and incoming = core.LEAVE
+				if thisMemListRow.Status == core.LEAVE { // if its already marked leave here, then don't do anything
 					continue
 				}
-				LogNodeLeft(os.Stdout, &nodeId)
-				LogNodeLeft(logStream, &nodeId)
-				thisList.UpdateEntry(&nodeId, -1, LEAVE, logStream) // indicate LEAVE to eventually delete after T_CLEANUP
+				core.LogNodeLeft(os.Stdout, &nodeId)
+				core.LogNodeLeft(logStream, &nodeId)
+				thisList.UpdateEntry(&nodeId, -1, core.LEAVE, logStream) // indicate core.LEAVE to eventually delete after T_CLEANUP
 			} else if thisMemListRow.Status == incomingMemlistRow.Status {
 				thisList.UpdateEntry(&nodeId, incomingMemlistRow.HeartBeatCount, -1, logStream)
-			} else if thisMemListRow.Status == ACTIVE {
-				if incomingMemlistRow.Status == SUSPICIOUS {
-					LogNodeSuspicious(logStream, &nodeId)
-					LogNodeSuspicious(os.Stdout, &nodeId)
-					thisList.UpdateEntry(&nodeId, incomingMemlistRow.HeartBeatCount, SUSPICIOUS, logStream)
-				} else { // incoming = FAILED
+			} else if thisMemListRow.Status == core.ACTIVE {
+				if incomingMemlistRow.Status == core.SUSPICIOUS {
+					core.LogNodeSuspicious(logStream, &nodeId)
+					core.LogNodeSuspicious(os.Stdout, &nodeId)
+					thisList.UpdateEntry(&nodeId, incomingMemlistRow.HeartBeatCount, core.SUSPICIOUS, logStream)
+				} else { // incoming = core.FAILED
 					logFailHelper(logStream, &nodeId)
-					thisList.UpdateEntry(&nodeId, incomingMemlistRow.HeartBeatCount, FAILED, logStream)
+					thisList.UpdateEntry(&nodeId, incomingMemlistRow.HeartBeatCount, core.FAILED, logStream)
 
 					thisList.CallbackHandler.HandleNodeFailure(FailureDetectionInfo{
 						ThisNodeID:   thisList.ThisNodeId,
 						FailedNodeId: nodeId,
 					})
 				}
-			} else if thisMemListRow.Status == SUSPICIOUS {
-				if incomingMemlistRow.Status == ACTIVE {
-					LogNodeStatusChange(os.Stdout, &nodeId, SUSPICIOUS, ACTIVE)
-					LogNodeStatusChange(logStream, &nodeId, SUSPICIOUS, ACTIVE)
-					thisList.UpdateEntry(&nodeId, incomingMemlistRow.HeartBeatCount, ACTIVE, logStream)
-				} else { // incoming = FAILED
+			} else if thisMemListRow.Status == core.SUSPICIOUS {
+				if incomingMemlistRow.Status == core.ACTIVE {
+					core.LogNodeStatusChange(os.Stdout, &nodeId, core.SUSPICIOUS, core.ACTIVE)
+					core.LogNodeStatusChange(logStream, &nodeId, core.SUSPICIOUS, core.ACTIVE)
+					thisList.UpdateEntry(&nodeId, incomingMemlistRow.HeartBeatCount, core.ACTIVE, logStream)
+				} else { // incoming = core.FAILED
 					logFailHelper(logStream, &nodeId)
-					thisList.UpdateEntry(&nodeId, incomingMemlistRow.HeartBeatCount, FAILED, logStream)
+					thisList.UpdateEntry(&nodeId, incomingMemlistRow.HeartBeatCount, core.FAILED, logStream)
 
 					thisList.CallbackHandler.HandleNodeFailure(FailureDetectionInfo{
 						ThisNodeID:   thisList.ThisNodeId,
 						FailedNodeId: nodeId,
 					})
 				}
-			} else { // this = FAILED
+			} else { // this = core.FAILED
 				continue // implementing FAIL-STOP MODEL
 			}
 		}
@@ -275,14 +266,14 @@ func (thisList *MembershipList) Merge(otherList *MembershipList, logStream *os.F
 }
 
 /*
-Convert all the current suspicious nodes to ACTIVE status. It will also update its last-updated-time as well.
+Convert all the current suspicious nodes to core.ACTIVE status. It will also update its last-updated-time as well.
 This function is used when we are in suspicious mode and we disable it. So that way any currently suspicious nodes
 are just re-updated to normal
 */
 func (thisList *MembershipList) UpdateSuspicionEntriesToNormal() {
 	for nodeId, memListRow := range thisList.MemList {
-		if memListRow.Status == SUSPICIOUS {
-			thisList.UpdateEntry(&nodeId, -1, ACTIVE, nil)
+		if memListRow.Status == core.SUSPICIOUS {
+			thisList.UpdateEntry(&nodeId, -1, core.ACTIVE, nil)
 		}
 	}
 }
@@ -294,8 +285,8 @@ It also updates the last updated time to be the new current local time since the
 If newHeartbeatCount == -1, then it won't update the heartbeat
 If newStatus == -1, then it won't update the status
 */
-func (this *MembershipList) UpdateEntry(nodeId *NodeID, newHeartbeatCount int, newStatus NodeStatus, logStream *os.File) {
-	oldRow, exists := this.MemList[*nodeId]
+func (memList *MembershipList) UpdateEntry(nodeId *core.NodeID, newHeartbeatCount int, newStatus core.NodeStatus, logStream *os.File) {
+	oldRow, exists := memList.MemList[*nodeId]
 
 	if !exists {
 		log.Fatal("UpdateEntry(): nodeId does not exist in the map!")
@@ -308,23 +299,23 @@ func (this *MembershipList) UpdateEntry(nodeId *NodeID, newHeartbeatCount int, n
 		newStatus = oldRow.Status
 	}
 
-	if oldRow.Status != FAILED && newStatus == FAILED {
-		this.FalseNodeCount++
+	if oldRow.Status != core.FAILED && newStatus == core.FAILED {
+		memList.FalseNodeCount++
 		// if changed to failed, it will also remove the nodeId from the nodeIdsList
-		this.NodeIdsList = RemoveElementFromSlice(this.NodeIdsList, *nodeId)
+		memList.NodeIdsList = RemoveElementFromSlice(memList.NodeIdsList, *nodeId)
 
 		// log the detection time here
 		if logStream != nil {
 			detectionTimeMs := float64(time.Now().UnixNano()-oldRow.LastUpdatedTime) / 1e6 // convert to ms
-			if this.IsTestMode {
-				LogMessageln(logStream, fmt.Sprintf("[DETECTION TIME] %.2f", detectionTimeMs))
-				LogMessageln(os.Stdout, fmt.Sprintf("[DETECTION TIME] %.2f", detectionTimeMs))
+			if memList.IsTestMode {
+				core.LogMessageln(logStream, fmt.Sprintf("[DETECTION TIME] %.2f", detectionTimeMs))
+				core.LogMessageln(os.Stdout, fmt.Sprintf("[DETECTION TIME] %.2f", detectionTimeMs))
 			}
 
 		}
 	}
 
-	this.MemList[*nodeId] = MembershipListEntry{
+	memList.MemList[*nodeId] = MembershipListEntry{
 		newHeartbeatCount,
 		time.Now().UnixNano(),
 		newStatus,
@@ -339,67 +330,67 @@ time with the current time.
 
 It addtionally adds the new node id to the list of nodeids
 */
-func (this *MembershipList) AddEntry(nodeId *NodeID, heartBeatCount int, status NodeStatus) {
+func (memList *MembershipList) AddEntry(nodeId *core.NodeID, heartBeatCount int, status core.NodeStatus) {
 	// making sure id does not already exist in the map, if it does, return error
-	_, exists := this.MemList[*nodeId]
+	_, exists := memList.MemList[*nodeId]
 	if exists {
 		//return errors.New("AddEntry(): ID already exists in map")
 		log.Fatal("AddEntry(): ID already exists in the map - cannot add new entry!")
 	}
 
-	this.MemList[*nodeId] = MembershipListEntry{
+	memList.MemList[*nodeId] = MembershipListEntry{
 		HeartBeatCount:  heartBeatCount,
 		LastUpdatedTime: time.Now().UnixNano(),
 		Status:          status,
 	}
-	this.NodeIdsList = append(this.NodeIdsList, *nodeId)
+	memList.NodeIdsList = append(memList.NodeIdsList, *nodeId)
 }
 
 /*
 Adds an entry to the membershiplist with key=nodeId, and the entry values as default values, which
 are heartbeatcount = 0, and status = ALIVE, and the current time right now as the last updated time
 */
-func (this *MembershipList) AddDefaultEntry(nodeId *NodeID) {
-	this.AddEntry(nodeId, 0, ACTIVE)
+func (memList *MembershipList) AddDefaultEntry(nodeId *core.NodeID) {
+	memList.AddEntry(nodeId, 0, core.ACTIVE)
 }
 
 /*
 Deletes an entry from the membership list
 */
-func (this *MembershipList) DeleteEntry(nodeId *NodeID) error {
-	entry, exists := this.MemList[*nodeId]
+func (memList *MembershipList) DeleteEntry(nodeId *core.NodeID) error {
+	entry, exists := memList.MemList[*nodeId]
 	if !exists {
 		err := errors.New("DeleteEntry(): ID does not exist in map")
 		return err
 	}
-	if entry.Status == FAILED {
-		delete(this.MemList, *nodeId) // if its failed, then it was already removed from the nodeIdsList
+	if entry.Status == core.FAILED {
+		delete(memList.MemList, *nodeId) // if its failed, then it was already removed from the nodeIdsList
 	} else {
-		delete(this.MemList, *nodeId)
-		this.NodeIdsList = RemoveElementFromSlice(this.NodeIdsList, *nodeId)
+		delete(memList.MemList, *nodeId)
+		memList.NodeIdsList = RemoveElementFromSlice(memList.NodeIdsList, *nodeId)
 	}
 
 	return nil
 }
 
 // Print that node has failed to stdout and/or the log file/stream
-func logFailHelper(logStream *os.File, nodeId *NodeID) {
+func logFailHelper(logStream *os.File, nodeId *core.NodeID) {
 	//LogNodeFail(os.Stdout, nodeId)
 	if logStream != nil {
-		LogNodeFail(logStream, nodeId)
+		core.LogNodeFail(logStream, nodeId)
 	}
 }
 
 // Print that node has joined to stdout and/or the log file/stream
-func logJoinHelper(logStream *os.File, nodeId *NodeID, status NodeStatus) {
+func logJoinHelper(logStream *os.File, nodeId *core.NodeID, status core.NodeStatus) {
 	//LogNodeJoin(os.Stdout, nodeId, status)
 	if logStream != nil {
-		LogNodeJoin(logStream, nodeId, status)
+		core.LogNodeJoin(logStream, nodeId, status)
 	}
 }
 
-func RemoveElementFromSlice(mySlice []NodeID, element NodeID) []NodeID {
-	var result []NodeID
+func RemoveElementFromSlice(mySlice []core.NodeID, element core.NodeID) []core.NodeID {
+	var result []core.NodeID
 
 	for _, value := range mySlice {
 		if value != element {
@@ -414,22 +405,22 @@ func RemoveElementFromSlice(mySlice []NodeID, element NodeID) []NodeID {
 Increments the heartbeat count by 1 for the nodeId entry in the membership list
 Additionally updates the Last-Updated-Time in the entry to the current time
 */
-func (this *MembershipList) IncrementHeartbeatCount(id *NodeID) {
-	memlistRow, exists := this.MemList[*id]
+func (memList *MembershipList) IncrementHeartbeatCount(id *core.NodeID) {
+	memlistRow, exists := memList.MemList[*id]
 	if !exists {
 		log.Fatal("IncrementHeartbeatCount() - invalid id - does not exist in the map")
 	}
-	this.UpdateEntry(id, memlistRow.HeartBeatCount+1, -1, nil)
+	memList.UpdateEntry(id, memlistRow.HeartBeatCount+1, -1, nil)
 }
 
-func (this *MembershipList) ChooseRandomTargets(b int, thisNodeId NodeID) []NodeID {
-	var targets []NodeID
+func (memList *MembershipList) ChooseRandomTargets(b int, thisNodeId core.NodeID) []core.NodeID {
+	var targets []core.NodeID
 
-	for nodeId, entry := range this.MemList {
+	for nodeId, entry := range memList.MemList {
 		if nodeId == thisNodeId {
 			continue
 		}
-		if entry.Status == ACTIVE || entry.Status == SUSPICIOUS {
+		if entry.Status == core.ACTIVE || entry.Status == core.SUSPICIOUS {
 			targets = append(targets, nodeId)
 		}
 	}
@@ -442,7 +433,7 @@ func (this *MembershipList) ChooseRandomTargets(b int, thisNodeId NodeID) []Node
 	}
 }
 
-func ShuffleSlice(slice []NodeID) []NodeID {
+func ShuffleSlice(slice []core.NodeID) []core.NodeID {
 	for i := len(slice) - 1; i > 0; i-- {
 		j := rand.Intn(i + 1)
 		slice[i], slice[j] = slice[j], slice[i]
@@ -461,7 +452,7 @@ func AreMemListRowsEqual(listRow1 *MembershipListEntry, listRow2 *MembershipList
 	return false
 }
 
-func AreMemListsEqual(list1 map[NodeID]MembershipListEntry, list2 map[NodeID]MembershipListEntry) bool {
+func AreMemListsEqual(list1 map[core.NodeID]MembershipListEntry, list2 map[core.NodeID]MembershipListEntry) bool {
 
 	if len(list1) != len(list2) {
 		return false
@@ -486,6 +477,13 @@ func AreMemListsEqual(list1 map[NodeID]MembershipListEntry, list2 map[NodeID]Mem
 }
 
 // getter for membership list
-func (this *MembershipList) GetMembershipList() *MembershipList {
-	return this
+func (memList *MembershipList) GetMembershipList() *MembershipList {
+	return memList
+}
+
+func LogMembershipList(stream *os.File, memList *MembershipList) {
+	_, err := stream.WriteString(fmt.Sprintf(core.MEMBERSHIP_LIST_FMT, utils.GetCurrentTime(), memList.String()))
+	if err != nil {
+		log.Fatal("LogMembershipList(): Failed to WriteString() to the stream")
+	}
 }
