@@ -20,8 +20,8 @@ More information on the architecture for [MapleJuice](https://github.com/amaankh
 
 ## Program Details
 ### Build Instruction
-* Ensure Go is installed as the program is written in Go
-* Once installed, from the root directory of this project, run `make`
+* [Go](https://go.dev/) must be installed with at least version `1.19`
+* Run `make` from the root directory of this project, 
   which will create an executable `app` in the root directory of the project. This is the main
 executable that will be ran on each VM. `make` will also create binary executables
 for all the maple, juice, and hadoop map/reduce executables in the `bin` folder.
