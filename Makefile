@@ -7,9 +7,6 @@ all: $(EXECS)
 app:
 	go build -o app ./cmd/app
 
-app-win:
-	go build -o app.exe ./cmd/app
-
 word_count:
 	go build -o bin/maple_word_count ./cmd/maples/maple_word_count
 	go build -o bin/juice_word_count ./cmd/juices/juice_word_count
@@ -24,12 +21,8 @@ sql:
 	go build -o bin/maple_SQL_filter ./cmd/maples/maple_SQL_filter
 	go build -o bin/juice_SQL_filter ./cmd/juices/juice_SQL_filter
 
-clean-linux:
+clean:
 	rm -rf bin
 	rm -f app
-
-clean-win:
-	rm bin -r -force
-	rm app -force
 
 .PHONY: all clean $(EXECS)
