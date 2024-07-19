@@ -10,9 +10,13 @@ const (
 
 // General configuration variables
 const (
-	HOSTNAME_FORMAT = "fa23-cs425-19%02d.cs.illinois.edu"
-	VM_NUMBER_START = 13 // index from the hostname representing the start of the vm number
-	VM_NUM_END      = 15 // index from the hostname representing the end of the vm number (exclusive)
+	// HOSTNAME_FORMAT = "fa23-cs425-19%02d.cs.illinois.edu"
+	// VM_NUMBER_START = 13 // index from the hostname representing the start of the vm number
+	// VM_NUM_END      = 15 // index from the hostname representing the end of the vm number (exclusive)
+
+	HOSTNAME_FORMAT = "mj-vm-%02d"
+	VM_NUMBER_START = 6
+	VM_NUM_END      = 8
 )
 
 // Gossip Failure Detection Configuration Variables
