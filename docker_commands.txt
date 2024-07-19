@@ -1,0 +1,9 @@
+# Make the image
+docker build -t maplejuice-image .
+
+# Create network
+docker network create maplejuice-net
+
+# Run container
+docker run -it --rm --name mj-vm-01 --network maplejuice-net maplejuice-image
+docker run -it --rm --name mj-vm-02 --network maplejuice-net maplejuice-image
