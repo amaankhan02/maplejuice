@@ -14,7 +14,7 @@ const (
 	// VM_NUMBER_START = 13 // index from the hostname representing the start of the vm number
 	// VM_NUM_END      = 15 // index from the hostname representing the end of the vm number (exclusive)
 
-	HOSTNAME_FORMAT = "vm%02d"
+	HOSTNAME_FORMAT = "VM%02d"
 	VM_NUMBER_START = 2
 	VM_NUM_END      = 4
 )

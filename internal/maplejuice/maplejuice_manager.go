@@ -116,10 +116,6 @@ func (manager *MapleJuiceManager) createLocalAndLeaderNodeID(introducerLeaderVmN
 	var introducerLeaderId *core.NodeID
 	var isIntroducerLeader bool
 	vmNum, hostname := utils.GetLocalVMInfo()
-	fmt.Println("------createLocalAndLeaderNodeID------")
-	fmt.Println("hostname: ", hostname)
-	fmt.Printf("vmNum: %d\n", vmNum)
-	fmt.Printf("introducerLeaderVmNum: %d\n", introducerLeaderVmNum)
 
 	if vmNum == introducerLeaderVmNum { // this node is the leader, so don't need to create separate node ID for leader
 		isIntroducerLeader = true
@@ -147,8 +143,7 @@ func (manager *MapleJuiceManager) createLocalAndLeaderNodeID(introducerLeaderVmN
 	if isIntroducerLeader {
 		introducerLeaderId = localNodeId
 	}
-
-	fmt.Printf("isIntroducerLeader: %t\n", isIntroducerLeader)
+	
 	return localNodeId, introducerLeaderId, isIntroducerLeader
 }
 

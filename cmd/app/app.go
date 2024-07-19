@@ -6,6 +6,7 @@ import (
 	"cs425_mp4/internal/failure_detector"
 	"cs425_mp4/internal/maplejuice"
 	"cs425_mp4/internal/sdfs"
+	"cs425_mp4/internal/utils"
 	"encoding/gob"
 	"flag"
 	"fmt"
@@ -24,7 +25,8 @@ func main() {
 	defer func(logFile *os.File) {
 		_ = logFile.Close()
 	}(logFile)
-	fmt.Printf("TGossip: %dms\n", *tgossip)
+
+	PrintGreeting()
 
 	mjManager := maplejuice.NewMapleJuiceManager(
 		config.INTRODUCER_LEADER_VM,
@@ -37,6 +39,18 @@ func main() {
 	)
 
 	mjManager.Start()
+	fmt.Printf("----------------------------------------------------------------\n")
+}
+
+func PrintGreeting() {
+	fmt.Printf("----------------------------------------------------------------\n")
+	vmNum, hostname := utils.GetLocalVMInfo()
+	if vmNum == config.INTRODUCER_LEADER_VM {
+		fmt.Printf("Starting MapleJuice on %s (Introducer & Leader)\n", hostname)
+	} else {
+		fmt.Printf("Starting MapleJuice on %s\n", hostname)
+	}
+	fmt.Printf("----------------------------------------------------------------\n")
 }
 
 func ParseArguments() {
