@@ -16,7 +16,7 @@ COPY Makefile ./
 
 # Build the application
 RUN make clean
-RUN make
+RUN make app
 
 # Run the application
 CMD ["./app", "-f", "output.log"]
