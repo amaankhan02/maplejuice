@@ -7,3 +7,7 @@ docker network create maplejuice-net
 # Run container
 docker run -it --rm --name mj-vm-01 --hostname vm01 --network maplejuice-net maplejuice-image
 docker run -it --rm --name mj-vm-02 --hostname vm02 --network maplejuice-net maplejuice-image
+
+# Remove stopped containers, dangling images, and any networks not being used by a container
+# (run this command at the end of your development session)
+docker system prune
