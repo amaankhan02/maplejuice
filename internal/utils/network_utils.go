@@ -19,12 +19,9 @@ func GetLocalVMInfo() (int, string) {
 		log.Fatal("Failed to retrieve machine hostname")
 	}
 
-	fmt.Printf("---GetLocalVMInfo---\n")
-	fmt.Printf("Hostname: %s\n", hostname)
 	vm_num, err_vm_num := GetVMNumber(hostname)
 	if err_vm_num != nil {
 		log.Fatal("Failed to parse hostname into a vm number")
-		// return 0, ""
 	}
 
 	return vm_num, hostname
@@ -33,8 +30,7 @@ func GetLocalVMInfo() (int, string) {
 func GetVMNumber(hostname string) (int, error) {
 	vm_num, err_vm_num := strconv.Atoi(hostname[config.VM_NUMBER_START:config.VM_NUM_END])
 	if err_vm_num != nil {
-		fmt.Printf("HERE\n")
-		return 0, errors.New("Invalid hostname to parse into a vm number")
+		return 0, errors.New("invalid hostname to parse into a vm number")
 	} else {
 		return vm_num, nil
 	}
