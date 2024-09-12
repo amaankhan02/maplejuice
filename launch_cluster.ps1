@@ -1,4 +1,3 @@
-
 # Arguments
 param (
     [int]$NUM_CONTAINERS = 2  # Default if no argument is provided
@@ -6,7 +5,6 @@ param (
 
 Write-Host "Building docker image..."
 docker build -t maplejuice-image .
-
 
 # Check if the network exists
 $networkExists = docker network ls --format '{{.Name}}' | Where-Object { $_ -eq 'maplejuice-net' }
@@ -19,13 +17,24 @@ if (-not $networkExists) {
     Write-Host "`nmaplejuice-net network already exists."
 }
 
+Write-Host "`nCreating Docker volumes...`n"
+for ($i = 1; $i -le $NUM_CONTAINERS; $i++) {
+    # Format the container number with leading zero
+    $CONTAINER_NUM = "{0:D2}" -f $i
+
+    # Create the Docker volume
+    $VOLUME_NAME = "mj-vm-$CONTAINER_NUM-output"
+    Write-Host "Creating volume $VOLUME_NAME..."
+    docker volume create $VOLUME_NAME
+}
+
 Write-Host "`nLaunching $NUM_CONTAINERS Docker containers...`n"
 for ($i = 1; $i -le $NUM_CONTAINERS; $i++) {
     # Format the container number with leading zero
     $CONTAINER_NUM = "{0:D2}" -f $i
 
     # Construct the command to run
-    $CMD = "docker run -it --rm --name mj-vm-$CONTAINER_NUM --hostname VM$CONTAINER_NUM --network maplejuice-net maplejuice-image"
+    $CMD = "docker run -it --rm --name mj-vm-$CONTAINER_NUM --hostname VM$CONTAINER_NUM --network maplejuice-net -v mj-vm-$CONTAINER_NUM-output:/src/output maplejuice-image"
 
     # Start a new PowerShell window and run the command
     Write-Host "Launching container mj-vm-$CONTAINER_NUM..."
