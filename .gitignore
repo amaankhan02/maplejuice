@@ -24,3 +24,5 @@ scripts/input_data_60.txt
 /test/maplejuice/test.txt
 /test.txt
 /test/maplejuice/mapletask-1-1-some_prefix_/
+
+container_outputs/*
