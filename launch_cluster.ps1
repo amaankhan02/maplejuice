@@ -1,6 +1,6 @@
 # Arguments
 param (
-    [int]$NUM_CONTAINERS = 2  # Default if no argument is provided
+    [int]$NUM_CONTAINERS = 4  # Default if no argument is provided
 )
 
 Write-Host "Building docker image..."
