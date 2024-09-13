@@ -19,4 +19,4 @@ RUN make clean
 RUN make app
 
 # Run the application
-CMD ["./app", "-f", "output.log"]
+CMD ["./app"]

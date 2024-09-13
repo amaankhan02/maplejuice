@@ -37,6 +37,7 @@ type MapleJuiceManager struct {
 	mapleJuiceNode     *MapleJuiceNode
 	sdfsNode           *sdfs.SDFSNode
 	failureJoinService *failure_detector.NodeFailureJoinService
+	parentRootDir      string
 	// logFile            *os.File
 }
 
@@ -47,8 +48,9 @@ NOTE: the introducer and leader node are always the same node in this implementa
 */
 func NewMapleJuiceManager(
 	introducerLeaderVmNum int,
-	logFile *os.File,
-	sdfsRootDir string,
+	parentDir string,
+	logFile *os.File, // ** REMOVE taking in the logFile, and instead take in the parent directory
+	sdfsRootDir string, // TODO: given the parent directory, we should create these directories inside here
 	mapleJuiceNodeRootDir string,
 	gossipFanout int,
 	gossipModeValue failure_detector.GossipModeValue,
@@ -91,6 +93,7 @@ func NewMapleJuiceManager(
 	manager.failureJoinService = failureJoinService
 	manager.sdfsNode = sdfsNode
 	manager.mapleJuiceNode = mjNode
+	manager.parentRootDir = parentDir
 
 	return manager
 }
@@ -143,7 +146,7 @@ func (manager *MapleJuiceManager) createLocalAndLeaderNodeID(introducerLeaderVmN
 	if isIntroducerLeader {
 		introducerLeaderId = localNodeId
 	}
-	
+
 	return localNodeId, introducerLeaderId, isIntroducerLeader
 }
 

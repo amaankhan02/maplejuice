@@ -34,7 +34,7 @@ for ($i = 1; $i -le $NUM_CONTAINERS; $i++) {
     $CONTAINER_NUM = "{0:D2}" -f $i
 
     # Construct the command to run
-    $CMD = "docker run -it --rm --name mj-vm-$CONTAINER_NUM --hostname VM$CONTAINER_NUM --network maplejuice-net -v mj-vm-$CONTAINER_NUM-output:/src/output maplejuice-image"
+    $CMD = "docker run -it --rm --name mj-vm-$CONTAINER_NUM --hostname VM$CONTAINER_NUM --network maplejuice-net -v mj-vm-$CONTAINER_NUM-output:/src/app_data maplejuice-image"
 
     # Start a new PowerShell window and run the command
     Write-Host "Launching container mj-vm-$CONTAINER_NUM..."
