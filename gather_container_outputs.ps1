@@ -16,7 +16,7 @@ for ($i = 1; $i -le $NUM_CONTAINERS; $i++) {
     $CONTAINER_NUM = "{0:D2}" -f $i
 
     # Construct the source and destination paths
-    $sourceFile = "/src/output/output.log"
+    $sourceFile = "/src/app_data/debug_output.log"
     $destFile = "$outputDir/mj-vm-$CONTAINER_NUM-output.log"
 
     # Copy the output file from the container to the host
