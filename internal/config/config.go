@@ -17,6 +17,10 @@ const (
 	HOSTNAME_FORMAT = "VM%02d"
 	VM_NUMBER_START = 2
 	VM_NUM_END      = 4
+
+	// NOTE: if using docker, this dir must match the dir the docker volume maps
+	APP_ROOT_DIR          = "app_data"
+	DEBUG_OUTPUT_FILENAME = "debug_output.log"
 )
 
 // Gossip Failure Detection Configuration Variables

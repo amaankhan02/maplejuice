@@ -8,19 +8,24 @@ import (
 	"cs425_mp4/internal/sdfs"
 	"cs425_mp4/internal/utils"
 	"encoding/gob"
+	"errors"
 	"flag"
 	"fmt"
 	"log"
 	"os"
+	"path/filepath"
 )
 
-var logFileName *string
-var logFile *os.File
+// var logFileName *string
 var tgossip *int64
 var finalTGossip int64
+var logFile *os.File
+var sdfsRootDir string
+var mapleJuiceRootDir string
 
 func main() {
 	ParseArguments()
+	InitializeDirectoryAndFiles()
 	RegisterStructsForSerialization()
 	defer func(logFile *os.File) {
 		_ = logFile.Close()
@@ -30,9 +35,10 @@ func main() {
 
 	mjManager := maplejuice.NewMapleJuiceManager(
 		config.INTRODUCER_LEADER_VM,
+		config.APP_ROOT_DIR,
 		logFile,
-		config.SDFS_ROOT_DIR,
-		config.MAPLE_JUICE_ROOT_DIR,
+		sdfsRootDir,
+		mapleJuiceRootDir,
 		config.FANOUT,
 		failure_detector.GOSSIP_NORMAL,
 		finalTGossip,
@@ -52,20 +58,31 @@ func PrintGreeting() {
 	}
 	fmt.Printf("----------------------------------------------------------------\n")
 }
+func InitializeDirectoryAndFiles() {
+	// create app root dir
+	if _, err := os.Stat(config.APP_ROOT_DIR); errors.Is(err, os.ErrNotExist) {
+		err = os.Mkdir(config.APP_ROOT_DIR, os.ModePerm)
+		if err != nil {
+			log.Fatalf("Failed to create APP_ROOT_DIR %s", config.APP_ROOT_DIR)
+		}
+	}
+
+	// create nested directories
+	var fileerr error
+	mapleJuiceRootDir = filepath.Join(config.APP_ROOT_DIR, config.MAPLE_JUICE_ROOT_DIR)
+	sdfsRootDir = filepath.Join(config.APP_ROOT_DIR, config.SDFS_ROOT_DIR)
+
+	// creates the debug file if it doesn't exist, if it does, then truncates it and opens it
+	logFile, fileerr = os.Create(filepath.Join(config.APP_ROOT_DIR, config.DEBUG_OUTPUT_FILENAME))
+	if fileerr != nil {
+		log.Fatalf("Failed to create file %s", filepath.Join(config.APP_ROOT_DIR, config.DEBUG_OUTPUT_FILENAME))
+	}
+}
 
 func ParseArguments() {
-	var err error
-	logFileName = flag.String("f", "test.log", "Filename of the logfile to write to")
 	tgossip = flag.Int64("g", config.DEFAULT_T_GOSSIP, "T GOSSIP in milliseconds (1000 ms = 1s)")
 	flag.Parse()
-
 	finalTGossip = *tgossip * 1e6 // convert to ns
-
-	// creates the file if it doesn't exist, if it does, then truncates it and opens it
-	logFile, err = os.Create(*logFileName)
-	if err != nil {
-		log.Fatalf("Failed to open file %s", *logFileName)
-	}
 }
 
 func RegisterStructsForSerialization() {
