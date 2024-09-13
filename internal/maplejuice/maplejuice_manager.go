@@ -38,6 +38,7 @@ type MapleJuiceManager struct {
 	sdfsNode           *sdfs.SDFSNode
 	failureJoinService *failure_detector.NodeFailureJoinService
 	parentRootDir      string
+	exeFilesDir        string
 	// logFile            *os.File
 }
 
@@ -94,6 +95,7 @@ func NewMapleJuiceManager(
 	manager.sdfsNode = sdfsNode
 	manager.mapleJuiceNode = mjNode
 	manager.parentRootDir = parentDir
+	manager.exeFilesDir = filepath.Join(parentDir, config.EXE_FILES_FOLDER)
 
 	return manager
 }
@@ -289,10 +291,10 @@ func (manager *MapleJuiceManager) handleTest1(x string, numWorkers int, dataset 
 		maple maple_demo_phase2 3 p2 p1_ou
 		juice juice_demo_phase2 3 p2 p2_out delete_input=0
 	*/
-	m1FilePath, _ := filepath.Abs(filepath.Join(config.EXE_FILES_FOLDER, "maple_demo_phase1"))
-	j1FilePath, _ := filepath.Abs(filepath.Join(config.EXE_FILES_FOLDER, "juice_demo_phase1"))
-	m2FilePath, _ := filepath.Abs(filepath.Join(config.EXE_FILES_FOLDER, "maple_demo_phase2"))
-	j2FilePath, _ := filepath.Abs(filepath.Join(config.EXE_FILES_FOLDER, "juice_demo_phase2"))
+	m1FilePath, _ := filepath.Abs(filepath.Join(manager.exeFilesDir, "maple_demo_phase1"))
+	j1FilePath, _ := filepath.Abs(filepath.Join(manager.exeFilesDir, "juice_demo_phase1"))
+	m2FilePath, _ := filepath.Abs(filepath.Join(manager.exeFilesDir, "maple_demo_phase2"))
+	j2FilePath, _ := filepath.Abs(filepath.Join(manager.exeFilesDir, "juice_demo_phase2"))
 
 	m1Exe := MapleJuiceExeFile{
 		ExeFilePath:       m1FilePath,
@@ -364,7 +366,7 @@ func (manager *MapleJuiceManager) executeSqlFilter(dataset string, regex string)
 	// regex = regex to match --> put under SQL additional info
 
 	// get full path to the maple_exe file and juice_exe file
-	mapleExeFilePath, err1 := filepath.Abs(filepath.Join(config.EXE_FILES_FOLDER, SQL_FILTER_MAPLE_EXE_FILENAME))
+	mapleExeFilePath, err1 := filepath.Abs(filepath.Join(manager.exeFilesDir, SQL_FILTER_MAPLE_EXE_FILENAME))
 	if err1 != nil {
 		fmt.Println("Unable to parse maple_exe name")
 		return
@@ -374,7 +376,7 @@ func (manager *MapleJuiceManager) executeSqlFilter(dataset string, regex string)
 		SqlAdditionalInfo: regex,
 	}
 
-	juiceExeFilePath, err2 := filepath.Abs(filepath.Join(config.EXE_FILES_FOLDER, SQL_FILTER_JUICE_EXE_FILENAME))
+	juiceExeFilePath, err2 := filepath.Abs(filepath.Join(manager.exeFilesDir, SQL_FILTER_JUICE_EXE_FILENAME))
 	if err2 != nil {
 		fmt.Println("Unable to parse juice_exe name")
 		return
@@ -467,7 +469,7 @@ func doesQueryHasFROMandWHERE(userInput []string) (bool, bool) {
 
 func (manager *MapleJuiceManager) parseAndExecuteJuiceInput(userInput []string) {
 	juiceExeFile := userInput[1]
-	juiceExeFilePath, err1 := filepath.Abs(filepath.Join(config.EXE_FILES_FOLDER, juiceExeFile))
+	juiceExeFilePath, err1 := filepath.Abs(filepath.Join(manager.exeFilesDir, juiceExeFile))
 	if err1 != nil {
 		fmt.Println("Unable to parse juice_exe name")
 		return
@@ -512,7 +514,7 @@ func (manager *MapleJuiceManager) parseAndExecuteMapleInput(userInput []string) 
 	mapleExeFileName := userInput[1] // just type in "maple_word_count"
 
 	// join with "bin" directory, and then get absolute path
-	mapleExeFilePath, err1 := filepath.Abs(filepath.Join(config.EXE_FILES_FOLDER, mapleExeFileName))
+	mapleExeFilePath, err1 := filepath.Abs(filepath.Join(manager.exeFilesDir, mapleExeFileName))
 	if err1 != nil {
 		fmt.Println("Unable to parse maple_exe name")
 		return
@@ -545,7 +547,7 @@ func (manager *MapleJuiceManager) executeSqlJoin(d1 string, d2 string, f1 string
 	// regex = regex to match --> put under SQL additional info
 
 	// get full path to the maple_exe file and juice_exe file
-	mapleExeFilePath, err1 := filepath.Abs(filepath.Join(config.EXE_FILES_FOLDER, SQL_FILTER_MAPLE_EXE_FILENAME))
+	mapleExeFilePath, err1 := filepath.Abs(filepath.Join(manager.exeFilesDir, SQL_FILTER_MAPLE_EXE_FILENAME))
 	if err1 != nil {
 		fmt.Println("Unable to parse maple_exe name")
 		return
@@ -559,7 +561,7 @@ func (manager *MapleJuiceManager) executeSqlJoin(d1 string, d2 string, f1 string
 		SqlAdditionalInfo: f2,
 	}
 
-	juiceExeFilePath, err2 := filepath.Abs(filepath.Join(config.EXE_FILES_FOLDER, SQL_FILTER_JUICE_EXE_FILENAME))
+	juiceExeFilePath, err2 := filepath.Abs(filepath.Join(manager.exeFilesDir, SQL_FILTER_JUICE_EXE_FILENAME))
 	if err2 != nil {
 		fmt.Println("Unable to parse juice_exe name")
 		return
