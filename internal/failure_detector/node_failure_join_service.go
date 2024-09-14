@@ -3,19 +3,33 @@ package failure_detector
 import (
 	"cs425_mp4/internal/config"
 	"cs425_mp4/internal/core"
+	"encoding/csv"
 	"fmt"
 	"log"
 	"math/rand"
 	"net"
 	"os"
+	"path/filepath"
+	"strconv"
 	"sync"
 	"time"
 )
 
 const (
-	BUFFER_SIZE            = 4096
-	DATA_ANALYSIS_FILENAME = "gossip_data.txt"
+	BUFFER_SIZE = 4096
+	//DATA_ANALYSIS_FILENAME = "gossip_data_analytics.csv"
 )
+
+var DATA_ANALYSIS_CSV_HEADER = []string{"test_type", "gossip_mode", "fanout", "t_fail", "t_gossip", "num_nodes", "msg_drop_rate", "bandwidth", "false_positive_rate", "program_duration"}
+
+// NodeFailureJoinServiceTestingParams Used for testing (gather data for analysis)
+type NodeFailureJoinServiceTestingParams struct {
+	IsTestMode         bool
+	TestType           string
+	MsgDropRate        int
+	AppendToDataFile   bool
+	DataOutputFileName string
+}
 
 type NodeFailureJoinService struct {
 	MembershipList    *MembershipList
@@ -31,13 +45,12 @@ type NodeFailureJoinService struct {
 	LogFile           *os.File
 	IsActive          bool // indicates if the node is currently running
 	nodeWaitGroup     sync.WaitGroup
-	isTestMode        bool
-	msgDropRate       int
-	StartTime         int64
-	BytesBeingSent    int64    // used to calculate bandwidth
-	BytesReceived     int64    // used to calculate bandwidth
-	TGossip           int64    // in nanoseconds
-	dataOutputFile    *os.File // output data file for data analysis
+
+	testModeParams NodeFailureJoinServiceTestingParams
+	StartTime      int64
+	BytesBeingSent int64 // used to calculate bandwidth
+	BytesReceived  int64 // used to calculate bandwidth
+	TGossip        int64 // in nanoseconds
 
 	// Add communication medium to the other node types for notifying if we detect a failure
 	GossipCallbackHandler FaultTolerable
@@ -50,27 +63,31 @@ and creates a socket endpoint for the server and initializes it
 If IsIntroducer = true, then IntroducerId is not set to anything
 If IsIntroducer = false, then IntroducerId is set to the passed in parameter
 */
-func NewNodeFailureJoinService(nodeId core.NodeID, b int, isIntroducer bool, introducerId core.NodeID, logFile *os.File, gossipModeValue GossipModeValue,
-	isTestMode bool, msgDropRate int, tGossip int64, callbackHandler FaultTolerable) *NodeFailureJoinService {
+func NewNodeFailureJoinService(
+	nodeId core.NodeID,
+	isIntroducer bool,
+	introducerId core.NodeID,
+	logFile *os.File,
+	gossipModeValue GossipModeValue,
+	tGossip int64,
+	testingParams NodeFailureJoinServiceTestingParams,
+	callbackHandler FaultTolerable,
+) *NodeFailureJoinService {
 
 	// init the membership list
 	thisNode := NodeFailureJoinService{}
 	thisNode.Id = nodeId
-	thisNode.Fanout = b
+	thisNode.Fanout = config.FANOUT
 	thisNode.IsIntroducer = isIntroducer
 	thisNode.LogFile = logFile
 	thisNode.CurrentGossipMode = GossipMode{gossipModeValue, 0}
-	thisNode.MembershipList = NewMembershipList(nodeId, callbackHandler, isTestMode)
+	thisNode.MembershipList = NewMembershipList(nodeId, callbackHandler, testingParams.IsTestMode)
 	thisNode.IsActive = false // turns true once JoinGroup() is called
-	thisNode.isTestMode = isTestMode
-	thisNode.msgDropRate = msgDropRate
 	thisNode.BytesBeingSent = 0
 	thisNode.BytesReceived = 0
 	thisNode.TGossip = tGossip // in nanoseconds
 	thisNode.GossipCallbackHandler = callbackHandler
-
-	// create data output file
-	//thisNode.dataOutputFile =
+	thisNode.testModeParams = testingParams
 
 	if !isIntroducer {
 		thisNode.IntroducerId = introducerId
@@ -109,19 +126,74 @@ func (nfjs *NodeFailureJoinService) LeaveGroup() {
 	core.LogMessageln(nfjs.LogFile, "Notified others of leaving group. Exiting...")
 	core.LogMessageln(os.Stdout, "Notified others of leaving group. Exiting...")
 
-	if nfjs.isTestMode { // calculate the number of failures and return the failure / duration
-		nfjs.logMsgHelper("-------------TEST STATISTICS--------------")
+	if nfjs.testModeParams.IsTestMode {
+		nfjs.saveDataAnalysisInfo(programDuration)
+	}
+}
 
-		// false positive rate assumes that there were no real failures during this program's lifetime
-		// and therefore all the detected failures were actually false
-		falsePositiveRate := float64(nfjs.MembershipList.FalseNodeCount) / float64(programDuration)
-		fmtMsg := fmt.Sprintf("%d False Positives in %d seconds\nFalse Positive Rate: %.3f/s\nMessage Drop Rate (percent): %d",
-			nfjs.MembershipList.FalseNodeCount, programDuration, falsePositiveRate, nfjs.msgDropRate)
-		nfjs.logMsgHelper(fmtMsg)
+func (nfjs *NodeFailureJoinService) saveDataAnalysisInfo(programDuration int64) {
+	dataOutputFilePath, _ := filepath.Abs(filepath.Join(config.APP_ROOT_DIR, nfjs.testModeParams.DataOutputFileName))
 
-		bandwidth := float64(nfjs.BytesBeingSent+nfjs.BytesReceived) / float64(programDuration)
-		fmtMsg = fmt.Sprintf("Bandwidth: %.4f", bandwidth)
-		nfjs.logMsgHelper(fmtMsg)
+	// Open/Create the data output file
+	var outputCsvFile *os.File
+	var fileOpenErr error
+	var createdNewFile = false
+	if _, err := os.Stat(dataOutputFilePath); os.IsNotExist(err) {
+		createdNewFile = true
+	}
+	outputCsvFile, fileOpenErr = os.OpenFile(dataOutputFilePath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	if fileOpenErr != nil {
+		log.Fatal("Failed to create/open data output file: ", fileOpenErr)
+	}
+	defer func(outputCsvFile *os.File) {
+		_ = outputCsvFile.Close()
+	}(outputCsvFile)
+
+	// Prepare to write to the file
+	writer := csv.NewWriter(outputCsvFile)
+	defer writer.Flush()
+
+	if createdNewFile { // write the header
+		if err := writer.Write(DATA_ANALYSIS_CSV_HEADER); err != nil {
+			log.Fatal("Failed to write header to csv data output file: ", err)
+		}
+	}
+
+	// compute and write the data record
+	// {"test_type", "gossip_mode", "fanout", "t_fail",
+	// "t_gossip", "num_nodes", "msg_drop_rate", "bandwidth", "false_positive_rate", "program_duration"}
+
+	// compute values and write
+	var gossip_mode string
+	var t_fail string
+	if nfjs.CurrentGossipMode.Mode == GOSSIP_NORMAL {
+		gossip_mode = "normal"
+		t_fail = config.T_FAIL_NORMAL.String()
+	} else {
+		gossip_mode = "suspicious"
+		t_fail = (config.T_SUSPICIOUS + config.T_FAIL_SUSPICIOUS).String()
+	}
+	numNodes := strconv.Itoa(nfjs.MembershipList.GetNumNodes())
+	msgDropRate := strconv.Itoa(nfjs.testModeParams.MsgDropRate)
+	bandwidth := strconv.FormatFloat(float64(nfjs.BytesBeingSent+nfjs.BytesReceived)/float64(programDuration), 'f', 4, 64)
+
+	// false positive rate assumes that there were no real failures during this program's lifetime
+	// and therefore all the detected failures were actually false
+	falsePositiveRate := strconv.FormatFloat(float64(nfjs.MembershipList.FalseNodeCount)/float64(programDuration), 'f', 4, 64)
+	writeErr := writer.Write([]string{
+		nfjs.testModeParams.TestType,
+		gossip_mode,
+		strconv.Itoa(nfjs.Fanout),
+		t_fail,
+		strconv.FormatInt(nfjs.TGossip, 10),
+		numNodes,
+		msgDropRate,
+		bandwidth,
+		falsePositiveRate,
+		strconv.FormatInt(programDuration, 10),
+	})
+	if writeErr != nil {
+		log.Fatalf("Failed to write data record to csv data output file: %s", writeErr)
 	}
 }
 
@@ -272,7 +344,7 @@ func (nfjs *NodeFailureJoinService) serve() {
 
 func (nfjs *NodeFailureJoinService) shouldDropMessage() bool {
 	randNum := rand.Intn(100)
-	return nfjs.isTestMode && randNum < nfjs.msgDropRate
+	return nfjs.testModeParams.IsTestMode && randNum < nfjs.testModeParams.MsgDropRate
 }
 
 /*
