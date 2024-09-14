@@ -4,7 +4,24 @@ param (
 )
 
 Write-Host "Building docker image..."
-docker build -t maplejuice-image .
+$buildResult = docker build -t maplejuice-image .
+$buildResultOutput = $buildResult | Format-List | Out-String
+if ($LASTEXITCODE -ne 0) {
+    Write-Error "Failed to build docker image. Exiting script. Here is the output from 'docker build' command"
+    Write-Error $buildResultOutput
+    exit 1
+}
+# if ($LASTEXITCODE -ne 0) {
+#     Write-Error "Failed to build docker image. Exiting script."
+#     exit 1
+# }
+# try {
+#     docker build -t maplejuice-image .
+# } catch {
+#     Write-Error "Failed to build docker image. Exiting script."
+#     exit 1
+# }
+
 
 # Check if the network exists
 $networkExists = docker network ls --format '{{.Name}}' | Where-Object { $_ -eq 'maplejuice-net' }

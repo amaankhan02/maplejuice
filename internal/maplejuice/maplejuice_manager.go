@@ -53,12 +53,16 @@ func NewMapleJuiceManager(
 	logFile *os.File, // ** REMOVE taking in the logFile, and instead take in the parent directory
 	sdfsRootDir string, // TODO: given the parent directory, we should create these directories inside here
 	mapleJuiceNodeRootDir string,
-	gossipFanout int,
 	gossipModeValue failure_detector.GossipModeValue,
+	failureJoinServiceTestingInfo failure_detector.NodeFailureJoinServiceTestingParams,
 	tGossip int64,
 ) *MapleJuiceManager {
-	const GOSSIP_IS_TEST_MODE = false // always false for now, set it true later or remove this if we wanna test it out
-	const GOSSIP_TEST_MSG_DROP_RATE = 0
+	// TODO: change these 3 constants as parameters you can pass in from the command line
+	//const GOSSIP_IS_TEST_MODE = true // always false for now, set it true later or remove this if we wanna test it out
+	//const GOSSIP_TEST_MSG_DROP_RATE = 30
+	//const TEST_MODE_TRIAL_TYPE = "1A1B"
+	//const APPEND_TO_DATA_FILE = true // true by default for now, but allow the option to set to false and then rewrite it
+
 	manager := &MapleJuiceManager{}
 	localNodeId, introducerLeaderId, isIntroducerLeader := manager.createLocalAndLeaderNodeID(introducerLeaderVmNum)
 
@@ -71,14 +75,12 @@ func NewMapleJuiceManager(
 	)
 	failureJoinService := failure_detector.NewNodeFailureJoinService(
 		*localNodeId,
-		gossipFanout,
 		isIntroducerLeader,
 		*introducerLeaderId,
 		logFile,
 		gossipModeValue,
-		GOSSIP_IS_TEST_MODE,
-		GOSSIP_TEST_MSG_DROP_RATE,
 		tGossip,
+		failureJoinServiceTestingInfo,
 		manager,
 	)
 	mjNode := NewMapleJuiceNode(

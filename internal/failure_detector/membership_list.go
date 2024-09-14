@@ -81,6 +81,10 @@ func (memList *MembershipList) String() string {
 	return sb.String()
 }
 
+func (memList *MembershipList) GetNumNodes() int {
+	return len(memList.MemList)
+}
+
 /*
 Serializes the MembershipList object, HOWEVER, it only serializes
 the MemList map, since sending the round-robin pointer and the
@@ -121,20 +125,20 @@ func (memList *MembershipList) DeserializeMembershipListMap(membershipListData [
 
 // -------------------- INSTANCE FUNCTIONS ------------------------
 
-func (thisList *MembershipList) MergeNormal(otherList *MembershipList, logStream *os.File) {
+func (memList *MembershipList) MergeNormal(otherList *MembershipList, logStream *os.File) {
 	for nodeId, incomingMemlistRow := range otherList.MemList {
-		if nodeId == thisList.ThisNodeId { // no need to compare its own node's to itself
+		if nodeId == memList.ThisNodeId { // no need to compare its own node's to itself
 			continue
 		}
-		thisMemListRow, exists := thisList.MemList[nodeId] // get corresponding key-value pair in this memlist
+		thisMemListRow, exists := memList.MemList[nodeId] // get corresponding key-value pair in this memlist
 
 		if !exists { // found new Node Joined
 			if incomingMemlistRow.Status == core.ACTIVE { // the new node is not failed, so lets add it as a join
 				logJoinHelper(logStream, &nodeId, core.ACTIVE)
-				thisList.AddEntry(&nodeId, incomingMemlistRow.HeartBeatCount, core.ACTIVE)
+				memList.AddEntry(&nodeId, incomingMemlistRow.HeartBeatCount, core.ACTIVE)
 
-				thisList.CallbackHandler.HandleNodeJoin(NodeJoinInfo{
-					ThisNodeID:   thisList.ThisNodeId,
+				memList.CallbackHandler.HandleNodeJoin(NodeJoinInfo{
+					ThisNodeID:   memList.ThisNodeId,
 					JoinedNodeId: nodeId,
 				})
 
@@ -146,7 +150,7 @@ func (thisList *MembershipList) MergeNormal(otherList *MembershipList, logStream
 				if thisMemListRow.Status != core.LEAVE && incomingMemlistRow.Status > thisMemListRow.Status {
 					core.LogNodeLeft(os.Stdout, &nodeId)
 					core.LogNodeLeft(logStream, &nodeId)
-					thisList.UpdateEntry(&nodeId, -1, core.LEAVE, logStream) // indicate core.LEAVE to eventually delete after T_CLEANUP
+					memList.UpdateEntry(&nodeId, -1, core.LEAVE, logStream) // indicate core.LEAVE to eventually delete after T_CLEANUP
 				}
 			} else if thisMemListRow.Status == core.FAILED {
 				continue // implementing FAIL-STOP Model - so don't do anything if it's already marked failed
@@ -155,10 +159,10 @@ func (thisList *MembershipList) MergeNormal(otherList *MembershipList, logStream
 					if incomingMemlistRow.HeartBeatCount > thisMemListRow.HeartBeatCount {
 						// listen to the incoming --> make ours failed as well
 						logFailHelper(logStream, &nodeId)
-						thisList.UpdateEntry(&nodeId, -1, core.FAILED, logStream)
+						memList.UpdateEntry(&nodeId, -1, core.FAILED, logStream)
 
-						thisList.CallbackHandler.HandleNodeFailure(FailureDetectionInfo{
-							ThisNodeID:   thisList.ThisNodeId,
+						memList.CallbackHandler.HandleNodeFailure(FailureDetectionInfo{
+							ThisNodeID:   memList.ThisNodeId,
 							FailedNodeId: nodeId,
 						})
 
@@ -168,7 +172,7 @@ func (thisList *MembershipList) MergeNormal(otherList *MembershipList, logStream
 				} else { // incoming = active
 					if incomingMemlistRow.HeartBeatCount > thisMemListRow.HeartBeatCount {
 						// listen to the incoming --> this & incoming is alive, w/ incoming has higher hb, so update
-						thisList.UpdateEntry(&nodeId, incomingMemlistRow.HeartBeatCount, -1, logStream)
+						memList.UpdateEntry(&nodeId, incomingMemlistRow.HeartBeatCount, -1, logStream)
 					} else {
 						continue // both are active, but we have most updated version, so don't update anything
 					}
@@ -178,28 +182,28 @@ func (thisList *MembershipList) MergeNormal(otherList *MembershipList, logStream
 	}
 }
 
-func (thisList *MembershipList) MergeSuspicion(otherList *MembershipList, logStream *os.File) {
+func (memList *MembershipList) MergeSuspicion(otherList *MembershipList, logStream *os.File) {
 	for nodeId, incomingMemlistRow := range otherList.MemList {
-		if nodeId == thisList.ThisNodeId {
+		if nodeId == memList.ThisNodeId {
 			continue
 		}
-		thisMemListRow, exists := thisList.MemList[nodeId]
+		thisMemListRow, exists := memList.MemList[nodeId]
 
 		if !exists { // New Node Joined
 			if incomingMemlistRow.Status == core.ACTIVE {
 				logJoinHelper(logStream, &nodeId, core.ACTIVE)
-				thisList.AddEntry(&nodeId, incomingMemlistRow.HeartBeatCount, core.ACTIVE)
+				memList.AddEntry(&nodeId, incomingMemlistRow.HeartBeatCount, core.ACTIVE)
 
-				thisList.CallbackHandler.HandleNodeJoin(NodeJoinInfo{
-					ThisNodeID:   thisList.ThisNodeId,
+				memList.CallbackHandler.HandleNodeJoin(NodeJoinInfo{
+					ThisNodeID:   memList.ThisNodeId,
 					JoinedNodeId: nodeId,
 				})
 			} else if incomingMemlistRow.Status == core.SUSPICIOUS {
 				logJoinHelper(logStream, &nodeId, core.SUSPICIOUS)
-				thisList.AddEntry(&nodeId, incomingMemlistRow.HeartBeatCount, core.SUSPICIOUS)
+				memList.AddEntry(&nodeId, incomingMemlistRow.HeartBeatCount, core.SUSPICIOUS)
 
-				thisList.CallbackHandler.HandleNodeJoin(NodeJoinInfo{
-					ThisNodeID:   thisList.ThisNodeId,
+				memList.CallbackHandler.HandleNodeJoin(NodeJoinInfo{
+					ThisNodeID:   memList.ThisNodeId,
 					JoinedNodeId: nodeId,
 				})
 			} else { // incoming = core.FAILED
@@ -213,20 +217,20 @@ func (thisList *MembershipList) MergeSuspicion(otherList *MembershipList, logStr
 				}
 				core.LogNodeLeft(os.Stdout, &nodeId)
 				core.LogNodeLeft(logStream, &nodeId)
-				thisList.UpdateEntry(&nodeId, -1, core.LEAVE, logStream) // indicate core.LEAVE to eventually delete after T_CLEANUP
+				memList.UpdateEntry(&nodeId, -1, core.LEAVE, logStream) // indicate core.LEAVE to eventually delete after T_CLEANUP
 			} else if thisMemListRow.Status == incomingMemlistRow.Status {
-				thisList.UpdateEntry(&nodeId, incomingMemlistRow.HeartBeatCount, -1, logStream)
+				memList.UpdateEntry(&nodeId, incomingMemlistRow.HeartBeatCount, -1, logStream)
 			} else if thisMemListRow.Status == core.ACTIVE {
 				if incomingMemlistRow.Status == core.SUSPICIOUS {
 					core.LogNodeSuspicious(logStream, &nodeId)
 					core.LogNodeSuspicious(os.Stdout, &nodeId)
-					thisList.UpdateEntry(&nodeId, incomingMemlistRow.HeartBeatCount, core.SUSPICIOUS, logStream)
+					memList.UpdateEntry(&nodeId, incomingMemlistRow.HeartBeatCount, core.SUSPICIOUS, logStream)
 				} else { // incoming = core.FAILED
 					logFailHelper(logStream, &nodeId)
-					thisList.UpdateEntry(&nodeId, incomingMemlistRow.HeartBeatCount, core.FAILED, logStream)
+					memList.UpdateEntry(&nodeId, incomingMemlistRow.HeartBeatCount, core.FAILED, logStream)
 
-					thisList.CallbackHandler.HandleNodeFailure(FailureDetectionInfo{
-						ThisNodeID:   thisList.ThisNodeId,
+					memList.CallbackHandler.HandleNodeFailure(FailureDetectionInfo{
+						ThisNodeID:   memList.ThisNodeId,
 						FailedNodeId: nodeId,
 					})
 				}
@@ -234,13 +238,13 @@ func (thisList *MembershipList) MergeSuspicion(otherList *MembershipList, logStr
 				if incomingMemlistRow.Status == core.ACTIVE {
 					core.LogNodeStatusChange(os.Stdout, &nodeId, core.SUSPICIOUS, core.ACTIVE)
 					core.LogNodeStatusChange(logStream, &nodeId, core.SUSPICIOUS, core.ACTIVE)
-					thisList.UpdateEntry(&nodeId, incomingMemlistRow.HeartBeatCount, core.ACTIVE, logStream)
+					memList.UpdateEntry(&nodeId, incomingMemlistRow.HeartBeatCount, core.ACTIVE, logStream)
 				} else { // incoming = core.FAILED
 					logFailHelper(logStream, &nodeId)
-					thisList.UpdateEntry(&nodeId, incomingMemlistRow.HeartBeatCount, core.FAILED, logStream)
+					memList.UpdateEntry(&nodeId, incomingMemlistRow.HeartBeatCount, core.FAILED, logStream)
 
-					thisList.CallbackHandler.HandleNodeFailure(FailureDetectionInfo{
-						ThisNodeID:   thisList.ThisNodeId,
+					memList.CallbackHandler.HandleNodeFailure(FailureDetectionInfo{
+						ThisNodeID:   memList.ThisNodeId,
 						FailedNodeId: nodeId,
 					})
 				}
@@ -255,11 +259,11 @@ func (thisList *MembershipList) MergeSuspicion(otherList *MembershipList, logStr
 Merge this list with otherList
 if logStream != nil, then it logs messages to logStream file.
 */
-func (thisList *MembershipList) Merge(otherList *MembershipList, logStream *os.File, gossipModeVal GossipModeValue) {
+func (memList *MembershipList) Merge(otherList *MembershipList, logStream *os.File, gossipModeVal GossipModeValue) {
 	if gossipModeVal == GOSSIP_NORMAL {
-		thisList.MergeNormal(otherList, logStream)
+		memList.MergeNormal(otherList, logStream)
 	} else if gossipModeVal == GOSSIP_SUSPICION {
-		thisList.MergeSuspicion(otherList, logStream)
+		memList.MergeSuspicion(otherList, logStream)
 	} else {
 		log.Fatal("Invalid GossipModeValue passed in. Cannot merge")
 	}
@@ -270,10 +274,10 @@ Convert all the current suspicious nodes to core.ACTIVE status. It will also upd
 This function is used when we are in suspicious mode and we disable it. So that way any currently suspicious nodes
 are just re-updated to normal
 */
-func (thisList *MembershipList) UpdateSuspicionEntriesToNormal() {
-	for nodeId, memListRow := range thisList.MemList {
+func (memList *MembershipList) UpdateSuspicionEntriesToNormal() {
+	for nodeId, memListRow := range memList.MemList {
 		if memListRow.Status == core.SUSPICIOUS {
-			thisList.UpdateEntry(&nodeId, -1, core.ACTIVE, nil)
+			memList.UpdateEntry(&nodeId, -1, core.ACTIVE, nil)
 		}
 	}
 }
@@ -317,7 +321,7 @@ func (memList *MembershipList) UpdateEntry(nodeId *core.NodeID, newHeartbeatCoun
 
 	memList.MemList[*nodeId] = MembershipListEntry{
 		newHeartbeatCount,
-		time.Now().UnixNano(),
+		time.Now().UnixNano(), // TODO: Do we wnt to update this even for suspicious state?, b/c then the detection time is messed up
 		newStatus,
 	}
 

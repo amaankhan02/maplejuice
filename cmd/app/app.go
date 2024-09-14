@@ -18,6 +18,11 @@ import (
 
 // var logFileName *string
 var tgossip *int64
+var msgDropRate *int
+var isDataCollectMode *bool
+var testName *string
+
+var failureJoinServiceTestingInfo *failure_detector.NodeFailureJoinServiceTestingParams
 var finalTGossip int64
 var logFile *os.File
 var sdfsRootDir string
@@ -39,8 +44,8 @@ func main() {
 		logFile,
 		sdfsRootDir,
 		mapleJuiceRootDir,
-		config.FANOUT,
 		failure_detector.GOSSIP_NORMAL,
+		*failureJoinServiceTestingInfo,
 		finalTGossip,
 	)
 
@@ -80,9 +85,22 @@ func InitializeDirectoryAndFiles() {
 }
 
 func ParseArguments() {
+	// parse command line arguments
 	tgossip = flag.Int64("g", config.DEFAULT_T_GOSSIP, "T GOSSIP in milliseconds (1000 ms = 1s)")
+	isDataCollectMode = flag.Bool("d", false, "Run in data collection mode")
+	msgDropRate = flag.Int("r", 0, "Message drop rate as a percentage (0-100)")
+	testName = flag.String("n", "", "Test name (string)")
 	flag.Parse()
+
+	// finalize values
 	finalTGossip = *tgossip * 1e6 // convert to ns
+	failureJoinServiceTestingInfo = &failure_detector.NodeFailureJoinServiceTestingParams{
+		TestType:           *testName,
+		MsgDropRate:        *msgDropRate,
+		IsTestMode:         *isDataCollectMode,
+		AppendToDataFile:   true, // currently has no effect since it's not used
+		DataOutputFileName: config.GOSSIP_DATA_ANALYTICS_OUTPUT_FILENAME,
+	}
 }
 
 func RegisterStructsForSerialization() {
