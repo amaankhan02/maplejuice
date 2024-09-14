@@ -11,17 +11,6 @@ if ($LASTEXITCODE -ne 0) {
     Write-Error $buildResultOutput
     exit 1
 }
-# if ($LASTEXITCODE -ne 0) {
-#     Write-Error "Failed to build docker image. Exiting script."
-#     exit 1
-# }
-# try {
-#     docker build -t maplejuice-image .
-# } catch {
-#     Write-Error "Failed to build docker image. Exiting script."
-#     exit 1
-# }
-
 
 # Check if the network exists
 $networkExists = docker network ls --format '{{.Name}}' | Where-Object { $_ -eq 'maplejuice-net' }

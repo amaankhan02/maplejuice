@@ -61,6 +61,14 @@ func PrintGreeting() {
 	} else {
 		fmt.Printf("Starting MapleJuice on %s\n", hostname)
 	}
+
+	if *isDataCollectMode {
+		fmt.Println("Running in Data Collection Mode")
+		fmt.Println("\tCollecting data for test type " + *testName)
+		fmt.Println("\tMessage drop rate: " + fmt.Sprintf("%d", *msgDropRate) + "%")
+		fmt.Println("\tGossip time: " + fmt.Sprintf("%d", *tgossip) + "ms")
+	}
+
 	fmt.Printf("----------------------------------------------------------------\n")
 }
 func InitializeDirectoryAndFiles() {
