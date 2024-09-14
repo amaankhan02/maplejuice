@@ -13,7 +13,8 @@ import (
 )
 
 const (
-	BUFFER_SIZE = 4096
+	BUFFER_SIZE            = 4096
+	DATA_ANALYSIS_FILENAME = "gossip_data.txt"
 )
 
 type NodeFailureJoinService struct {
@@ -33,9 +34,10 @@ type NodeFailureJoinService struct {
 	isTestMode        bool
 	msgDropRate       int
 	StartTime         int64
-	BytesBeingSent    int64 // used to calculate bandwidth
-	BytesReceived     int64 // used to calculate bandwidth
-	TGossip           int64 // in nanoseconds
+	BytesBeingSent    int64    // used to calculate bandwidth
+	BytesReceived     int64    // used to calculate bandwidth
+	TGossip           int64    // in nanoseconds
+	dataOutputFile    *os.File // output data file for data analysis
 
 	// Add communication medium to the other node types for notifying if we detect a failure
 	GossipCallbackHandler FaultTolerable
@@ -66,6 +68,9 @@ func NewNodeFailureJoinService(nodeId core.NodeID, b int, isIntroducer bool, int
 	thisNode.BytesReceived = 0
 	thisNode.TGossip = tGossip // in nanoseconds
 	thisNode.GossipCallbackHandler = callbackHandler
+
+	// create data output file
+	//thisNode.dataOutputFile =
 
 	if !isIntroducer {
 		thisNode.IntroducerId = introducerId
