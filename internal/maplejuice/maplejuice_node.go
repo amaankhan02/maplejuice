@@ -117,6 +117,18 @@ func (mjNode *MapleJuiceNode) Start() {
 	mjNode.logBoth("Maple Juice Node has started!")
 }
 
+// HandleTCPServerConnection
+//
+// Handles an incoming TCP connection. It could be a request from a client to submit a job, or
+// it could be a response from a worker node (non-leader node) that has finished executing its task.
+//
+// The function first reads the message from the connection, and then immediately closes the connection
+// if it is a response from a worker node. If it is a request from a client, it closes the connection
+// after submitting the job to the leader service.
+//
+// The function logs an error if there is an error in reading the message from the connection.
+//
+// The function does not return anything
 func (mjNode *MapleJuiceNode) HandleTCPServerConnection(conn net.Conn) {
 	reader := bufio.NewReader(conn)
 	mjNetworkMessage, recv_err := ReceiveMJNetworkMessage(reader)
@@ -126,7 +138,7 @@ func (mjNode *MapleJuiceNode) HandleTCPServerConnection(conn net.Conn) {
 		mjNode.logBoth(fmt.Sprintf("Error in ReceiveMJNetworkMessage: %s\n", recv_err))
 		return
 	}
-	// You don't know how some of these executions may take. So we close the conn object in the switch case
+	// You don't know how long some of these executions may take. So we close the conn object in the switch case
 	// immediately once we don't need it anymore. Or one of the functions it calls may close it
 
 	if mjNode.isLeader { // LEADER NODE

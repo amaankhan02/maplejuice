@@ -389,7 +389,7 @@ Handles the received client message
 func (nfjs *NodeFailureJoinService) handleClientMessage(recvMembList *MembershipList) {
 	nfjs.MemListMutexLock.Lock()
 	nfjs.MembershipList.Merge(recvMembList, nfjs.LogFile, nfjs.CurrentGossipMode.Mode) // merge this membership list with the received membership list
-	LogMembershipList(nfjs.LogFile, nfjs.MembershipList)
+	//LogMembershipList(nfjs.LogFile, nfjs.MembershipList)
 	nfjs.MemListMutexLock.Unlock()
 }
 
@@ -472,8 +472,8 @@ func (nfjs *NodeFailureJoinService) sendHeartbeat(targetId core.NodeID) {
 	}
 	nfjs.BytesBeingSent += int64(n)
 
-	fmtString := "Sent heartbeat to %s"
-	core.LogMessageln(nfjs.LogFile, fmt.Sprintf(fmtString, targetId.ToStringForGossipLogger()))
+	//fmtString := "Sent heartbeat to %s"
+	//core.LogMessageln(nfjs.LogFile, fmt.Sprintf(fmtString, targetId.ToStringForGossipLogger()))
 }
 
 func (nfjs *NodeFailureJoinService) shutdownServer() {
