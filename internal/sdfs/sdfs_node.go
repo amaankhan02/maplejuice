@@ -362,7 +362,7 @@ func (node *SDFSNode) clientHandleReceiveGetInfoResponse(leaderConn1 net.Conn, l
 		ack:           *ack_response,
 		elapsedTimeMs: (time.Now().UnixNano() - ack_response.StartTime) / 1000000,
 	}
-	node.printAck(&localAck, false)
+	node.printAck(&localAck, true)
 	node.addAcknowledgement(&localAck)
 
 	// check if this was a blocking get operation - if so, then call wg.Done() to indicate it's done
@@ -446,7 +446,7 @@ func (node *SDFSNode) clientHandleReceivePutInfoResponse(leaderConn1 net.Conn, l
 		elapsedTimeMs: (time.Now().UnixNano() - leader_ack.StartTime) / 1000000,
 	}
 
-	node.printAck(&localAck, false)
+	node.printAck(&localAck, true)
 	node.addAcknowledgement(&localAck)
 
 	// check if this was a blocking get operation - if so, then call wg.Done() to indicate it's done

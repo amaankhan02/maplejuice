@@ -46,5 +46,5 @@ for ($i = 1; $i -le $NUM_CONTAINERS; $i++) {
     # Start a new PowerShell window and run the command
     Write-Host "Launching container mj-vm-$CONTAINER_NUM..."
     Start-Process powershell -ArgumentList "-NoExit", "-Command", $CMD
-    Start-Sleep -Milliseconds 250
+    Start-Sleep -Milliseconds 100
 }
