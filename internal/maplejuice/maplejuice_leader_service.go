@@ -534,18 +534,12 @@ and sending them task requests to have them begin their work
 func (leader *MapleJuiceLeaderService) startJob(newJob *LeaderMapleJuiceJob) {
 	leader.shuffleAvailableWorkerNodes() // randomize selection of worker nodes each time
 	if newJob.jobType == MAPLE_JOB {
-		fmt.Println("Starting maple job")
 		leader.mapleAssignTaskIndicesToWorkerNodes(newJob)
 		leader.sendMapleTasksToWorkerNodes(newJob)
 	} else { // JUICE_JOB
-		fmt.Println("Starting juice job!")
-		fmt.Println("Getting all keys for juice job")
 		leader.getAllKeysForJuiceJob(newJob)
-		fmt.Println("Partitioning keys to worker nodes")
 		leader.partitionKeysToWorkerNodes(newJob)
-		fmt.Println("Sending juice tasks to worker nodes")
 		leader.sendJuiceTasksToWorkerNodes(newJob)
-		fmt.Println("Creating temp dirs and files for juice job")
 		leader.juiceJobCreateTempDirsAndFiles(newJob)
 	}
 
@@ -577,9 +571,9 @@ func (leader *MapleJuiceLeaderService) sendJuiceTasksToWorkerNodes(job *LeaderMa
 			fmt.Println("*****Failed to connect to worker node!*****")
 			fmt.Println(conn_err)
 		} else {
-			fmt.Println(">>>>>>Sending juice task request to worker node!<<<<")
-			fmt.Println("\tlen(assignedKeys) = ", len(assignedKeys))
-			fmt.Println("\tsdfsIntermediateFilenamePrefix: ", job.sdfsIntermediateFilenamePrefix)
+			// fmt.Println(">>>>>>Sending juice task request to worker node!<<<<")
+			// fmt.Println("\tlen(assignedKeys) = ", len(assignedKeys))
+			// fmt.Println("\tsdfsIntermediateFilenamePrefix: ", job.sdfsIntermediateFilenamePrefix)
 			SendJuiceTaskRequest(workerConn, job.exeFile, job.sdfsIntermediateFilenamePrefix, assignedKeys)
 		}
 		_ = workerConn.Close()
@@ -602,6 +596,8 @@ func (leader *MapleJuiceLeaderService) partitionKeysToWorkerNodes(job *LeaderMap
 		fmt.Println("len(keysForTasks) = ", len(keysForTasks))
 
 		// now assign the keys to the worker nodes
+		// if num_tasks <= num_worker_nodes available, then each worker gets 1 task
+		// otherwise, some workers will get 2 or more tasks that they have to work with
 		for i, keys := range keysForTasks {
 			workerNodeId := leader.AvailableWorkerNodes[i%len(leader.AvailableWorkerNodes)]
 			job.workerToKeys[workerNodeId] = keys

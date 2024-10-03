@@ -239,7 +239,20 @@ func (leader *SDFSLeaderService) notifyExistingReplicasToReReplicate(sdfs_filena
 
 		//logMessageHelper(leader.logFile, "Sending ReReplicate request")
 		SendReReplicateRequest(replicaConn, sdfs_filename, newPossibleReplicas, numNewReplicasRequired)
-		response, response_err := ReceiveReReplicateResponse(replicaReader, true)
+
+		// NOTE: ideally this should be in a separate thread/goroutine. Cuz right now it is blocking this current thread
+		// until the response is received. Instead, send the replicate request with a rereplicate ID and continue
+		// doing other things. All writes (and ideally reads) for that file should be blocked. Then when we get 
+		// a replicate_response, we can see if it was successful or not. If it was successful, we'll know which one
+		// is done replicating based on the replicate ID, and then we can mark it as done and now that file is
+		// ready to be read from and written to. Maybe store a hashmap of sdfs_filename -> replicateID currently in progress
+		// so we know which one is done. Actually... we might not even need a rereplicate ID because we can use the 
+		// sdfs_filename as the rereplicate ID, since it is guaranteed to be unique -- you're not gonna have 2 replication procedures
+		// for the same file. If it was not successful, then we'll just recompute which nodes failed, which are available,
+		// and then resend the rereplicatation request to those nodes.
+		// ORR another solution would just be to call this 'notifyExistingReplicasToReReplicate()" function from a 
+		// separate goroutine so that it doesn't block the current thread.
+		response, response_err := ReceiveReReplicateResponse(replicaReader, true)   
 		if response_err != nil {
 			_ = replicaConn.Close()
 			continue

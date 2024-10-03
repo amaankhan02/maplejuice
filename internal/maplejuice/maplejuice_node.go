@@ -345,7 +345,7 @@ to the output file.
 Once all channels have been read from, we can send the output file back to the leader.
 */
 func (mjNode *MapleJuiceNode) executeJuiceTask(juiceExe MapleJuiceExeFile, sdfsIntermediateFilenamePrefix string, assignedKeys []string) {
-	fmt.Println("INSIDE EXECUTE JUICE TASK()")
+	// fmt.Println("INSIDE EXECUTE JUICE TASK()")
 
 	mjNode.mutex.Lock()
 	mjNode.localWorkerTaskID++
@@ -398,7 +398,7 @@ func (mjNode *MapleJuiceNode) executeJuiceTask(juiceExe MapleJuiceExeFile, sdfsI
 
 	for i := 0; i < len(assignedKeys); i++ {
 		result := <-juiceExeOutputsChan
-		fmt.Println("KV Result from channel: ", result)
+		// fmt.Println("KV Result from channel: ", result)
 		n_bytes, writeStringErr := juiceTaskOutputFile.WriteString(result)
 		if writeStringErr != nil {
 			log.Fatalln("Failed to write output of channel to juiceTaskOutputFile. Error: ", writeStringErr)
@@ -409,7 +409,7 @@ func (mjNode *MapleJuiceNode) executeJuiceTask(juiceExe MapleJuiceExeFile, sdfsI
 	_ = juiceTaskOutputFile.Close() // close file since we are done writing to it.
 
 	// send the task response back with the file data to the leader
-	fmt.Println("Contacting leader to send juice task response")
+	// fmt.Println("Contacting leader to send juice task response")
 	leaderConn, conn_err := net.Dial("tcp", mjNode.leaderID.IpAddress+":"+mjNode.leaderID.MapleJuiceServerPort)
 	if conn_err != nil {
 		log.Fatalln("Failed to dial to leader server. Error: ", conn_err)
